@@ -1,4 +1,4 @@
-import { useState, useEffect, useEffectEvent } from 'react'
+import { useState, useEffect, useEffectEvent, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQueryClient } from '@tanstack/react-query'
 import { PluggyConnect } from 'react-pluggy-connect'
@@ -10,10 +10,14 @@ import {
   DialogContent,
   DialogFooter,
   DialogHeader,
+  DialogDescription,
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
+import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
+
+type ConnectPhase = 'idle' | 'processing' | 'success' | 'error'
 
 interface BankConnectDialogProps {
   open: boolean
@@ -37,6 +41,9 @@ export function BankConnectDialog({
   const [connectToken, setConnectToken] = useState<string | null>(null)
   const [syncAssets, setSyncAssets] = useState(true)
   const [optionsConfirmed, setOptionsConfirmed] = useState(false)
+  const [phase, setPhase] = useState<ConnectPhase>('idle')
+  const [connectedInstitution, setConnectedInstitution] = useState('')
+  const completingRef = useRef(false)
   // Only prompt for asset-sync when the provider actually imports holdings.
   const needsInitialOptions = !reconnectConnectionId && supportsAssetSync
 
@@ -47,9 +54,14 @@ export function BankConnectDialog({
 
   useEffect(() => {
     if (!open) {
+      // Reset the state machine between distinct dialog sessions.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setConnectToken(null)
       setSyncAssets(true)
       setOptionsConfirmed(false)
+      setPhase('idle')
+      setConnectedInstitution('')
+      completingRef.current = false
       return
     }
 
@@ -74,11 +86,15 @@ export function BankConnectDialog({
   }, [open, reconnectConnectionId, provider, needsInitialOptions, optionsConfirmed])
 
   const handleSuccess = async (data: { item: { id: string } }) => {
+    completingRef.current = true
+    setConnectToken(null)
+    setPhase('processing')
     try {
+      let result
       if (reconnectConnectionId) {
-        await connections.sync(reconnectConnectionId)
+        result = await connections.sync(reconnectConnectionId)
       } else {
-        await connections.handleCallback(
+        result = await connections.handleCallback(
           data.item.id,
           provider,
           undefined,
@@ -87,17 +103,22 @@ export function BankConnectDialog({
       }
       invalidateFinancialQueries(queryClient)
       queryClient.invalidateQueries({ queryKey: ['connections'] })
-      toast.success(t('accounts.connected'))
+      setConnectedInstitution(result.institution_name || '')
+      setPhase('success')
     } catch {
-      toast.error(t('accounts.connectError'))
-    } finally {
-      handleClose()
+      setPhase('error')
     }
   }
 
   const handleClose = () => {
+    completingRef.current = false
     setConnectToken(null)
+    setPhase('idle')
     onClose()
+  }
+
+  const handleWidgetClose = () => {
+    if (!completingRef.current) handleClose()
   }
 
   if (open && needsInitialOptions && !optionsConfirmed) {
@@ -130,6 +151,41 @@ export function BankConnectDialog({
     )
   }
 
+  if (open && phase !== 'idle') {
+    const isProcessing = phase === 'processing'
+    const isSuccess = phase === 'success'
+    return (
+      <Dialog open={open} onOpenChange={(value) => !value && !isProcessing && handleClose()}>
+        <DialogContent className="sm:max-w-md" showCloseButton={!isProcessing}>
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              {isProcessing ? (
+                <Loader2 className="h-6 w-6 animate-spin text-primary" aria-hidden="true" />
+              ) : isSuccess ? (
+                <CheckCircle2 className="h-6 w-6 text-emerald-500" aria-hidden="true" />
+              ) : (
+                <AlertCircle className="h-6 w-6 text-destructive" aria-hidden="true" />
+              )}
+              <DialogTitle>
+                {t(`connections.connectStatus.${phase}Title`)}
+              </DialogTitle>
+            </div>
+            <DialogDescription className="pt-2">
+              {t(`connections.connectStatus.${phase}Description`, {
+                institution: connectedInstitution,
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          {!isProcessing && (
+            <DialogFooter>
+              <Button onClick={handleClose}>{t('common.close')}</Button>
+            </DialogFooter>
+          )}
+        </DialogContent>
+      </Dialog>
+    )
+  }
+
   if (!open || !connectToken) return null
 
   return (
@@ -137,10 +193,11 @@ export function BankConnectDialog({
       connectToken={connectToken}
       updateItem={updateItemId}
       onSuccess={handleSuccess}
-      onClose={handleClose}
+      onClose={handleWidgetClose}
       onError={() => {
-        toast.error(t('accounts.connectError'))
-        handleClose()
+        completingRef.current = true
+        setConnectToken(null)
+        setPhase('error')
       }}
     />
   )

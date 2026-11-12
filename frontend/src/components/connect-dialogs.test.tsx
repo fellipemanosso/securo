@@ -5,10 +5,31 @@ import { ConnectorSelectDialog } from './connector-select-dialog'
 import { OAuthConnectDialog } from './oauth-connect-dialog'
 import { BankConnectDialog } from './bank-connect-dialog'
 
-const api = vi.hoisted(() => ({ getProviders: vi.fn(), listInstitutions: vi.fn(), getReconnectToken: vi.fn(), getConnectToken: vi.fn(), toastError: vi.fn() }))
+const api = vi.hoisted(() => ({
+  getProviders: vi.fn(),
+  listInstitutions: vi.fn(),
+  getReconnectToken: vi.fn(),
+  getConnectToken: vi.fn(),
+  handleCallback: vi.fn(),
+  sync: vi.fn(),
+  toastError: vi.fn(),
+}))
 vi.mock('@/lib/api', () => ({ connections: api, auth: api }))
 vi.mock('sonner', () => ({ toast: { error: api.toastError } }))
-vi.mock('react-pluggy-connect', () => ({ PluggyConnect: ({ connectToken }: { connectToken: string }) => <div>{connectToken}</div> }))
+vi.mock('react-pluggy-connect', () => ({
+  PluggyConnect: ({
+    connectToken,
+    onSuccess,
+  }: {
+    connectToken: string
+    onSuccess: (data: { item: { id: string } }) => void
+  }) => (
+    <div>
+      <span>{connectToken}</span>
+      <button onClick={() => onSuccess({ item: { id: 'item-123' } })}>Authorize bank</button>
+    </div>
+  ),
+}))
 
 beforeEach(() => { vi.resetAllMocks() })
 
@@ -76,4 +97,26 @@ it('ignores token failures after the bank dialog closes', async () => {
   await act(async () => { reject(new Error('late failure')) })
   expect(onClose).not.toHaveBeenCalled()
   expect(api.toastError).not.toHaveBeenCalled()
+})
+
+it('keeps the connection result visible after Pluggy authorization', async () => {
+  let finish!: (connection: { institution_name: string }) => void
+  api.getConnectToken.mockResolvedValue('connect-token')
+  api.handleCallback.mockImplementation(() => new Promise((resolve) => { finish = resolve }))
+  const onClose = vi.fn()
+  const { user } = renderWithProviders(
+    <BankConnectDialog open onClose={onClose} provider="pluggy" />,
+  )
+
+  await user.click(await screen.findByRole('button', { name: 'Authorize bank' }))
+  expect(await screen.findByText('Connection in progress')).toBeInTheDocument()
+  expect(onClose).not.toHaveBeenCalled()
+
+  await act(async () => { finish({ institution_name: 'Nubank' }) })
+  expect(await screen.findByText('Bank connected')).toBeInTheDocument()
+  expect(screen.getByText(/Nubank/)).toBeInTheDocument()
+  expect(onClose).not.toHaveBeenCalled()
+
+  await user.click(screen.getAllByRole('button', { name: 'Close' })[0])
+  expect(onClose).toHaveBeenCalledOnce()
 })

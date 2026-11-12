@@ -1416,7 +1416,15 @@
     "syncAssetsHint": "Ha ki van kapcsolva, ez a kapcsolat szinkronizálja a számlákat és tranzakciókat, de a szolgáltatónál lévő befektetési állományt érintetlenül hagyja.",
     "initialSyncSettings": "Szinkronizálási beállítások",
     "initialSyncSettingsDesc": "Válaszd ki, mit importáljon a Securo, mielőtt megnyitja a csatlakozót.",
-    "continueToConnector": "Tovább a csatlakozóhoz"
+    "continueToConnector": "Tovább a csatlakozóhoz",
+    "connectStatus": {
+      "processingTitle": "Connection in progress",
+      "processingDescription": "Authorization was received. We are creating the connection and syncing the initial data.",
+      "successTitle": "Bank connected",
+      "successDescription": "The connection to {{institution}} is complete and the data is now available.",
+      "errorTitle": "Could not complete connection",
+      "errorDescription": "Authorization was received, but an error occurred while creating or syncing the connection. Close this message and try again."
+    }
   },
   "settings": {
     "rules": "Szabályok",

@@ -1416,7 +1416,15 @@
     "syncAssetsHint": "無効にすると、この接続は口座と取引を同期しますが、プロバイダーの投資保有はそのままにします。",
     "initialSyncSettings": "同期オプション",
     "initialSyncSettingsDesc": "コネクタを開く前にSecuroがインポートする内容を選択してください。",
-    "continueToConnector": "コネクタへ進む"
+    "continueToConnector": "コネクタへ進む",
+    "connectStatus": {
+      "processingTitle": "Connection in progress",
+      "processingDescription": "Authorization was received. We are creating the connection and syncing the initial data.",
+      "successTitle": "Bank connected",
+      "successDescription": "The connection to {{institution}} is complete and the data is now available.",
+      "errorTitle": "Could not complete connection",
+      "errorDescription": "Authorization was received, but an error occurred while creating or syncing the connection. Close this message and try again."
+    }
   },
   "settings": {
     "rules": "ルール",

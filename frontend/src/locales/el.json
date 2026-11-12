@@ -1129,7 +1129,15 @@
     "syncAssetsHint": "Όταν είναι απενεργοποιημένο, αυτή η σύνδεση συγχρονίζει λογαριασμούς και συναλλαγές αλλά αφήνει ανέπαφες τις επενδυτικές θέσεις του παρόχου.",
     "initialSyncSettings": "Επιλογές συγχρονισμού",
     "initialSyncSettingsDesc": "Επιλέξτε τι θα πρέπει να εισαγάγει το Securo πριν ανοίξει τον σύνδεσμο.",
-    "continueToConnector": "Συνέχεια στον σύνδεσμο"
+    "continueToConnector": "Συνέχεια στον σύνδεσμο",
+    "connectStatus": {
+      "processingTitle": "Connection in progress",
+      "processingDescription": "Authorization was received. We are creating the connection and syncing the initial data.",
+      "successTitle": "Bank connected",
+      "successDescription": "The connection to {{institution}} is complete and the data is now available.",
+      "errorTitle": "Could not complete connection",
+      "errorDescription": "Authorization was received, but an error occurred while creating or syncing the connection. Close this message and try again."
+    }
   },
   "settings": {
     "rules": "Κανόνες",

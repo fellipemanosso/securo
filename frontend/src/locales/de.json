@@ -1417,7 +1417,15 @@
     "syncAssetsHint": "Wenn deaktiviert, synchronisiert diese Verbindung Konten und Transaktionen, lässt aber Investment-Bestände des Anbieters unverändert.",
     "initialSyncSettings": "Synchronisierungsoptionen",
     "initialSyncSettingsDesc": "Wähle aus, was Securo importieren soll, bevor der Connector geöffnet wird.",
-    "continueToConnector": "Weiter zum Connector"
+    "continueToConnector": "Weiter zum Connector",
+    "connectStatus": {
+      "processingTitle": "Connection in progress",
+      "processingDescription": "Authorization was received. We are creating the connection and syncing the initial data.",
+      "successTitle": "Bank connected",
+      "successDescription": "The connection to {{institution}} is complete and the data is now available.",
+      "errorTitle": "Could not complete connection",
+      "errorDescription": "Authorization was received, but an error occurred while creating or syncing the connection. Close this message and try again."
+    }
   },
   "settings": {
     "rules": "Regeln",

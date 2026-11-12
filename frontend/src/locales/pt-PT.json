@@ -1420,7 +1420,15 @@
     "syncAssetsHint": "Quando desativado, esta ligação sincroniza contas e transações, mas não altera os investimentos do fornecedor.",
     "initialSyncSettings": "Opções de sincronização",
     "initialSyncSettingsDesc": "Escolhe o que o Securo deve importar antes de abrir o conector.",
-    "continueToConnector": "Continuar para o conector"
+    "continueToConnector": "Continuar para o conector",
+    "connectStatus": {
+      "processingTitle": "Connection in progress",
+      "processingDescription": "Authorization was received. We are creating the connection and syncing the initial data.",
+      "successTitle": "Bank connected",
+      "successDescription": "The connection to {{institution}} is complete and the data is now available.",
+      "errorTitle": "Could not complete connection",
+      "errorDescription": "Authorization was received, but an error occurred while creating or syncing the connection. Close this message and try again."
+    }
   },
   "settings": {
     "rules": "Regras",

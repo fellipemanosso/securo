@@ -1416,7 +1416,15 @@
     "syncAssetsHint": "बंद होने पर, यह कनेक्शन खाते और लेन-देन सिंक करता है लेकिन प्रदाता की निवेश होल्डिंग्स को नहीं छूता।",
     "initialSyncSettings": "सिंक विकल्प",
     "initialSyncSettingsDesc": "कनेक्टर खोलने से पहले चुनें कि Securo को क्या इंपोर्ट करना चाहिए।",
-    "continueToConnector": "कनेक्टर पर जारी रखें"
+    "continueToConnector": "कनेक्टर पर जारी रखें",
+    "connectStatus": {
+      "processingTitle": "Connection in progress",
+      "processingDescription": "Authorization was received. We are creating the connection and syncing the initial data.",
+      "successTitle": "Bank connected",
+      "successDescription": "The connection to {{institution}} is complete and the data is now available.",
+      "errorTitle": "Could not complete connection",
+      "errorDescription": "Authorization was received, but an error occurred while creating or syncing the connection. Close this message and try again."
+    }
   },
   "settings": {
     "rules": "नियम",

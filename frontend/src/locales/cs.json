@@ -1500,7 +1500,15 @@
     "syncAssetsHint": "Pokud je vypnuto, propojení synchronizuje účty a transakce, ale investiční pozice od poskytovatele nechá beze změny.",
     "initialSyncSettings": "Možnosti synchronizace",
     "initialSyncSettingsDesc": "Vyberte, co má Securo importovat, než otevřete konektor.",
-    "continueToConnector": "Pokračovat ke konektoru"
+    "continueToConnector": "Pokračovat ke konektoru",
+    "connectStatus": {
+      "processingTitle": "Connection in progress",
+      "processingDescription": "Authorization was received. We are creating the connection and syncing the initial data.",
+      "successTitle": "Bank connected",
+      "successDescription": "The connection to {{institution}} is complete and the data is now available.",
+      "errorTitle": "Could not complete connection",
+      "errorDescription": "Authorization was received, but an error occurred while creating or syncing the connection. Close this message and try again."
+    }
   },
   "settings": {
     "rules": "Pravidla",
