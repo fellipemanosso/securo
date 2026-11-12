@@ -1,6 +1,7 @@
 name: Build and Push Docker Images
 
 on:
+  workflow_dispatch:
   release:
     types: [published]
 
@@ -91,11 +92,12 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            VITE_APP_VERSION=${{ github.event.release.tag_name }}
+            VITE_APP_VERSION=${{ github.event.release.tag_name || 'custom' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
   build-helm:
+    if: github.event_name == 'release'
     needs: [build-backend, build-frontend]
     runs-on: ubuntu-latest
     steps:
