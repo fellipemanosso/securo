@@ -1423,7 +1423,10 @@
       "successTitle": "Bank connected",
       "successDescription": "The connection to {{institution}} is complete and the data is now available.",
       "errorTitle": "Could not complete connection",
-      "errorDescription": "Authorization was received, but an error occurred while creating or syncing the connection. Close this message and try again."
+      "errorDescription": "The connection was not created. Review the reason below before trying again.",
+      "unknownError": "Securo could not create or sync this connection.",
+      "widgetError": "Pluggy could not complete the connection with the bank.",
+      "widgetLoadError": "The Pluggy connector could not be loaded."
     }
   },
   "settings": {

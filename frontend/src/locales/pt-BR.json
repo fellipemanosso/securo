@@ -1427,7 +1427,10 @@
       "successTitle": "Banco conectado",
       "successDescription": "A conexão com {{institution}} foi concluída e os dados já estão disponíveis.",
       "errorTitle": "Não foi possível concluir",
-      "errorDescription": "A autorização foi recebida, mas ocorreu um erro ao criar ou sincronizar a conexão. Feche esta mensagem e tente novamente."
+      "errorDescription": "A conexão não foi criada. Confira o motivo abaixo antes de tentar novamente.",
+      "unknownError": "O Securo não conseguiu criar ou sincronizar esta conexão.",
+      "widgetError": "A Pluggy não conseguiu concluir a conexão com o banco.",
+      "widgetLoadError": "Não foi possível carregar o conector da Pluggy."
     }
   },
   "settings": {

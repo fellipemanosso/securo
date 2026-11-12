@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useQueryClient } from '@tanstack/react-query'
 import { PluggyConnect } from 'react-pluggy-connect'
 import { connections } from '@/lib/api'
+import { extractApiError } from '@/lib/api-errors'
 import { invalidateFinancialQueries } from '@/lib/invalidate-queries'
 import { toast } from 'sonner'
 import {
@@ -43,6 +44,7 @@ export function BankConnectDialog({
   const [optionsConfirmed, setOptionsConfirmed] = useState(false)
   const [phase, setPhase] = useState<ConnectPhase>('idle')
   const [connectedInstitution, setConnectedInstitution] = useState('')
+  const [errorDetail, setErrorDetail] = useState('')
   const completingRef = useRef(false)
   // Only prompt for asset-sync when the provider actually imports holdings.
   const needsInitialOptions = !reconnectConnectionId && supportsAssetSync
@@ -61,6 +63,7 @@ export function BankConnectDialog({
       setOptionsConfirmed(false)
       setPhase('idle')
       setConnectedInstitution('')
+      setErrorDetail('')
       completingRef.current = false
       return
     }
@@ -105,7 +108,8 @@ export function BankConnectDialog({
       queryClient.invalidateQueries({ queryKey: ['connections'] })
       setConnectedInstitution(result.institution_name || '')
       setPhase('success')
-    } catch {
+    } catch (error) {
+      setErrorDetail(extractApiError(error, t('connections.connectStatus.unknownError')))
       setPhase('error')
     }
   }
@@ -175,6 +179,11 @@ export function BankConnectDialog({
                 institution: connectedInstitution,
               })}
             </DialogDescription>
+            {phase === 'error' && errorDetail && (
+              <div className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {errorDetail}
+              </div>
+            )}
           </DialogHeader>
           {!isProcessing && (
             <DialogFooter>
@@ -194,9 +203,16 @@ export function BankConnectDialog({
       updateItem={updateItemId}
       onSuccess={handleSuccess}
       onClose={handleWidgetClose}
-      onError={() => {
+      onError={(error) => {
         completingRef.current = true
         setConnectToken(null)
+        setErrorDetail(error?.message || t('connections.connectStatus.widgetError'))
+        setPhase('error')
+      }}
+      onLoadError={(error) => {
+        completingRef.current = true
+        setConnectToken(null)
+        setErrorDetail(error?.message || t('connections.connectStatus.widgetLoadError'))
         setPhase('error')
       }}
     />

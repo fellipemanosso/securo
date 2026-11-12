@@ -20,13 +20,16 @@ vi.mock('react-pluggy-connect', () => ({
   PluggyConnect: ({
     connectToken,
     onSuccess,
+    onError,
   }: {
     connectToken: string
     onSuccess: (data: { item: { id: string } }) => void
+    onError: (error: { message: string }) => void
   }) => (
     <div>
       <span>{connectToken}</span>
       <button onClick={() => onSuccess({ item: { id: 'item-123' } })}>Authorize bank</button>
+      <button onClick={() => onError({ message: 'Bank credentials were rejected' })}>Fail bank</button>
     </div>
   ),
 }))
@@ -119,4 +122,17 @@ it('keeps the connection result visible after Pluggy authorization', async () =>
 
   await user.click(screen.getAllByRole('button', { name: 'Close' })[0])
   expect(onClose).toHaveBeenCalledOnce()
+})
+
+it('shows the actual Pluggy error when the widget fails before authorization', async () => {
+  api.getConnectToken.mockResolvedValue('connect-token')
+  const { user } = renderWithProviders(
+    <BankConnectDialog open onClose={vi.fn()} provider="pluggy" />,
+  )
+
+  await user.click(await screen.findByRole('button', { name: 'Fail bank' }))
+
+  expect(await screen.findByText('Could not complete connection')).toBeInTheDocument()
+  expect(screen.getByText('Bank credentials were rejected')).toBeInTheDocument()
+  expect(api.handleCallback).not.toHaveBeenCalled()
 })
