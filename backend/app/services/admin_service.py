@@ -257,6 +257,55 @@ async def set_app_setting(session: AsyncSession, key: str, value: str) -> AppSet
     return setting
 
 
+PLUGGY_CLIENT_ID_KEY = "pluggy_client_id"
+PLUGGY_CLIENT_SECRET_KEY = "pluggy_client_secret_encrypted"
+
+
+async def get_pluggy_credentials(session: AsyncSession) -> tuple[str, str, str]:
+    """Return effective Pluggy credentials and their source.
+
+    Database values take precedence. Environment variables remain a deployment
+    fallback so existing installations keep working without migration.
+    """
+    from app.agents.services.crypto import decrypt
+
+    client_id_setting = await get_app_setting(session, PLUGGY_CLIENT_ID_KEY)
+    secret_setting = await get_app_setting(session, PLUGGY_CLIENT_SECRET_KEY)
+    client_id = client_id_setting.value.strip() if client_id_setting else ""
+    client_secret = (decrypt(secret_setting.value) if secret_setting else "") or ""
+    if client_id and client_secret:
+        return client_id, client_secret, "database"
+
+    settings = get_settings()
+    env_id = settings.pluggy_client_id.strip()
+    env_secret = settings.pluggy_client_secret.get_secret_value()
+    if env_id and env_secret:
+        return env_id, env_secret, "environment"
+    return "", "", "none"
+
+
+async def set_pluggy_credentials(
+    session: AsyncSession, client_id: str, client_secret: str | None
+) -> None:
+    """Store Pluggy credentials, encrypting the secret at rest.
+
+    An omitted/blank secret preserves the currently stored secret. This lets
+    the admin UI show only a masked placeholder without ever returning it.
+    """
+    from app.agents.services.crypto import encrypt
+
+    existing_secret = await get_app_setting(session, PLUGGY_CLIENT_SECRET_KEY)
+    fallback_secret = ""
+    if not client_secret and not existing_secret:
+        _current_id, fallback_secret, _source = await get_pluggy_credentials(session)
+    await set_app_setting(session, PLUGGY_CLIENT_ID_KEY, client_id.strip())
+    secret_to_store = client_secret or fallback_secret
+    if secret_to_store:
+        encrypted = encrypt(secret_to_store)
+        if encrypted:
+            await set_app_setting(session, PLUGGY_CLIENT_SECRET_KEY, encrypted)
+
+
 async def is_registration_enabled(session: AsyncSession) -> bool:
     """Whether public sign-up is open.
 

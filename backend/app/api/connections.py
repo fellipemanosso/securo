@@ -28,16 +28,23 @@ from app.schemas.bank_connection import (
     ReauthUrlResponse,
     ReconnectTokenResponse,
 )
-from app.services import connection_service
+from app.services import admin_service, connection_service
 from app.services.transfer_detection_service import detect_transfer_pairs, unlink_transfer_pair
 
 router = APIRouter(prefix="/api/connections", tags=["connections"])
 
 
 @router.get("/providers")
-async def get_available_providers():
+async def get_available_providers(
+    session: AsyncSession = Depends(get_async_session),
+):
     """List all known open finance providers with configuration status."""
-    return {"providers": all_known_providers()}
+    client_id, client_secret, _source = await admin_service.get_pluggy_credentials(session)
+    return {
+        "providers": all_known_providers(
+            {"pluggy": bool(client_id and client_secret)}
+        )
+    }
 
 
 @router.post("/connect-token", response_model=ConnectTokenResponse)

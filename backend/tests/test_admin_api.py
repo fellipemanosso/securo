@@ -1,9 +1,11 @@
 import uuid
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from httpx import AsyncClient
 from sqlalchemy import delete
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.app_settings import AppSetting
@@ -579,3 +581,100 @@ class TestThemeSettings:
         )
         assert response.status_code == 400
         assert "invalid hex color code" in response.json()["detail"].lower()
+
+
+class TestPluggySettings:
+    async def test_secret_is_encrypted_and_never_returned(
+        self,
+        client: AsyncClient,
+        admin_auth_headers: dict,
+        test_superuser: User,
+        session: AsyncSession,
+    ):
+        response = await client.put(
+            "/api/admin/integrations/pluggy",
+            json={"client_id": "client-123", "client_secret": "super-secret"},
+            headers=admin_auth_headers,
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "client_id": "client-123",
+            "has_secret": True,
+            "configured": True,
+            "source": "database",
+        }
+        stored = await session.scalar(
+            select(AppSetting).where(
+                AppSetting.key == "pluggy_client_secret_encrypted"
+            )
+        )
+        assert stored is not None
+        assert stored.value != "super-secret"
+        assert "super-secret" not in response.text
+
+        get_response = await client.get(
+            "/api/admin/integrations/pluggy", headers=admin_auth_headers
+        )
+        assert get_response.status_code == 200
+        assert "super-secret" not in get_response.text
+
+    async def test_blank_secret_preserves_saved_secret(
+        self,
+        client: AsyncClient,
+        admin_auth_headers: dict,
+        test_superuser: User,
+        session: AsyncSession,
+    ):
+        await client.put(
+            "/api/admin/integrations/pluggy",
+            json={"client_id": "old-id", "client_secret": "keep-me"},
+            headers=admin_auth_headers,
+        )
+        original = await session.scalar(
+            select(AppSetting).where(
+                AppSetting.key == "pluggy_client_secret_encrypted"
+            )
+        )
+        assert original is not None
+        original_value = original.value
+
+        response = await client.put(
+            "/api/admin/integrations/pluggy",
+            json={"client_id": "new-id", "client_secret": ""},
+            headers=admin_auth_headers,
+        )
+
+        await session.refresh(original)
+        assert response.status_code == 200
+        assert response.json()["client_id"] == "new-id"
+        assert original.value == original_value
+
+    async def test_credentials_can_be_tested_without_exposing_secret(
+        self,
+        client: AsyncClient,
+        admin_auth_headers: dict,
+        test_superuser: User,
+    ):
+        test_credentials = AsyncMock()
+        with patch(
+            "app.providers.pluggy.PluggyProvider.test_credentials",
+            test_credentials,
+        ):
+            response = await client.post(
+                "/api/admin/integrations/pluggy/test",
+                json={"client_id": "client-123", "client_secret": "test-secret"},
+                headers=admin_auth_headers,
+            )
+
+        assert response.status_code == 200
+        assert response.json() == {"ok": True}
+        test_credentials.assert_awaited_once_with("client-123", "test-secret")
+
+    async def test_non_admin_cannot_read_credentials(
+        self, client: AsyncClient, auth_headers: dict, test_user: User
+    ):
+        response = await client.get(
+            "/api/admin/integrations/pluggy", headers=auth_headers
+        )
+        assert response.status_code == 403

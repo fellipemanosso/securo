@@ -1764,6 +1764,18 @@ export interface TimezoneSetting {
   available: string[]
 }
 
+export interface PluggySetting {
+  client_id: string
+  has_secret: boolean
+  configured: boolean
+  source: 'database' | 'environment' | 'none'
+}
+
+export interface PluggySettingUpdate {
+  client_id: string
+  client_secret?: string
+}
+
 export const timezones = {
   list: async (): Promise<{ default: string; available: string[] }> => {
     const { data } = await api.get('/timezones')
@@ -1804,6 +1816,18 @@ export const admin = {
   },
   timezone: async (): Promise<TimezoneSetting> => {
     const { data } = await api.get('/admin/timezone')
+    return data
+  },
+  pluggySetting: async (): Promise<PluggySetting> => {
+    const { data } = await api.get('/admin/integrations/pluggy')
+    return data
+  },
+  updatePluggySetting: async (setting: PluggySettingUpdate): Promise<PluggySetting> => {
+    const { data } = await api.put('/admin/integrations/pluggy', setting)
+    return data
+  },
+  testPluggySetting: async (setting: PluggySettingUpdate): Promise<{ ok: boolean }> => {
+    const { data } = await api.post('/admin/integrations/pluggy/test', setting)
     return data
   },
   registrationStatus: async (): Promise<{ enabled: boolean }> => {

@@ -23,6 +23,8 @@ from app.schemas.admin import (
     AdminUserUpdate,
     AppSettingRead,
     AppSettingUpdate,
+    PluggySettingRead,
+    PluggySettingUpdate,
     TimezoneSettingRead,
 )
 from app.services import admin_service
@@ -201,6 +203,63 @@ async def timezone_setting(
         fallback=str(environment_timezone()),
         available=sorted(timezone_names()),
     )
+
+
+@router.get("/integrations/pluggy", response_model=PluggySettingRead)
+async def get_pluggy_setting(
+    session: AsyncSession = Depends(get_async_session),
+    _user: User = Depends(current_superuser),
+):
+    client_id, client_secret, source = await admin_service.get_pluggy_credentials(session)
+    return PluggySettingRead(
+        client_id=client_id,
+        has_secret=bool(client_secret),
+        configured=bool(client_id and client_secret),
+        source=source,
+    )
+
+
+@router.put("/integrations/pluggy", response_model=PluggySettingRead)
+async def update_pluggy_setting(
+    data: PluggySettingUpdate,
+    session: AsyncSession = Depends(get_async_session),
+    _user: User = Depends(current_superuser),
+):
+    if not data.client_id.strip():
+        raise HTTPException(status_code=400, detail="Pluggy Client ID is required")
+    await admin_service.set_pluggy_credentials(
+        session, data.client_id, data.client_secret
+    )
+    from app.providers.pluggy import PluggyProvider
+
+    PluggyProvider.clear_api_key_cache()
+    client_id, client_secret, source = await admin_service.get_pluggy_credentials(session)
+    return PluggySettingRead(
+        client_id=client_id,
+        has_secret=bool(client_secret),
+        configured=bool(client_id and client_secret),
+        source=source,
+    )
+
+
+@router.post("/integrations/pluggy/test")
+async def test_pluggy_setting(
+    data: PluggySettingUpdate,
+    session: AsyncSession = Depends(get_async_session),
+    _user: User = Depends(current_superuser),
+):
+    current_id, current_secret, _source = await admin_service.get_pluggy_credentials(session)
+    client_id = data.client_id.strip() or current_id
+    client_secret = data.client_secret or current_secret
+    if not client_id or not client_secret:
+        raise HTTPException(status_code=400, detail="Pluggy credentials are incomplete")
+    from app.providers.pluggy import PluggyProvider
+
+    try:
+        await PluggyProvider.test_credentials(client_id, client_secret)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="Pluggy rejected the credentials") from exc
+    return {"ok": True}
 
 
 @router.get("/registration-status")

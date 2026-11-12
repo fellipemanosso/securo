@@ -54,3 +54,15 @@ class TimezoneSettingRead(BaseModel):
     #: Where the application lands without a saved value (TZ, host, UTC).
     fallback: str
     available: list[str]
+
+
+class PluggySettingRead(BaseModel):
+    client_id: str = ""
+    has_secret: bool = False
+    configured: bool = False
+    source: str = "none"
+
+
+class PluggySettingUpdate(BaseModel):
+    client_id: str = Field(max_length=500)
+    client_secret: Optional[str] = Field(None, max_length=2000)

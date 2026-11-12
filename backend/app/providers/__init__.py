@@ -66,10 +66,15 @@ def list_providers() -> list[dict[str, str]]:
     ]
 
 
-def all_known_providers() -> list[dict]:
+def all_known_providers(configured_overrides: dict[str, bool] | None = None) -> list[dict]:
     """Return all known providers with a configured flag."""
     return [
-        {**p, "configured": p["name"] in _PROVIDERS}
+        {
+            **p,
+            "configured": (configured_overrides or {}).get(
+                p["name"], p["name"] in _PROVIDERS
+            ),
+        }
         for p in KNOWN_PROVIDERS
     ]
 
@@ -79,9 +84,11 @@ def _auto_register_providers() -> None:
     from app.core.config import get_settings
     settings = get_settings()
 
-    if settings.pluggy_client_id and settings.pluggy_client_secret:
-        from app.providers.pluggy import PluggyProvider
-        register_provider("pluggy", PluggyProvider)
+    # Pluggy may also be configured at runtime from the admin screen. Keep the
+    # implementation registered and let it resolve/validate effective
+    # credentials when used.
+    from app.providers.pluggy import PluggyProvider
+    register_provider("pluggy", PluggyProvider)
 
     eb_has_key = bool(
         settings.enable_banking_private_key or settings.enable_banking_private_key_file

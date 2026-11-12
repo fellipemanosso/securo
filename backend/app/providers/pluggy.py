@@ -466,13 +466,21 @@ class PluggyProvider(BankProvider):
         if self._api_key and (self._api_key_expires_at - now) > 300:
             return self._api_key
 
-        settings = get_settings()
+        from app.core.database import async_session_maker
+        from app.providers.base import ProviderNotConfiguredError
+        from app.services.admin_service import get_pluggy_credentials
+
+        async with async_session_maker() as session:
+            client_id, client_secret, _source = await get_pluggy_credentials(session)
+        if not client_id or not client_secret:
+            raise ProviderNotConfiguredError("Pluggy credentials are not configured")
+
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(
                 f"{PLUGGY_API_BASE}/auth",
                 json={
-                    "clientId": settings.pluggy_client_id,
-                    "clientSecret": settings.pluggy_client_secret.get_secret_value(),
+                    "clientId": client_id,
+                    "clientSecret": client_secret,
                 },
             )
             resp.raise_for_status()
@@ -482,6 +490,20 @@ class PluggyProvider(BankProvider):
         # Pluggy API keys last 2 hours
         PluggyProvider._api_key_expires_at = now + 7200
         return PluggyProvider._api_key
+
+    @classmethod
+    async def test_credentials(cls, client_id: str, client_secret: str) -> None:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(
+                f"{PLUGGY_API_BASE}/auth",
+                json={"clientId": client_id, "clientSecret": client_secret},
+            )
+            resp.raise_for_status()
+
+    @classmethod
+    def clear_api_key_cache(cls) -> None:
+        cls._api_key = None
+        cls._api_key_expires_at = 0
 
     async def _headers(self) -> dict:
         api_key = await self._ensure_api_key()
