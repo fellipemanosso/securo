@@ -24,7 +24,7 @@ import { DatePickerInput } from '@/components/ui/date-picker-input'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { Account, BankConnection, LoanAmortization, LoanRatePeriod } from '@/types'
-import { RefreshCw, TriangleAlert, Unlink, Settings } from 'lucide-react'
+import { CreditCard, RefreshCw, TriangleAlert, Unlink, Settings } from 'lucide-react'
 import { AccountIcon, ConnectionLogo } from '@/components/account-icon'
 import { getAccountTypeConfig } from '@/lib/account-type-config'
 import { AccountPageActions } from '@/components/account-page-actions'
@@ -248,6 +248,9 @@ export default function AccountsPage() {
         title={t('accounts.title')}
         action={
           <div className="flex items-center gap-2">
+            <Button asChild variant="outline" size="sm" className="hidden sm:inline-flex">
+              <Link to="/cards"><CreditCard size={15} /> Visão dos cartões</Link>
+            </Button>
             <PageRefreshButton
               onRefresh={() => queryClient.refetchQueries({ type: 'active' })}
               refreshing={accountsFetching}
@@ -261,6 +264,10 @@ export default function AccountsPage() {
           </div>
         }
       />
+
+      <Button asChild variant="outline" className="w-full sm:hidden">
+        <Link to="/cards"><CreditCard size={16} /> Visão consolidada dos cartões</Link>
+      </Button>
 
       {isLoading ? (
         <div className="space-y-3">
