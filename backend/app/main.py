@@ -13,6 +13,7 @@ from app.api.groups import router as groups_router
 from app.api.categories import router as categories_router
 from app.api.category_groups import router as category_groups_router
 from app.api.connections import router as connections_router
+from app.api.pluggy_webhooks import router as pluggy_webhooks_router, pluggy_webhook_secret
 from app.api.custom_auth import router as custom_auth_router
 from app.api.dashboard import router as dashboard_router
 from app.api.import_logs import router as import_logs_router
@@ -95,6 +96,28 @@ async def _warm_tesouro_cache() -> None:
         logger.exception("Startup: Tesouro Direto cache warm failed")
 
 
+async def _ensure_pluggy_webhook() -> None:
+    """Idempotently register the public callback when Pluggy is configured."""
+    try:
+        from app.core.database import async_session_maker
+        from app.providers.pluggy import PluggyProvider
+        from app.services.admin_service import get_pluggy_credentials
+
+        base_url = get_settings().frontend_url.rstrip("/")
+        if not base_url.startswith("https://"):
+            return
+        async with async_session_maker() as session:
+            client_id, client_secret, _source = await get_pluggy_credentials(session)
+        if not client_id or not client_secret:
+            return
+        await PluggyProvider().ensure_webhook(
+            f"{base_url}/api/webhooks/pluggy", pluggy_webhook_secret()
+        )
+        logger.info("Startup: ensured Pluggy webhook registration")
+    except Exception:
+        logger.exception("Startup: failed to ensure Pluggy webhook registration")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: dispatch sync for all stale bank connections
@@ -108,6 +131,7 @@ async def lifespan(app: FastAPI):
     # Background pre-warm of the Tesouro cache (non-blocking; gated to BRL
     # instances inside the helper). Kept on app.state so it isn't GC'd.
     app.state.tesouro_warm_task = asyncio.create_task(_warm_tesouro_cache())
+    app.state.pluggy_webhook_task = asyncio.create_task(_ensure_pluggy_webhook())
     yield
     # Shutdown
     await close_redis()
@@ -183,6 +207,7 @@ app.include_router(import_router)
 app.include_router(import_logs_router)
 app.include_router(accounts_router)
 app.include_router(connections_router)
+app.include_router(pluggy_webhooks_router)
 app.include_router(recurring_router)
 app.include_router(budgets_router)
 app.include_router(goals_router)

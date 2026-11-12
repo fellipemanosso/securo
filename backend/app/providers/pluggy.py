@@ -349,6 +349,8 @@ def _build_bill_data(raw: dict) -> Optional[BillData]:
         total_amount=total_amount,
         currency=raw.get("totalAmountCurrencyCode") or "BRL",
         minimum_payment=_decimal_or_none(raw.get("minimumPaymentAmount")),
+        closing_date=_date_or_none(raw.get("billClosingDate")),
+        forecast_date=_date_or_none(raw.get("billForecastDate")),
         raw_data=raw,
     )
 
@@ -511,6 +513,43 @@ class PluggyProvider(BankProvider):
             "X-API-KEY": api_key,
             "Content-Type": "application/json",
         }
+
+    async def ensure_webhook(self, url: str, secret: str) -> None:
+        """Create or refresh the application-wide Securo webhook.
+
+        Registration is idempotent by URL. The secret travels in a custom
+        header, as recommended by Pluggy, and never appears in the callback
+        URL or dashboard logs.
+        """
+        headers = await self._headers()
+        webhook_headers = {"X-Securo-Webhook-Secret": secret}
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(f"{PLUGGY_API_BASE}/webhooks", headers=headers)
+            response.raise_for_status()
+            existing = next(
+                (
+                    row for row in response.json().get("results", [])
+                    if row.get("url") == url and row.get("event") == "all"
+                ),
+                None,
+            )
+            payload = {
+                "url": url,
+                "event": "all",
+                "headers": webhook_headers,
+            }
+            if existing:
+                payload["enabled"] = True
+                response = await client.patch(
+                    f"{PLUGGY_API_BASE}/webhooks/{existing['id']}",
+                    headers=headers,
+                    json=payload,
+                )
+            else:
+                response = await client.post(
+                    f"{PLUGGY_API_BASE}/webhooks", headers=headers, json=payload
+                )
+            response.raise_for_status()
 
     async def create_connect_token(
         self, client_user_id: str, item_id: str | None = None

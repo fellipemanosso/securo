@@ -156,6 +156,8 @@ class BillData:
     total_amount: Decimal
     currency: str = "BRL"
     minimum_payment: Optional[Decimal] = None
+    closing_date: Optional[date] = None
+    forecast_date: Optional[date] = None
     raw_data: Optional[dict] = None
 
 

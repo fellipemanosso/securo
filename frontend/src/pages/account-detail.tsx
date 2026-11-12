@@ -1279,8 +1279,13 @@ export default function AccountDetailPage() {
         return (
           <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-6">
             <div className="bg-card rounded-xl border border-border shadow-sm p-3 sm:p-4 overflow-hidden">
-              <p className="text-[10px] sm:text-xs font-medium text-muted-foreground mb-1 truncate">
-                {t('accounts.cycleBillTotal')}
+              <p className="text-[10px] sm:text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1 truncate">
+                <span className="truncate">{t('accounts.cycleBillTotal')}</span>
+                <span className={`inline-flex shrink-0 items-center rounded px-1 py-0 text-[8px] sm:text-[9px] font-bold uppercase tracking-wide ${activeBill ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' : 'bg-amber-500/10 text-amber-700 dark:text-amber-400'}`}>
+                  {activeBill
+                    ? t('accounts.billConfidence.confirmed')
+                    : t('accounts.billConfidence.estimated')}
+                </span>
               </p>
               <p className="text-[length:clamp(0.7rem,3.5vw,1.25rem)] sm:text-2xl font-bold tabular-nums text-foreground">
                 {mask(formatCurrency(billTotal, displayCurrency, locale))}
@@ -1288,6 +1293,15 @@ export default function AccountDetailPage() {
               {deltaPct != null && prevCycleLabel && (
                 <p className={`text-[10px] sm:text-xs font-medium mt-0.5 tabular-nums ${deltaPct > 0 ? 'text-rose-500' : 'text-emerald-600'}`}>
                   {deltaPct > 0 ? '+' : ''}{deltaPct.toFixed(0)}% <span className="text-muted-foreground font-normal">vs {prevCycleLabel}</span>
+                </p>
+              )}
+              {activeBill?.closing_date && (
+                <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+                  {t('accounts.billConfidence.closedOn', {
+                    date: format(parseISO(activeBill.closing_date + 'T00:00:00'), 'P', {
+                      locale: resolveDateFnsLocale(i18n.resolvedLanguage ?? i18n.language),
+                    }),
+                  })}
                 </p>
               )}
             </div>

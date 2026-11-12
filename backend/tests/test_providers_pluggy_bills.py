@@ -76,6 +76,8 @@ async def test_bills_parser_full_payload():
         "totalAmount": 2431.99,
         "totalAmountCurrencyCode": "BRL",
         "minimumPaymentAmount": 250.00,
+        "billClosingDate": "2026-04-08T00:00:00Z",
+        "billForecastDate": "2026-04-15T00:00:00Z",
     }
     result = await _fetch([raw])
     assert len(result) == 1
@@ -85,6 +87,8 @@ async def test_bills_parser_full_payload():
     assert bill.total_amount == Decimal("2431.99")
     assert bill.currency == "BRL"
     assert bill.minimum_payment == Decimal("250.00")
+    assert bill.closing_date == date(2026, 4, 8)
+    assert bill.forecast_date == date(2026, 4, 15)
     assert bill.raw_data == raw
 
 

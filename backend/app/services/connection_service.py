@@ -2506,6 +2506,8 @@ async def _sync_credit_card_bills(
                 total_amount=bd.total_amount,
                 currency=bd.currency,
                 minimum_payment=bd.minimum_payment,
+                closing_date=bd.closing_date,
+                forecast_date=bd.forecast_date,
                 raw_data=bd.raw_data,
             )
             session.add(bill)
@@ -2515,6 +2517,8 @@ async def _sync_credit_card_bills(
             bill.total_amount = bd.total_amount
             bill.currency = bd.currency
             bill.minimum_payment = bd.minimum_payment
+            bill.closing_date = bd.closing_date
+            bill.forecast_date = bd.forecast_date
             bill.raw_data = bd.raw_data
 
     await session.flush()
@@ -2824,7 +2828,14 @@ async def sync_connection(
             # cases: (1) PENDING transactions that POSTED since last sync,
             # (2) any rows Pluggy ingested late but backdated. Dedup on
             # external_id below handles overlap cheaply.
-            since = (
+            # Credit-card rows are mutable: Pluggy commonly creates a purchase
+            # as PENDING without billId, then updates that same old row to
+            # POSTED with billId when the statement closes. createdAtFrom only
+            # filters row creation, so an incremental fetch can never see that
+            # update. Until transaction webhooks provide the changed IDs, read
+            # the complete card feed on every sync; Pluggy limits it to the
+            # available card history and this is the correctness-critical path.
+            since = None if account.type == "credit_card" else (
                 connection.last_sync_at.date() - timedelta(days=14)
                 if connection.last_sync_at
                 else None

@@ -39,6 +39,8 @@ class CreditCardBill(Base):
     total_amount: Mapped[Decimal] = mapped_column(Numeric(precision=15, scale=2), nullable=False)
     currency: Mapped[str] = mapped_column(String(3), default="BRL")
     minimum_payment: Mapped[Optional[Decimal]] = mapped_column(Numeric(precision=15, scale=2), nullable=True)
+    closing_date: Mapped[Optional[_date]] = mapped_column(Date, nullable=True)
+    forecast_date: Mapped[Optional[_date]] = mapped_column(Date, nullable=True)
     raw_data: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)

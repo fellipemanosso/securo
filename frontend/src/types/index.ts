@@ -226,6 +226,8 @@ export interface CreditCardBill {
   total_amount: number
   currency: string
   minimum_payment: number | null
+  closing_date: string | null
+  forecast_date: string | null
 }
 
 export interface Collection {

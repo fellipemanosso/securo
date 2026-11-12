@@ -94,6 +94,8 @@ class AccountRead(AccountBase):
     next_close_date: Optional[date] = None
     next_due_date: Optional[date] = None
     minimum_payment: Optional[float] = None
+    closing_date: Optional[date] = None
+    forecast_date: Optional[date] = None
     card_brand: Optional[str] = None
     card_level: Optional[str] = None
     loan_kind: Optional[str] = None

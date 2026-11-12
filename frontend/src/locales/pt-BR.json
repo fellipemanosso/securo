@@ -1260,6 +1260,11 @@
     "previousCycle": "Ciclo anterior",
     "nextCycle": "Próximo ciclo",
     "cycleBillTotal": "Total da fatura",
+    "billConfidence": {
+      "confirmed": "Banco",
+      "estimated": "Estimativa",
+      "closedOn": "Fechada em {{date}}"
+    },
     "dueDate": "Vencimento",
     "minimumPayment": "Mínimo",
     "noChargesYet": "Nenhuma compra ainda neste ciclo",
