@@ -149,6 +149,20 @@ class CreditCardBillWrite(BaseModel):
     status: Literal["open", "paid"] = "open"
 
 
+class AccountCardRead(BaseModel):
+    last4: str
+    alias: Optional[str] = None
+    is_hidden: bool = False
+    transaction_count: int
+    first_date: Optional[date] = None
+    last_date: Optional[date] = None
+
+
+class AccountCardUpdate(BaseModel):
+    alias: Optional[str] = Field(default=None, max_length=100)
+    is_hidden: Optional[bool] = None
+
+
 class AccountSummary(BaseModel):
     account_id: uuid.UUID
     current_balance: float

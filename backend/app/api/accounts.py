@@ -15,6 +15,8 @@ from app.core.workspace_context import (
     current_writable_workspace,
 )
 from app.schemas.account import (
+    AccountCardRead,
+    AccountCardUpdate,
     AccountCreate,
     AccountRead,
     AccountRunningBalancePoint,
@@ -75,6 +77,7 @@ async def get_account_summary(
     date_to: Optional[str] = Query(None, alias="to", description="YYYY-MM-DD"),
     bill_id: Optional[uuid.UUID] = Query(None, description="Aggregate by bill_id (issue #92); takes precedence over from/to"),
     unbilled_only: bool = Query(False, description="Cycle-math fallback only: exclude txs already linked to any bill"),
+    exclude_card_last4: Optional[list[str]] = Query(None, description="Drop transactions charged to these card last-4 values; transactions without a card are always kept"),
     ctx: WorkspaceContext = Depends(current_workspace),
     session: AsyncSession = Depends(get_async_session),
 ):
@@ -82,7 +85,7 @@ async def get_account_summary(
     to_date = date.fromisoformat(date_to) if date_to else None
     summary = await account_service.get_account_summary(
         session, account_id, ctx.workspace.id, date_from=from_date, date_to=to_date,
-        bill_id=bill_id, unbilled_only=unbilled_only,
+        bill_id=bill_id, unbilled_only=unbilled_only, exclude_card_last4=exclude_card_last4,
     )
     if not summary:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
@@ -192,6 +195,35 @@ async def get_account_bills(
     if bills is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
     return bills
+
+
+@router.get("/{account_id}/cards", response_model=list[AccountCardRead])
+async def get_account_cards(
+    account_id: uuid.UUID,
+    ctx: WorkspaceContext = Depends(current_workspace),
+    session: AsyncSession = Depends(get_async_session),
+):
+    """Every card seen on the account's transactions, newest activity first."""
+    cards = await account_service.get_account_cards(session, account_id, ctx.workspace.id)
+    if cards is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
+    return cards
+
+
+@router.patch("/{account_id}/cards/{last4}", response_model=AccountCardRead)
+async def update_account_card(
+    account_id: uuid.UUID,
+    last4: str,
+    data: AccountCardUpdate,
+    ctx: WorkspaceContext = Depends(current_writable_workspace),
+    session: AsyncSession = Depends(get_async_session),
+):
+    card = await account_service.update_account_card(
+        session, account_id, ctx.workspace.id, last4, data,
+    )
+    if card is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Card not found")
+    return card
 
 
 @router.post("/{account_id}/bills", response_model=CreditCardBillRead)

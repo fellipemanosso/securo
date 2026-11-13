@@ -212,6 +212,7 @@ class TransactionRead(TransactionBase):
     total_installments: Optional[int] = None
     installment_total_amount: Optional[float] = None
     installment_purchase_date: Optional[_Date] = None
+    card_last4: Optional[str] = None
     installment_series_id: Optional[uuid.UUID] = None
     bill_id: Optional[uuid.UUID] = None
     effective_bill_date: Optional[_Date] = None

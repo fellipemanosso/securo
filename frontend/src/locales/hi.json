@@ -3366,5 +3366,18 @@
       "update": "इस वर्कस्पेस का कोई आइटम नहीं बदलता; इंस्टॉल संस्करण {{version}} हो जाता है।",
       "remove": "इसका कोई आइटम यहाँ नहीं बचा; हटाने से यह सिर्फ़ सूची से हटता है।"
     }
+  },
+  "accountCards": {
+    "title": "Cards",
+    "transactionCount": "{{count}} tx",
+    "aliasLabel": "Card name",
+    "editAlias": "Rename card",
+    "save": "Save",
+    "cancel": "Cancel",
+    "hide": "Hide card",
+    "show": "Show card",
+    "showAll": "Show all",
+    "hiddenNotice": "Hidden cards ({{count}}) — totals do not include them",
+    "updateError": "Could not update the card"
   }
 }

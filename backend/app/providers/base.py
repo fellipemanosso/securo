@@ -122,6 +122,9 @@ class TransactionData:
     # Provider-side identifier of the bill this transaction belongs to.
     # Resolved to a credit_card_bills.id FK at sync time (issue #92).
     bill_external_id: Optional[str] = None
+    # Last digits of the card the charge was made with, for accounts that hold
+    # several physical or virtual cards (Pluggy creditCardMetadata.cardNumber).
+    card_last4: Optional[str] = None
 
 
 @dataclass

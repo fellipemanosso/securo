@@ -3366,5 +3366,18 @@
       "update": "A munkaterület elemei nem változnak; a telepített verzió {{version}} lesz.",
       "remove": "Egyetlen eleme sem maradt itt; az eltávolítás csak a listáról veszi le."
     }
+  },
+  "accountCards": {
+    "title": "Cards",
+    "transactionCount": "{{count}} tx",
+    "aliasLabel": "Card name",
+    "editAlias": "Rename card",
+    "save": "Save",
+    "cancel": "Cancel",
+    "hide": "Hide card",
+    "show": "Show card",
+    "showAll": "Show all",
+    "hiddenNotice": "Hidden cards ({{count}}) — totals do not include them",
+    "updateError": "Could not update the card"
   }
 }

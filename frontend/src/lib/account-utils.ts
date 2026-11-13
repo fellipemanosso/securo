@@ -140,3 +140,8 @@ export function getAccountLabel(account: {
   const mask = formatAccountMask(account)
   return mask ? `${name} ${mask}` : name
 }
+
+/** What a card is called on a credit-card account: its alias, else its last digits. */
+export function accountCardLabel(card: { alias: string | null; last4: string }): string {
+  return card.alias || `•••• ${card.last4}`
+}

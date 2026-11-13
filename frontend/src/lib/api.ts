@@ -18,6 +18,7 @@ import type {
   ConnectionSettings,
   SyncResult,
   Account,
+  AccountCard,
   AccountSummary,
   AccountRunningBalancePoint,
   Collection,
@@ -524,8 +525,19 @@ export const accounts = {
   delete: async (id: string): Promise<void> => {
     await api.delete(`/accounts/${id}`)
   },
-  summary: async (id: string, from?: string, to?: string, billId?: string, unbilledOnly?: boolean): Promise<AccountSummary> => {
-    const { data } = await api.get(`/accounts/${id}/summary`, { params: { from, to, bill_id: billId, unbilled_only: unbilledOnly || undefined } })
+  summary: async (id: string, from?: string, to?: string, billId?: string, unbilledOnly?: boolean, excludeCardLast4?: string[]): Promise<AccountSummary> => {
+    const { data } = await api.get(`/accounts/${id}/summary`, {
+      params: { from, to, bill_id: billId, unbilled_only: unbilledOnly || undefined, exclude_card_last4: excludeCardLast4 },
+      paramsSerializer: { indexes: null },
+    })
+    return data
+  },
+  cards: async (id: string): Promise<AccountCard[]> => {
+    const { data } = await api.get(`/accounts/${id}/cards`)
+    return data
+  },
+  updateCard: async (id: string, last4: string, payload: { alias?: string | null; is_hidden?: boolean }): Promise<AccountCard> => {
+    const { data } = await api.patch(`/accounts/${id}/cards/${last4}`, payload)
     return data
   },
   balanceHistory: async (id: string, from?: string, to?: string): Promise<{ date: string; balance: number; balance_primary?: number; fx_fallback?: boolean }[]> => {
@@ -634,6 +646,7 @@ export const transactions = {
     user_pnl_only?: boolean
     exclude_ignored?: boolean
     tags?: string[]
+    exclude_card_last4?: string[]
     min_amount?: number
     max_amount?: number
     sort_by?: string

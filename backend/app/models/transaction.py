@@ -73,6 +73,9 @@ class Transaction(Base):
         Numeric(precision=15, scale=2), nullable=True
     )
     installment_purchase_date: Mapped[Optional[_date]] = mapped_column(Date, nullable=True)
+    # Last digits of the physical or virtual card a credit-card charge was made
+    # with, when the provider reports it (Pluggy creditCardMetadata.cardNumber).
+    card_last4: Mapped[Optional[str]] = mapped_column(String(8), nullable=True)
     # Stable identity for rows created by the manual installment-series
     # endpoint. Provider-synced installment rows leave this null because their
     # metadata is only a deduplication fingerprint, not a series identifier.

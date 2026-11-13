@@ -19,12 +19,13 @@ from sqlalchemy.orm import contains_eager
 
 from app.core.app_clock import app_today
 from app.models.account import Account
+from app.models.account_card import AccountCard
 from app.models.asset import LOAN_COLLATERAL_TYPES, Asset
 from app.models.bank_connection import BankConnection
 from app.models.credit_card_bill import CreditCardBill
 from app.models.mortgage_payment_allocation import MortgagePaymentAllocation
 from app.models.transaction import Transaction
-from app.schemas.account import AccountCreate, AccountUpdate, LoanBalanceUpdate
+from app.schemas.account import AccountCardUpdate, AccountCreate, AccountUpdate, LoanBalanceUpdate
 from app.services._query_filters import (
     counts_as_pnl,
     counts_in_current_balance,
@@ -36,6 +37,7 @@ from app.services._query_filters import (
     line_amount,
     line_category_id,
     line_primary_or_amount,
+    not_on_cards,
     reporting_date_col,
     with_category_lines,
 )
@@ -1018,11 +1020,108 @@ async def reopen_account(
     return account
 
 
+async def ensure_account_cards(
+    session: AsyncSession, account_id: uuid.UUID, workspace_id: uuid.UUID
+) -> None:
+    """Create the `account_cards` row of every card seen on the account's
+    transactions that has none yet. Flushes; the caller owns the commit."""
+    seen = select(Transaction.card_last4).where(
+        Transaction.account_id == account_id,
+        Transaction.card_last4.is_not(None),
+    ).distinct()
+    known = select(AccountCard.last4).where(AccountCard.account_id == account_id)
+    missing = (
+        await session.execute(seen.where(Transaction.card_last4.not_in(known)))
+    ).scalars().all()
+    for last4 in missing:
+        session.add(AccountCard(workspace_id=workspace_id, account_id=account_id, last4=last4))
+    if missing:
+        await session.flush()
+
+
+async def _account_cards(
+    session: AsyncSession, account_id: uuid.UUID, last4: Optional[str] = None
+) -> list[dict]:
+    stats_query = (
+        select(
+            Transaction.card_last4,
+            func.count(Transaction.id),
+            func.min(Transaction.date),
+            func.max(Transaction.date),
+        )
+        .where(Transaction.account_id == account_id, Transaction.card_last4.is_not(None))
+        .group_by(Transaction.card_last4)
+    )
+    cards_query = select(AccountCard).where(AccountCard.account_id == account_id)
+    if last4 is not None:
+        stats_query = stats_query.where(Transaction.card_last4 == last4)
+        cards_query = cards_query.where(AccountCard.last4 == last4)
+    stats = {row[0]: row[1:] for row in (await session.execute(stats_query)).all()}
+    cards = {card.last4: card for card in (await session.execute(cards_query)).scalars()}
+    result = [
+        {
+            "last4": seen_last4,
+            "alias": cards[seen_last4].alias,
+            "is_hidden": cards[seen_last4].is_hidden,
+            "transaction_count": count,
+            "first_date": first_date,
+            "last_date": last_date,
+        }
+        for seen_last4, (count, first_date, last_date) in stats.items()
+    ]
+    result.sort(key=lambda card: (card["last_date"], card["last4"]), reverse=True)
+    return result
+
+
+async def get_account_cards(
+    session: AsyncSession, account_id: uuid.UUID, workspace_id: uuid.UUID
+) -> Optional[list[dict]]:
+    """Every card seen on the account, newest activity first."""
+    account = await get_account(session, account_id, workspace_id)
+    if not account:
+        return None
+    await ensure_account_cards(session, account_id, workspace_id)
+    await session.commit()
+    return await _account_cards(session, account_id)
+
+
+async def update_account_card(
+    session: AsyncSession,
+    account_id: uuid.UUID,
+    workspace_id: uuid.UUID,
+    last4: str,
+    data: AccountCardUpdate,
+) -> Optional[dict]:
+    """Change a card's alias and/or visibility; None when the account has no
+    such card."""
+    account = await get_account(session, account_id, workspace_id)
+    if not account:
+        return None
+    await ensure_account_cards(session, account_id, workspace_id)
+    if not await _account_cards(session, account_id, last4):
+        return None
+    card = (
+        await session.execute(
+            select(AccountCard).where(
+                AccountCard.account_id == account_id, AccountCard.last4 == last4
+            )
+        )
+    ).scalar_one()
+    fields = data.model_dump(exclude_unset=True)
+    if "alias" in fields:
+        card.alias = (fields["alias"] or "").strip() or None
+    if fields.get("is_hidden") is not None:
+        card.is_hidden = fields["is_hidden"]
+    await session.commit()
+    return (await _account_cards(session, account_id, last4))[0]
+
+
 async def get_account_summary(
     session: AsyncSession, account_id: uuid.UUID, workspace_id: uuid.UUID,
     date_from: Optional[_Date] = None, date_to: Optional[_Date] = None,
     bill_id: Optional[uuid.UUID] = None,
     unbilled_only: bool = False,
+    exclude_card_last4: Optional[list[str]] = None,
 ) -> Optional[dict]:
     account = await get_account(session, account_id, workspace_id)
     if not account:
@@ -1157,6 +1256,8 @@ async def get_account_summary(
     ) if bill_id is not None else None
 
     def _scope(query):
+        if exclude_card_last4:
+            query = query.where(not_on_cards(exclude_card_last4))
         if bill_id is not None:
             unlinked_in_window = _and(
                 Transaction.bill_id.is_(None),
@@ -1254,6 +1355,7 @@ async def get_account_summary(
             ), 0)).where(
                 Transaction.account_id == account_id,
                 _before_window(),
+                *([not_on_cards(exclude_card_last4)] if exclude_card_last4 else []),
                 # Rows linked to the selected bill belong to it whatever
                 # their date (see `_scope`), so they are not older debt.
                 *([] if bill_id is None else [or_(

@@ -43,6 +43,7 @@ from app.services._query_filters import (
     is_transfer_row,
     line_category_id,
     line_primary_or_amount,
+    not_on_cards,
     reporting_date_col,
     with_category_lines,
 )
@@ -134,6 +135,7 @@ async def get_transactions(
     group_id: Optional[uuid.UUID] = None,
     unbilled_only: bool = False,
     statement_view: bool = False,
+    exclude_card_last4: Optional[list[str]] = None,
     sort_by: Optional[str] = None,
     sort_dir: str = "desc",
     transaction_ids: Optional[list[uuid.UUID]] = None,
@@ -289,6 +291,8 @@ async def get_transactions(
         )
     if exclude_transfers:
         base_query = base_query.where(Transaction.transfer_pair_id.is_(None))
+    if exclude_card_last4:
+        base_query = base_query.where(not_on_cards(exclude_card_last4))
     if user_pnl_only:
         # Closed accounts are not excluded here: their history stays in the
         # period totals this list drills into (issue #1112).
@@ -664,7 +668,7 @@ async def get_transactions(
                     txn_type, tags, status, currency, account_types, transaction_ids,
                     min_amount is not None, max_amount is not None,
                     exclude_transfers, user_pnl_only, exclude_ignored,
-                    group_id, bill_id, unbilled_only,
+                    group_id, bill_id, unbilled_only, exclude_card_last4,
                     # Without the opening row the walk misses its amount
                     # whenever it falls inside the range.
                     not include_opening_balance,

@@ -3370,5 +3370,18 @@
       "update": "Ningún elemento de este espacio cambia; la versión instalada pasa a {{version}}.",
       "remove": "No queda ninguno de sus elementos aquí; quitarlo solo lo saca de la lista."
     }
+  },
+  "accountCards": {
+    "title": "Cards",
+    "transactionCount": "{{count}} tx",
+    "aliasLabel": "Card name",
+    "editAlias": "Rename card",
+    "save": "Save",
+    "cancel": "Cancel",
+    "hide": "Hide card",
+    "show": "Show card",
+    "showAll": "Show all",
+    "hiddenNotice": "Hidden cards ({{count}}) — totals do not include them",
+    "updateError": "Could not update the card"
   }
 }

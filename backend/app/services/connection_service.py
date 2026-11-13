@@ -48,6 +48,7 @@ from app.services import category_line_service, reconciliation_service, recurrin
 from app.services.text_similarity import token_overlap
 from app.services.account_service import (
     _provider_to_internal_balance,
+    ensure_account_cards,
     sync_opening_balance_for_connected_account,
 )
 from app.services.asset_group_service import (
@@ -1564,6 +1565,7 @@ async def handle_oauth_callback(
                 payee=txn_data.payee,
                 payee_id=payee_id,
                 raw_data=txn_data.raw_data,
+                card_last4=txn_data.card_last4,
                 category_id=None,
                 installment_number=txn_data.installment_number,
                 total_installments=txn_data.total_installments,
@@ -1598,6 +1600,8 @@ async def handle_oauth_callback(
                 transaction,
                 _bank_converted_amount(txn_data, acct_currency, user_currency),
             )
+
+        await ensure_account_cards(session, account.id, workspace_id)
 
         # After importing the initial batch, reconcile the opening balance so
         # that SUM(all transactions) matches the provider-reported balance. Any
@@ -1846,6 +1850,8 @@ def _merge_sync_metadata(
             merged = {**transaction.raw_data, **txn_data.raw_data}
             if merged != transaction.raw_data:
                 transaction.raw_data = merged
+    if txn_data.card_last4:
+        transaction.card_last4 = txn_data.card_last4
     if transaction.original_description is None:
         transaction.original_description = txn_data.description
     if txn_data.payee and not transaction.payee:
@@ -3026,6 +3032,7 @@ async def sync_connection(
                     payee=txn_data.payee,
                     payee_id=sync_payee_id,
                     raw_data=txn_data.raw_data,
+                    card_last4=txn_data.card_last4,
                     category_id=None,
                     installment_number=txn_data.installment_number,
                     total_installments=txn_data.total_installments,
@@ -3066,6 +3073,7 @@ async def sync_connection(
                     placeholder.source = "sync"
                     placeholder.status = txn_data.status
                     placeholder.raw_data = txn_data.raw_data
+                    placeholder.card_last4 = txn_data.card_last4
                     # Same shape as the import path: fold in the `preview` the
                     # rules already produced from the incoming charge instead of
                     # re-running them against the placeholder, whose description
@@ -3139,6 +3147,8 @@ async def sync_connection(
                 await _stamp_synced_primary_amount(
                     session, user_id, transaction, converted
                 )
+
+            await ensure_account_cards(session, account.id, workspace_id)
 
             # Reconcile the opening balance after any new transactions land so
             # SUM(all txs) keeps matching account.balance from the provider.

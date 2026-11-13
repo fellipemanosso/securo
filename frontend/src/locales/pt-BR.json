@@ -3378,5 +3378,18 @@
       "update": "Nenhum item deste workspace muda; a versão instalada passa a ser {{version}}.",
       "remove": "Nenhum item dele ficou aqui; remover só tira o plugin da lista."
     }
+  },
+  "accountCards": {
+    "title": "Cartões",
+    "transactionCount": "{{count}} lanç.",
+    "aliasLabel": "Nome do cartão",
+    "editAlias": "Renomear cartão",
+    "save": "Salvar",
+    "cancel": "Cancelar",
+    "hide": "Ocultar cartão",
+    "show": "Mostrar cartão",
+    "showAll": "Mostrar todos",
+    "hiddenNotice": "Cartões ocultos ({{count}}) — os totais não incluem esses cartões",
+    "updateError": "Não foi possível atualizar o cartão"
   }
 }

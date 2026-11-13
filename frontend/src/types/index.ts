@@ -252,6 +252,15 @@ export interface Collection {
   wallet_count: number
 }
 
+export interface AccountCard {
+  last4: string
+  alias: string | null
+  is_hidden: boolean
+  transaction_count: number
+  first_date: string | null
+  last_date: string | null
+}
+
 export interface AccountSummary {
   account_id: string
   current_balance: number
@@ -298,6 +307,7 @@ export interface Transaction {
   category_id: string | null
   category: Category | null
   external_id: string | null
+  card_last4?: string | null
   description: string
   original_description: string | null
   amount: number

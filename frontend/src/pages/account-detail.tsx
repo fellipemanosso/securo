@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { getAccountName } from '@/lib/account-utils'
+import { accountCardLabel, getAccountName } from '@/lib/account-utils'
 import { useParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useDisplayLocale, useDateLocale } from '@/hooks/use-display-locale'
@@ -18,6 +18,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft, ArrowLeftRight, CalendarClock, ChevronLeft, ChevronRight, Clock, EyeClosed, HelpCircle, Paperclip, Pencil, Plus, X } from 'lucide-react'
 import { MobileTransactionRow } from '@/components/mobile-transaction-row'
+import { AccountCardsControl } from '@/components/account-cards-control'
 import { transactionDescription } from '@/lib/transaction-description'
 import { CategoryIcon } from '@/components/category-icon'
 import { CategorySplitBadge, TransactionCategoryIcon } from '@/components/category-lines-display'
@@ -312,6 +313,25 @@ export default function AccountDetailPage() {
   })
   const isCreditCard = account?.type === 'credit_card'
 
+  // Cards on a credit-card account (physical + virtual). A hidden card's
+  // purchases drop out of every statement view of this page; the overview
+  // page deliberately ignores that so it keeps matching the bank's bill.
+  const { data: cards = [] } = useQuery({
+    queryKey: ['accounts', id, 'cards'],
+    queryFn: () => accounts.cards(id!),
+    enabled: !!id && isCreditCard,
+  })
+  const hiddenCardLast4 = cards.filter(c => c.is_hidden).map(c => c.last4)
+  const excludeCardLast4 = hiddenCardLast4.length > 0 ? hiddenCardLast4 : undefined
+  const cardUpdateMutation = useMutation({
+    mutationFn: ({ last4, payload }: { last4: string; payload: { alias?: string | null; is_hidden?: boolean } }) =>
+      accounts.updateCard(id!, last4, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['accounts', id, 'cards'] })
+    },
+    onError: (err) => toast.error(extractApiError(err, t('accountCards.updateError'))),
+  })
+
   // Bills (faturas) from the provider's bills feed — issue #92. Only fetched
   // for CC accounts; non-CC and CC-without-bills both return [] so the UI
   // falls back to local cycle math wherever bills aren't available.
@@ -435,14 +455,15 @@ export default function AccountDetailPage() {
     // For the in-progress cycle (no bill match), unbilled_only excludes
     // txs already linked to a closed bill (anti-double-count).
     queryKey: activeBill
-      ? ['accounts', id, 'summary', { bill_id: activeBill.id, from: filterFrom, to: filterTo }]
-      : ['accounts', id, 'summary', filterFrom, filterTo, { unbilled_only: isInProgressCycle }],
+      ? ['accounts', id, 'summary', { bill_id: activeBill.id, from: filterFrom, to: filterTo, exclude_card_last4: excludeCardLast4 }]
+      : ['accounts', id, 'summary', filterFrom, filterTo, { unbilled_only: isInProgressCycle, exclude_card_last4: excludeCardLast4 }],
     queryFn: () => accounts.summary(
       id!,
       filterFrom || undefined,
       filterTo || undefined,
       activeBill?.id,
       isInProgressCycle || undefined,
+      excludeCardLast4,
     ),
     enabled: !!id,
   })
@@ -456,8 +477,8 @@ export default function AccountDetailPage() {
   }, [account, filterFrom])
 
   const { data: previousCycleSummary } = useQuery({
-    queryKey: ['accounts', id, 'summary', previousCycle?.start, previousCycle?.end],
-    queryFn: () => accounts.summary(id!, previousCycle!.start, previousCycle!.end),
+    queryKey: ['accounts', id, 'summary', previousCycle?.start, previousCycle?.end, { exclude_card_last4: excludeCardLast4 }],
+    queryFn: () => accounts.summary(id!, previousCycle!.start, previousCycle!.end, undefined, undefined, excludeCardLast4),
     enabled: !!id && !!previousCycle,
   })
 
@@ -511,11 +532,12 @@ export default function AccountDetailPage() {
       // in-progress cycle (no bill) sets unbilled_only so prior-bill txs
       // that fall in the window aren't double-counted in the bar.
       queryKey: c.bill
-        ? ['accounts', id, 'summary', { bill_id: c.bill.id, from: c.start, to: c.end }]
-        : ['accounts', id, 'summary', c.start, c.end, { unbilled_only: billsAsc.length > 0 }],
+        ? ['accounts', id, 'summary', { bill_id: c.bill.id, from: c.start, to: c.end, exclude_card_last4: excludeCardLast4 }]
+        : ['accounts', id, 'summary', c.start, c.end, { unbilled_only: billsAsc.length > 0, exclude_card_last4: excludeCardLast4 }],
       queryFn: () => accounts.summary(
         id!, c.start, c.end, c.bill?.id,
         c.bill ? undefined : (billsAsc.length > 0 || undefined),
+        excludeCardLast4,
       ),
       enabled: !!id,
     })),
@@ -533,6 +555,7 @@ export default function AccountDetailPage() {
       include_opening_balance: true,
       unbilled_only: isInProgressCycle,
       statement_view: isCreditCard,
+      exclude_card_last4: excludeCardLast4,
     }],
     queryFn: async () => {
       const params = {
@@ -553,6 +576,7 @@ export default function AccountDetailPage() {
         to: filterTo || undefined,
         limit: CYCLE_PAGE_SIZE,
         include_opening_balance: true,
+        exclude_card_last4: excludeCardLast4,
       }
       const first = await transactions.list({ ...params, page: 1 })
       const items = [...first.items]
@@ -1131,6 +1155,30 @@ export default function AccountDetailPage() {
             </div>
           )}
         </div>
+        {isCreditCard && cards.length > 0 && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <AccountCardsControl
+              cards={cards}
+              canWrite={canWrite}
+              onToggleHidden={(card) => cardUpdateMutation.mutate({ last4: card.last4, payload: { is_hidden: !card.is_hidden } })}
+              onRename={(card, alias) => cardUpdateMutation.mutate({ last4: card.last4, payload: { alias } })}
+            />
+            {hiddenCardLast4.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                {t('accountCards.hiddenNotice', { count: hiddenCardLast4.length })}
+                {canWrite && (
+                  <button
+                    type="button"
+                    className="ml-2 font-medium text-primary hover:underline"
+                    onClick={() => hiddenCardLast4.forEach(last4 => cardUpdateMutation.mutate({ last4, payload: { is_hidden: false } }))}
+                  >
+                    {t('accountCards.showAll')}
+                  </button>
+                )}
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {account.is_closed && (
@@ -1771,6 +1819,11 @@ export default function AccountDetailPage() {
                             )}
                             </div>
                           </div>
+                          {tx.card_last4 && cards.length > 1 && (
+                            <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                              {accountCardLabel(cards.find(c => c.last4 === tx.card_last4) ?? { alias: null, last4: tx.card_last4 })}
+                            </p>
+                          )}
                           {(tx.payee_name || tx.payee) && (tx.payee_name || tx.payee) !== tx.description && (
                             <p className="text-xs text-muted-foreground mt-0.5 truncate">{tx.payee_name || tx.payee}</p>
                           )}

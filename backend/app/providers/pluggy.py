@@ -770,6 +770,8 @@ class PluggyProvider(BankProvider):
                     bill_external_id = (
                         str(bill_external_id_raw) if bill_external_id_raw else None
                     )
+                    card_number_raw = cc_meta.get("cardNumber")
+                    card_last4 = str(card_number_raw)[-4:] if card_number_raw else None
 
                     all_transactions.append(
                         TransactionData(
@@ -789,6 +791,7 @@ class PluggyProvider(BankProvider):
                             installment_total_amount=inst_total_amount_dec,
                             installment_purchase_date=inst_purchase_date,
                             bill_external_id=bill_external_id,
+                            card_last4=card_last4,
                         )
                     )
 

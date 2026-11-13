@@ -122,6 +122,18 @@ def is_not_ignored():
     )
 
 
+def not_on_cards(last4s: Iterable[str]):
+    """SQL filter: the row was not charged to one of the given cards.
+
+    A row without a card (manual entries, imports, bank fees) is never
+    excluded: hiding a card hides only what is known to be its own.
+    """
+    return or_(
+        Transaction.card_last4.is_(None),
+        Transaction.card_last4.not_in(list(last4s)),
+    )
+
+
 # ---------------------------------------------------------------------------
 # Category parts
 #
