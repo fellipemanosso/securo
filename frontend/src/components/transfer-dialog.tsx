@@ -23,6 +23,10 @@ export function TransferDialog({
   onSave,
   loading,
   defaultFromAccountId,
+  defaultToAccountId,
+  defaultAmount,
+  defaultDescription,
+  lockToAccount = false,
 }: {
   open: boolean
   onClose: () => void
@@ -38,27 +42,32 @@ export function TransferDialog({
   }) => void
   loading: boolean
   defaultFromAccountId?: string
+  defaultToAccountId?: string
+  defaultAmount?: number
+  defaultDescription?: string
+  lockToAccount?: boolean
 }) {
   const { t } = useTranslation()
   const sortedAccounts = useMemo(() => sortAccountsByDisplayName(accounts), [accounts])
   const firstAccountId = sortedAccounts[0]?.id ?? ''
   const [fromAccountId, setFromAccountId] = useState(defaultFromAccountId || firstAccountId)
-  const [toAccountId, setToAccountId] = useState('')
-  const [amount, setAmount] = useState('')
+  const [toAccountId, setToAccountId] = useState(defaultToAccountId || '')
+  const [amount, setAmount] = useState(defaultAmount?.toString() ?? '')
   const [date, setDate] = useState(localDateString)
-  const [description, setDescription] = useState('')
+  const [description, setDescription] = useState(defaultDescription ?? '')
   const [notes, setNotes] = useState('')
   const [destinationAmount, setDestinationAmount] = useState('')
 
-  const [formSource, setFormSource] = useState<{ open: boolean; defaultFromAccountId?: string; firstAccountId: string } | null>(null)
-  if (!formSource || formSource.open !== open || formSource.defaultFromAccountId !== defaultFromAccountId || formSource.firstAccountId !== firstAccountId) {
-    setFormSource({ open, defaultFromAccountId, firstAccountId })
+  const formSeed = `${open}:${defaultFromAccountId ?? ''}:${defaultToAccountId ?? ''}:${defaultAmount ?? ''}:${defaultDescription ?? ''}:${firstAccountId}`
+  const [formSource, setFormSource] = useState<string | null>(null)
+  if (formSource !== formSeed) {
+    setFormSource(formSeed)
     if (open) {
       setFromAccountId(defaultFromAccountId || firstAccountId)
-      setToAccountId('')
-      setAmount('')
+      setToAccountId(defaultToAccountId || '')
+      setAmount(defaultAmount?.toString() ?? '')
       setDate(localDateString())
-      setDescription('')
+      setDescription(defaultDescription ?? '')
       setNotes('')
       setDestinationAmount('')
     }
@@ -123,6 +132,7 @@ export function TransferDialog({
               <select
                 className="w-full border border-border rounded-md px-3 py-2 text-sm bg-card focus:outline-none focus-visible:ring-ring/30 focus-visible:ring-[2px]"
                 value={toAccountId}
+                disabled={lockToAccount}
                 onChange={(e) => {
                   setToAccountId(e.target.value)
                   setDestinationAmount('')

@@ -20,6 +20,7 @@ from app.services.recurring_transaction_service import (
     get_occurrences_in_range,
     get_recurring_transaction,
     get_recurring_transactions,
+    mark_next_occurrence_paid,
     update_recurring_transaction,
 )
 
@@ -988,6 +989,84 @@ async def test_generate_pending_no_duplicates(
     count2 = await generate_pending(session, test_user.id, up_to=date(2025, 3, 1))
     assert count1 == 3
     assert count2 == 0
+
+
+@pytest.mark.asyncio
+async def test_mark_next_occurrence_paid_creates_posted_transaction_and_advances(
+    session: AsyncSession, test_user, test_workspace, test_account_for_recurring
+):
+    recurring = await create_recurring_transaction(
+        session,
+        test_workspace.id,
+        test_user.id,
+        RecurringTransactionCreate(
+            description="Paid rent",
+            amount=Decimal("1200"),
+            type="debit",
+            frequency="monthly",
+            start_date=date(2026, 1, 10),
+            account_id=test_account_for_recurring.id,
+        ),
+    )
+
+    transaction = await mark_next_occurrence_paid(
+        session, recurring.id, test_workspace.id, test_user.id
+    )
+
+    assert transaction is not None
+    assert transaction.status == "posted"
+    assert transaction.date == date(2026, 1, 10)
+    assert transaction.recurring_transaction_id == recurring.id
+    await session.refresh(recurring)
+    assert recurring.next_occurrence == date(2026, 2, 10)
+
+
+@pytest.mark.asyncio
+async def test_mark_next_occurrence_paid_posts_existing_placeholder_without_duplicate(
+    session: AsyncSession, test_user, test_workspace, test_account_for_recurring
+):
+    recurring = await create_recurring_transaction(
+        session,
+        test_workspace.id,
+        test_user.id,
+        RecurringTransactionCreate(
+            description="Pending subscription",
+            amount=Decimal("49.90"),
+            type="debit",
+            frequency="monthly",
+            start_date=date(2026, 3, 5),
+            account_id=test_account_for_recurring.id,
+        ),
+    )
+    placeholder = Transaction(
+        user_id=test_user.id,
+        workspace_id=test_workspace.id,
+        account_id=test_account_for_recurring.id,
+        description=recurring.description,
+        amount=recurring.amount,
+        currency=recurring.currency,
+        date=date(2026, 3, 5),
+        type="debit",
+        source="recurring",
+        status="pending",
+        recurring_transaction_id=recurring.id,
+    )
+    session.add(placeholder)
+    await session.commit()
+
+    transaction = await mark_next_occurrence_paid(
+        session, recurring.id, test_workspace.id, test_user.id
+    )
+
+    assert transaction is not None
+    assert transaction.id == placeholder.id
+    assert transaction.status == "posted"
+    rows = (
+        await session.execute(
+            select(Transaction).where(Transaction.recurring_transaction_id == recurring.id)
+        )
+    ).scalars().all()
+    assert len(rows) == 1
 
 
 @pytest.mark.asyncio

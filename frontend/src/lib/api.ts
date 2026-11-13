@@ -1339,6 +1339,10 @@ export const recurring = {
   delete: async (id: string): Promise<void> => {
     await api.delete(`/recurring-transactions/${id}`)
   },
+  pay: async (id: string): Promise<Transaction> => {
+    const { data } = await api.post(`/recurring-transactions/${id}/pay`)
+    return data
+  },
   generate: async (): Promise<{ generated: number }> => {
     const { data } = await api.post('/recurring-transactions/generate')
     return data

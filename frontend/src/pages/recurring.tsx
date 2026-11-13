@@ -34,7 +34,7 @@ import {
   type CategoryLineRow,
 } from '@/lib/category-lines'
 import { formatAmountInput } from '@/lib/format'
-import { Pencil, Trash2, Plus, RefreshCw, Info } from 'lucide-react'
+import { Pencil, Trash2, Plus, RefreshCw, Info, CircleCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PageHeader } from '@/components/page-header'
 import { CategorySelect } from '@/components/category-select'
@@ -160,6 +160,16 @@ function RecurringTab() {
     onError: () => toast.error(t('common.error')),
   })
 
+  const payMutation = useMutation({
+    mutationFn: (id: string) => recurringApi.pay(id),
+    onSuccess: () => {
+      invalidateFinancialQueries(queryClient)
+      queryClient.invalidateQueries({ queryKey: ['recurring'] })
+      toast.success('Recorrência marcada como paga')
+    },
+    onError: (err: unknown) => toast.error(extractApiError(err, t('common.error'))),
+  })
+
   const frequencyLabel = (f: string) => {
     const map: Record<string, string> = {
       monthly: t('recurring.monthly'),
@@ -250,6 +260,17 @@ function RecurringTab() {
                   {canWrite && (
                     <td className="py-3 pr-4 sm:pr-5">
                       <div className="flex items-center justify-end gap-1">
+                        {rt.is_active && (
+                          <button
+                            className="p-1.5 rounded-md text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950 transition-colors disabled:opacity-50"
+                            onClick={() => payMutation.mutate(rt.id)}
+                            disabled={payMutation.isPending}
+                            aria-label="Marcar próxima ocorrência como paga"
+                            title="Marcar próxima ocorrência como paga"
+                          >
+                            <CircleCheck size={14} />
+                          </button>
+                        )}
                         <button
                           className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors"
                           onClick={() => { setEditing(rt); setDialogOpen(true) }}

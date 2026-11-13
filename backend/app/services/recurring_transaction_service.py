@@ -189,6 +189,84 @@ async def delete_recurring_transaction(
     return True
 
 
+async def mark_next_occurrence_paid(
+    session: AsyncSession,
+    recurring_id: uuid.UUID,
+    workspace_id: uuid.UUID,
+    user_id: uuid.UUID,
+) -> Optional[Transaction]:
+    """Post the next occurrence and advance its schedule without duplicating it."""
+    recurring = await get_recurring_transaction(session, recurring_id, workspace_id)
+    if not recurring:
+        return None
+    if not recurring.is_active:
+        raise ValueError("Recurring transaction is inactive")
+    if recurring.account_id is None:
+        raise ValueError("Recurring transaction has no account")
+    if recurring.end_date and recurring.next_occurrence > recurring.end_date:
+        recurring.is_active = False
+        await session.commit()
+        raise ValueError("Recurring transaction has ended")
+
+    effective_occurrence = adjust_weekend_date(
+        recurring.next_occurrence, recurring.weekend_adjustment
+    )
+    linked_result = await session.execute(
+        select(Transaction)
+        .where(
+            Transaction.recurring_transaction_id == recurring.id,
+            Transaction.date == effective_occurrence,
+        )
+        .order_by(Transaction.created_at.desc())
+    )
+    transaction = linked_result.scalars().first()
+
+    if transaction is None:
+        transaction = await recurring_match_service.find_real_tx_for_occurrence(
+            session, recurring, effective_occurrence
+        )
+        if transaction is not None:
+            transaction.recurring_transaction_id = recurring.id
+            await category_line_service.apply_template_split(session, transaction, recurring)
+
+    if transaction is None:
+        account = await session.get(Account, recurring.account_id)
+        transaction = Transaction(
+            user_id=user_id,
+            workspace_id=workspace_id,
+            account_id=recurring.account_id,
+            category_id=recurring.category_id,
+            description=recurring.description,
+            amount=recurring.amount,
+            currency=recurring.currency,
+            date=effective_occurrence,
+            type=recurring.type,
+            source="recurring",
+            status="posted",
+            recurring_transaction_id=recurring.id,
+        )
+        apply_effective_date(transaction, account)
+        if recurring.has_category_lines:
+            category_line_service.copy_lines_to(transaction, recurring.category_lines)
+        session.add(transaction)
+        await session.flush()
+        await stamp_primary_amount(session, user_id, transaction)
+    else:
+        transaction.status = "posted"
+
+    recurring.next_occurrence = _advance_date(
+        recurring.next_occurrence,
+        recurring.frequency,
+        intended_day=recurring.day_of_month or recurring.start_date.day,
+    )
+    if recurring.end_date and recurring.next_occurrence > recurring.end_date:
+        recurring.is_active = False
+
+    await session.commit()
+    await session.refresh(transaction, ["category", "splits", "category_lines"])
+    return transaction
+
+
 def _advance_months(current: date, months: int, intended_day: int) -> date:
     """Advance by calendar months, clamping only in a shorter target month."""
     month_index = current.month - 1 + months

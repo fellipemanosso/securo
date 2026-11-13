@@ -1,19 +1,26 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useQueries, useQuery } from '@tanstack/react-query'
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { addMonths, isSameMonth, parseISO, startOfMonth } from 'date-fns'
-import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, CreditCard, Repeat2 } from 'lucide-react'
-import { accounts as accountsApi, recurring as recurringApi } from '@/lib/api'
+import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, CreditCard, Plus, ReceiptText, Repeat2 } from 'lucide-react'
+import { accounts as accountsApi, categories as categoriesApi, categoryGroups as categoryGroupsApi, recurring as recurringApi, transactions as transactionsApi } from '@/lib/api'
 import { getAccountName } from '@/lib/account-utils'
 import { formatCurrency } from '@/lib/format'
 import { useDisplayLocale, useDateLocale } from '@/hooks/use-display-locale'
 import { usePrivacyMode } from '@/hooks/use-privacy-mode'
 import { useAuth } from '@/contexts/auth-context'
+import { useWorkspace } from '@/contexts/workspace-context'
 import { useCollectionFilter } from '@/contexts/collection-filter-context'
 import { AccountIcon } from '@/components/account-icon'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { TransactionDialog } from '@/components/transaction-dialog'
+import { TransferDialog } from '@/components/transfer-dialog'
+import { useCreateTransaction } from '@/hooks/use-create-transaction'
+import { invalidateFinancialQueries } from '@/lib/invalidate-queries'
+import { extractApiError } from '@/lib/api-errors'
+import { toast } from 'sonner'
 import type { Account, CreditCardBill, RecurringTransaction } from '@/types'
 
 type CardSnapshot = {
@@ -86,9 +93,14 @@ export default function CardsOverviewPage() {
   const { mask } = usePrivacyMode()
   const { user } = useAuth()
   const { activeAccountIds } = useCollectionFilter()
+  const { canWrite } = useWorkspace()
+  const queryClient = useQueryClient()
   const primaryCurrency = user?.preferences?.currency_display ?? 'BRL'
   const currentMonth = startOfMonth(new Date())
   const [month, setMonth] = useState(currentMonth)
+  const [purchaseCard, setPurchaseCard] = useState<Account | null>(null)
+  const [paymentSnapshot, setPaymentSnapshot] = useState<CardSnapshot | null>(null)
+  const createTransaction = useCreateTransaction({ onDone: () => setPurchaseCard(null) })
 
   const { data: accountList, isLoading: accountsLoading } = useQuery({
     queryKey: ['accounts'],
@@ -97,6 +109,18 @@ export default function CardsOverviewPage() {
   const { data: recurringList, isLoading: recurringLoading } = useQuery({
     queryKey: ['recurring'],
     queryFn: recurringApi.list,
+  })
+  const { data: categoryList } = useQuery({ queryKey: ['categories'], queryFn: categoriesApi.list })
+  const { data: categoryGroupList } = useQuery({ queryKey: ['categoryGroups'], queryFn: categoryGroupsApi.list })
+
+  const paymentMutation = useMutation({
+    mutationFn: transactionsApi.createTransfer,
+    onSuccess: () => {
+      invalidateFinancialQueries(queryClient)
+      setPaymentSnapshot(null)
+      toast.success('Pagamento de fatura registrado')
+    },
+    onError: (error: unknown) => toast.error(extractApiError(error)),
   })
 
   const cards = useMemo(() => (accountList ?? []).filter((account) =>
@@ -239,15 +263,15 @@ export default function CardsOverviewPage() {
                   const used = snapshot.amount ?? 0
                   const ratio = limit && limit > 0 ? Math.min(100, Math.max(0, used / limit * 100)) : null
                   return (
-                    <Link key={card.id} to={`/accounts/${card.id}`} className="group block px-5 py-5 transition-colors hover:bg-muted/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:px-6">
+                    <div key={card.id} className="group px-5 py-5 transition-colors hover:bg-muted/45 sm:px-6">
                       <div className="flex items-start gap-3">
                         <AccountIcon account={card} size="lg" />
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-                            <div className="min-w-0">
+                            <Link to={`/accounts/${card.id}`} className="min-w-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                               <h3 className="truncate text-sm font-semibold">{getAccountName(card)}</h3>
                               <p className="mt-0.5 text-xs text-muted-foreground">{dueLabel(snapshot, dateLocale)}</p>
-                            </div>
+                            </Link>
                             <div className="text-right">
                               <p className="font-semibold tabular-nums">{value}</p>
                               <Badge variant="secondary" className={snapshot.source === 'bank' ? 'mt-1 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : snapshot.source === 'estimate' ? 'mt-1 bg-amber-500/10 text-amber-700 dark:text-amber-300' : 'mt-1'}>
@@ -266,9 +290,33 @@ export default function CardsOverviewPage() {
                               </div>
                             </div>
                           )}
+                          {canWrite && (
+                            <div className="mt-4 flex flex-wrap gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 gap-1.5"
+                                onClick={() => {
+                                  createTransaction.resetForm({ account_id: card.id, type: 'debit', currency: card.currency })
+                                  setPurchaseCard(card)
+                                }}
+                              >
+                                <Plus size={14} /> Adicionar compra
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 gap-1.5"
+                                onClick={() => setPaymentSnapshot(snapshot)}
+                                disabled={!snapshot.amount || snapshot.amount <= 0}
+                              >
+                                <ReceiptText size={14} /> Pagar fatura
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       </div>
-                    </Link>
+                    </div>
                   )
                 })}
               </div>
@@ -310,6 +358,34 @@ export default function CardsOverviewPage() {
           </div>
         </>
       )}
+
+      <TransactionDialog
+        open={!!purchaseCard}
+        onClose={() => setPurchaseCard(null)}
+        transaction={null}
+        categories={categoryList ?? []}
+        categoryGroups={categoryGroupList ?? []}
+        accounts={accountList ?? []}
+        onSave={createTransaction.create}
+        loading={createTransaction.mutation.isPending}
+        error={null}
+        duplicateDraft={createTransaction.duplicateDraft}
+        formResetKey={createTransaction.formResetKey}
+        defaultAccountId={purchaseCard?.id}
+      />
+
+      <TransferDialog
+        open={!!paymentSnapshot}
+        onClose={() => setPaymentSnapshot(null)}
+        accounts={(accountList ?? []).filter((account) => !account.is_closed && (account.type !== 'credit_card' || account.id === paymentSnapshot?.account.id))}
+        onSave={(data) => paymentMutation.mutate(data)}
+        loading={paymentMutation.isPending}
+        defaultFromAccountId={(accountList ?? []).find((account) => !account.is_closed && account.type !== 'credit_card')?.id}
+        defaultToAccountId={paymentSnapshot?.account.id}
+        defaultAmount={paymentSnapshot?.amount ?? undefined}
+        defaultDescription={paymentSnapshot ? `Pagamento de fatura - ${getAccountName(paymentSnapshot.account)}` : undefined}
+        lockToAccount
+      />
     </div>
   )
 }

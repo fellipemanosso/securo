@@ -14,7 +14,8 @@ from app.schemas.recurring_transaction import (
     RecurringTransactionRead,
     RecurringTransactionUpdate,
 )
-from app.services import recurring_transaction_service
+from app.schemas.transaction import TransactionRead
+from app.services import recurring_transaction_service, transaction_service
 
 router = APIRouter(prefix="/api/recurring-transactions", tags=["recurring-transactions"])
 
@@ -70,6 +71,25 @@ async def delete_recurring_transaction(
     )
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recurring transaction not found")
+
+
+@router.post("/{recurring_id}/pay", response_model=TransactionRead)
+async def pay_recurring_transaction(
+    recurring_id: uuid.UUID,
+    ctx: WorkspaceContext = Depends(current_writable_workspace),
+    session: AsyncSession = Depends(get_async_session),
+):
+    try:
+        transaction = await recurring_transaction_service.mark_next_occurrence_paid(
+            session, recurring_id, ctx.workspace.id, ctx.user_id
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    if not transaction:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recurring transaction not found")
+    return await transaction_service.get_transaction(
+        session, transaction.id, ctx.workspace.id
+    )
 
 
 @router.post("/generate")
