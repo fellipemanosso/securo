@@ -60,6 +60,7 @@ export function billCycleFromKnownDates(
   nextCloseDate?: string | null,
   nextDueDate?: string | null,
 ): { start: string; end: string; dueDate: string } | null {
+  const knownBills = [...bills].sort((a, b) => b.due_date.localeCompare(a.due_date))
   const datedBills = bills
     .filter((bill): bill is KnownBillDate & { closing_date: string } => !!bill.closing_date)
     .sort((a, b) => b.due_date.localeCompare(a.due_date))
@@ -67,17 +68,21 @@ export function billCycleFromKnownDates(
   let close: Date | null = null
   let due: Date | null = null
 
-  if (nextCloseDate && nextDueDate && isSameMonth(parseISO(nextDueDate), month)) {
-    close = parseISO(nextCloseDate)
+  if (nextDueDate && isSameMonth(parseISO(nextDueDate), month)) {
     due = parseISO(nextDueDate)
+    // Some connectors publish only the next due date. Seven days is a
+    // conservative Brazilian-card fallback until a real close date arrives.
+    close = nextCloseDate ? parseISO(nextCloseDate) : addDays(due, -7)
   } else {
-    const reference = datedBills.find((bill) => parseISO(bill.due_date) < month)
+    const reference = knownBills.find((bill) => parseISO(bill.due_date) < month)
     if (!reference) return null
     const referenceDue = parseISO(reference.due_date)
     const monthDelta = differenceInCalendarMonths(month, referenceDue)
     if (monthDelta < 1) return null
-    close = addMonths(parseISO(reference.closing_date), monthDelta)
     due = addMonths(referenceDue, monthDelta)
+    close = reference.closing_date
+      ? addMonths(parseISO(reference.closing_date), monthDelta)
+      : addDays(due, -7)
   }
 
   const previousClose = datedBills

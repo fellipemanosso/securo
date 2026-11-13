@@ -55,8 +55,20 @@ describe('billCycleFromKnownDates', () => {
     })
   })
 
-  it('returns null when no closing date is known', () => {
-    expect(billCycleFromKnownDates(new Date(2026, 11, 1), [{ due_date: '2026-11-11', closing_date: null }])).toBeNull()
+  it('uses a seven-day closing fallback when only a previous due date is known', () => {
+    expect(billCycleFromKnownDates(new Date(2026, 11, 1), [{ due_date: '2026-11-11', closing_date: null }])).toEqual({
+      start: '2026-11-04',
+      end: '2026-12-03',
+      dueDate: '2026-12-11',
+    })
+  })
+
+  it('uses the provider next due date when its close date is missing', () => {
+    expect(billCycleFromKnownDates(new Date(2026, 11, 1), [], null, '2026-12-11')).toEqual({
+      start: '2026-11-04',
+      end: '2026-12-03',
+      dueDate: '2026-12-11',
+    })
   })
 })
 
