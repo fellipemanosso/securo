@@ -799,6 +799,45 @@ async def test_manual_bill_does_not_override_provider_bill(
 
 
 @pytest.mark.asyncio
+async def test_delete_manual_credit_card_bill(
+    client: AsyncClient, auth_headers, session: AsyncSession, test_user,
+):
+    cc = await _make_cc_account(session, test_user.id, "C6")
+    created = await client.post(
+        f"/api/accounts/{cc.id}/bills", headers=auth_headers,
+        json={
+            "closing_date": "2026-11-24", "due_date": "2026-12-01",
+            "total_amount": 11217.77, "status": "open",
+        },
+    )
+
+    response = await client.delete(
+        f"/api/accounts/{cc.id}/bills/{created.json()['id']}", headers=auth_headers,
+    )
+
+    assert response.status_code == 204
+    listed = await client.get(f"/api/accounts/{cc.id}/bills", headers=auth_headers)
+    assert listed.json() == []
+
+
+@pytest.mark.asyncio
+async def test_delete_provider_credit_card_bill_is_rejected(
+    client: AsyncClient, auth_headers, session: AsyncSession, test_user,
+):
+    cc = await _make_cc_account(session, test_user.id, "C6")
+    provider = await _make_bill(
+        session, test_user.id, cc.id,
+        external_id="pluggy-bill", due_date=_date(2026, 12, 1), total="11217.77",
+    )
+
+    response = await client.delete(
+        f"/api/accounts/{cc.id}/bills/{provider.id}", headers=auth_headers,
+    )
+
+    assert response.status_code == 400
+
+
+@pytest.mark.asyncio
 async def test_manual_bill_rejects_closing_on_or_after_due_date(
     client: AsyncClient, auth_headers, session: AsyncSession, test_user,
 ):

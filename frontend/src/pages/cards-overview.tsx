@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { addMonths, isBefore, isSameMonth, parseISO, startOfMonth } from 'date-fns'
-import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, CreditCard, Pencil, Plus, ReceiptText, Repeat2 } from 'lucide-react'
+import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, CreditCard, Pencil, Plus, ReceiptText, Repeat2, Trash2 } from 'lucide-react'
 import { accounts as accountsApi, categories as categoriesApi, categoryGroups as categoryGroupsApi, recurring as recurringApi, transactions as transactionsApi } from '@/lib/api'
 import { getAccountName } from '@/lib/account-utils'
 import { formatCurrency } from '@/lib/format'
@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { TransactionDialog } from '@/components/transaction-dialog'
 import { TransferDialog } from '@/components/transfer-dialog'
+import { DeleteConfirmationDialog } from '@/components/delete-confirmation-dialog'
 import { useCreateTransaction } from '@/hooks/use-create-transaction'
 import { invalidateFinancialQueries } from '@/lib/invalidate-queries'
 import { extractApiError } from '@/lib/api-errors'
@@ -132,6 +133,7 @@ export default function CardsOverviewPage() {
   const [purchaseCard, setPurchaseCard] = useState<Account | null>(null)
   const [paymentSnapshot, setPaymentSnapshot] = useState<CardSnapshot | null>(null)
   const [billSnapshot, setBillSnapshot] = useState<CardSnapshot | null>(null)
+  const [deleteBillSnapshot, setDeleteBillSnapshot] = useState<CardSnapshot | null>(null)
   const [billForm, setBillForm] = useState({ closing_date: '', due_date: '', total_amount: '', status: 'open' as 'open' | 'paid' })
   const createTransaction = useCreateTransaction({ onDone: () => setPurchaseCard(null) })
 
@@ -161,6 +163,15 @@ export default function CardsOverviewPage() {
       queryClient.invalidateQueries({ queryKey: ['accounts'] })
       setBillSnapshot(null)
       toast.success('Fatura ajustada')
+    },
+    onError: (error: unknown) => toast.error(extractApiError(error)),
+  })
+  const deleteBillMutation = useMutation({
+    mutationFn: ({ accountId, billId }: { accountId: string; billId: string }) => accountsApi.deleteBill(accountId, billId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['accounts'] })
+      setDeleteBillSnapshot(null)
+      toast.success('Ajuste manual removido')
     },
     onError: (error: unknown) => toast.error(extractApiError(error)),
   })
@@ -479,11 +490,37 @@ export default function CardsOverviewPage() {
             <div className="space-y-2"><Label htmlFor="bill-status">Situação</Label><select id="bill-status" className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm" value={billForm.status} onChange={(event) => setBillForm((value) => ({ ...value, status: event.target.value as 'open' | 'paid' }))}><option value="open">Aberta</option><option value="paid">Paga</option></select></div>
           </div>
           <DialogFooter>
+            {billSnapshot?.bill?.source === 'manual' && (
+              <Button
+                variant="ghost"
+                className="text-destructive hover:text-destructive sm:mr-auto"
+                onClick={() => {
+                  setDeleteBillSnapshot(billSnapshot)
+                  setBillSnapshot(null)
+                }}
+              >
+                <Trash2 size={14} /> Remover ajuste
+              </Button>
+            )}
             <Button variant="outline" onClick={() => setBillSnapshot(null)}>Cancelar</Button>
             <Button disabled={!billForm.closing_date || !billForm.due_date || !Number(billForm.total_amount) || billMutation.isPending} onClick={() => billSnapshot && billMutation.mutate({ accountId: billSnapshot.account.id, body: { ...billForm, total_amount: Number(billForm.total_amount) } })}>{billMutation.isPending ? 'Salvando…' : 'Salvar ajuste'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <DeleteConfirmationDialog
+        open={!!deleteBillSnapshot}
+        title="Remover ajuste manual?"
+        description="O valor informado manualmente será removido. A fatura passará a mostrar os dados da Pluggy ou a estimativa calculada pelas compras."
+        isPending={deleteBillMutation.isPending}
+        onClose={() => setDeleteBillSnapshot(null)}
+        onConfirm={() => {
+          const bill = deleteBillSnapshot?.bill
+          if (deleteBillSnapshot && bill?.source === 'manual') {
+            deleteBillMutation.mutate({ accountId: deleteBillSnapshot.account.id, billId: bill.id })
+          }
+        }}
+      />
     </div>
   )
 }

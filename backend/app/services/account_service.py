@@ -464,6 +464,37 @@ async def upsert_manual_credit_card_bill(
     return bill
 
 
+async def delete_manual_credit_card_bill(
+    session: AsyncSession,
+    account_id: uuid.UUID,
+    bill_id: uuid.UUID,
+    workspace_id: uuid.UUID,
+) -> bool | None:
+    """Delete one user-entered bill adjustment.
+
+    Returns ``None`` when the account or bill is not visible in the workspace,
+    and ``False`` when the bill came from the provider and must be preserved.
+    """
+    account = await get_account(session, account_id, workspace_id)
+    if account is None or account.type != "credit_card":
+        return None
+    result = await session.execute(
+        select(CreditCardBill).where(
+            CreditCardBill.id == bill_id,
+            CreditCardBill.account_id == account_id,
+            CreditCardBill.workspace_id == workspace_id,
+        )
+    )
+    bill = result.scalar_one_or_none()
+    if bill is None:
+        return None
+    if bill.source != "manual":
+        return False
+    await session.delete(bill)
+    await session.commit()
+    return True
+
+
 async def get_account(session: AsyncSession, account_id: uuid.UUID, workspace_id: uuid.UUID) -> Optional[Account]:
     result = await session.execute(
         select(Account)

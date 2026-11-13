@@ -212,6 +212,22 @@ async def create_manual_account_bill(
     return bill
 
 
+@router.delete("/{account_id}/bills/{bill_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_manual_account_bill(
+    account_id: uuid.UUID,
+    bill_id: uuid.UUID,
+    ctx: WorkspaceContext = Depends(current_writable_workspace),
+    session: AsyncSession = Depends(get_async_session),
+):
+    deleted = await account_service.delete_manual_credit_card_bill(
+        session, account_id, bill_id, ctx.workspace.id,
+    )
+    if deleted is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Manual bill adjustment not found")
+    if not deleted:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Provider bills cannot be deleted")
+
+
 @router.get("/{account_id}/loan-schedule", response_model=LoanScheduleRead)
 async def get_loan_schedule(
     account_id: uuid.UUID,

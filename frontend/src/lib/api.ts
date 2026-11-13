@@ -552,6 +552,9 @@ export const accounts = {
     const { data } = await api.post(`/accounts/${id}/bills`, body)
     return data
   },
+  deleteBill: async (accountId: string, billId: string): Promise<void> => {
+    await api.delete(`/accounts/${accountId}/bills/${billId}`)
+  },
   close: async (id: string): Promise<Account> => {
     const { data } = await api.post(`/accounts/${id}/close`)
     return data
