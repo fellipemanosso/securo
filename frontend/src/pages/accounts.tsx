@@ -24,7 +24,7 @@ import { DatePickerInput } from '@/components/ui/date-picker-input'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { Account, BankConnection, LoanAmortization, LoanRatePeriod } from '@/types'
-import { CreditCard, RefreshCw, TriangleAlert, Unlink, Settings } from 'lucide-react'
+import { RefreshCw, TriangleAlert, Unlink, Settings } from 'lucide-react'
 import { AccountIcon, ConnectionLogo } from '@/components/account-icon'
 import { getAccountTypeConfig } from '@/lib/account-type-config'
 import { AccountPageActions } from '@/components/account-page-actions'
@@ -54,14 +54,6 @@ const ACCOUNT_TYPE_OPTIONS = [
   { value: 'investment', labelKey: 'accounts.typeInvestment' },
   { value: 'wallet', labelKey: 'accounts.typeWallet' },
 ] as const
-
-function daysUntil(dateStr: string | null): number | null {
-  if (!dateStr) return null
-  const due = new Date(dateStr + 'T00:00:00')
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  return Math.round((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-}
 
 export default function AccountsPage() {
   const { t } = useTranslation()
@@ -238,8 +230,9 @@ export default function AccountsPage() {
   })
 
   const isLoading = accountsLoading || connectionsLoading
-  const manualAccounts = accountsList?.filter((a) => a.connection_id === null && inActiveCollection(a)) ?? []
-  const bankAccounts = accountsList?.filter((a) => a.connection_id !== null && inActiveCollection(a)) ?? []
+  // Credit cards live on their own page (/cards) and sidebar menu.
+  const manualAccounts = accountsList?.filter((a) => a.connection_id === null && a.type !== 'credit_card' && inActiveCollection(a)) ?? []
+  const bankAccounts = accountsList?.filter((a) => a.connection_id !== null && a.type !== 'credit_card' && inActiveCollection(a)) ?? []
 
   return (
     <div className="space-y-6">
@@ -248,9 +241,6 @@ export default function AccountsPage() {
         title={t('accounts.title')}
         action={
           <div className="flex items-center gap-2">
-            <Button asChild variant="outline" size="sm" className="hidden sm:inline-flex">
-              <Link to="/cards"><CreditCard size={15} /> Visão dos cartões</Link>
-            </Button>
             <PageRefreshButton
               onRefresh={() => queryClient.refetchQueries({ type: 'active' })}
               refreshing={accountsFetching}
@@ -264,10 +254,6 @@ export default function AccountsPage() {
           </div>
         }
       />
-
-      <Button asChild variant="outline" className="w-full sm:hidden">
-        <Link to="/cards"><CreditCard size={16} /> Visão consolidada dos cartões</Link>
-      </Button>
 
       {isLoading ? (
         <div className="space-y-3">
@@ -285,14 +271,6 @@ export default function AccountsPage() {
                 {manualAccounts.map((acc) => {
                   const cfg = getAccountTypeConfig(acc.type)
                   const bal = Number(acc.current_balance)
-                  const isCC = acc.type === 'credit_card'
-                  const dueIn = isCC ? daysUntil(acc.next_due_date) : null
-                  const dueText =
-                    dueIn == null ? null
-                      : dueIn < 0 ? t('accounts.overdue')
-                      : dueIn === 0 ? t('accounts.dueToday')
-                      : t('accounts.dueIn', { count: dueIn })
-                  const dueClass = dueIn != null && dueIn <= 3 ? 'text-amber-600' : 'text-muted-foreground'
                   const accountMask = formatAccountMask(acc)
                   return (
                     <div key={acc.id} className="group flex items-center px-5 py-3 hover:bg-muted/50 transition-colors">
@@ -304,19 +282,14 @@ export default function AccountsPage() {
                             {t(cfg.label)}
                             {accountMask && <> · <span className="tabular-nums">{accountMask}</span></>}
                             {acc.shared_balance_group && <> · <span>{t('accounts.sharedCreditBalance')}</span></>}
-                            {dueText && <> · <span className={dueClass}>{dueText}</span></>}
                           </p>
                         </div>
                       </Link>
                       <div className="shrink-0 text-right">
-                        <p className={`text-xs sm:text-sm font-semibold tabular-nums ${(acc.type === 'credit_card' ? bal > 0 : bal < 0) ? 'text-rose-500' : 'text-foreground'}`}>
+                        <p className={`text-xs sm:text-sm font-semibold tabular-nums ${bal < 0 ? 'text-rose-500' : 'text-foreground'}`}>
                           {mask(formatCurrency(bal, acc.currency, locale))}
                         </p>
-                        {isCC && acc.available_credit != null ? (
-                          <p className="text-[10px] text-muted-foreground tabular-nums">
-                            {t('accounts.availableCredit')}: {mask(formatCurrency(Number(acc.available_credit), acc.currency, locale))}
-                          </p>
-                        ) : acc.balance_primary != null && acc.currency !== userCurrency && (
+                        {acc.balance_primary != null && acc.currency !== userCurrency && (
                           <p className="text-[10px] text-muted-foreground tabular-nums">
                             {mask(formatCurrency(acc.balance_primary, userCurrency, locale))}
                           </p>
@@ -452,14 +425,6 @@ export default function AccountsPage() {
                         {connAccounts.map((acc) => {
                           const cfg = getAccountTypeConfig(acc.type)
                           const bal = Number(acc.current_balance)
-                          const isCC = acc.type === 'credit_card'
-                          const dueIn = isCC ? daysUntil(acc.next_due_date) : null
-                          const dueText =
-                            dueIn == null ? null
-                              : dueIn < 0 ? t('accounts.overdue')
-                              : dueIn === 0 ? t('accounts.dueToday')
-                              : t('accounts.dueIn', { count: dueIn })
-                          const dueClass = dueIn != null && dueIn <= 3 ? 'text-amber-600' : 'text-muted-foreground'
                           const accountMask = formatAccountMask(acc)
                           return (
                             <div key={acc.id} className="group flex items-center px-5 py-3 hover:bg-muted/50 transition-colors">
@@ -471,19 +436,14 @@ export default function AccountsPage() {
                                     {t(cfg.label)}
                                     {accountMask && <> · <span className="tabular-nums">{accountMask}</span></>}
                                     {acc.shared_balance_group && <> · <span>{t('accounts.sharedCreditBalance')}</span></>}
-                                    {dueText && <> · <span className={dueClass}>{dueText}</span></>}
                                   </p>
                                 </div>
                               </Link>
                               <div className="shrink-0 text-right">
-                                <p className={`text-xs sm:text-sm font-semibold tabular-nums ${(acc.type === 'credit_card' ? bal > 0 : bal < 0) ? 'text-rose-500' : 'text-foreground'}`}>
+                                <p className={`text-xs sm:text-sm font-semibold tabular-nums ${bal < 0 ? 'text-rose-500' : 'text-foreground'}`}>
                                   {mask(formatCurrency(bal, acc.currency, locale))}
                                 </p>
-                                {isCC && acc.available_credit != null ? (
-                                  <p className="text-[10px] text-muted-foreground tabular-nums">
-                                    {t('accounts.availableCredit')}: {mask(formatCurrency(Number(acc.available_credit), acc.currency, locale))}
-                                  </p>
-                                ) : acc.balance_primary != null && acc.currency !== userCurrency && (
+                                {acc.balance_primary != null && acc.currency !== userCurrency && (
                                   <p className="text-[10px] text-muted-foreground tabular-nums">
                                     {mask(formatCurrency(acc.balance_primary, userCurrency, locale))}
                                   </p>

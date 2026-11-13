@@ -112,6 +112,7 @@
     "transactions": "Transactions",
     "invoices": "Invoices",
     "accounts": "Accounts",
+    "cards": "Cards",
     "collections": "Collections",
     "import": "Import",
     "rules": "Rules",

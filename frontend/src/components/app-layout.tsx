@@ -72,6 +72,7 @@ import { setThemeBasedOnSystem } from '@/lib/theme-utils'
 import { nextTheme, THEME_LABEL_KEY } from '@/lib/theme-cycle'
 import { useLocalAuthEnabled } from '@/hooks/use-local-auth'
 import { formatCurrency } from '@/lib/format'
+import type { Account } from '@/types'
 
 const QuickAddTransaction = lazy(() => import('@/components/quick-add-transaction'))
 
@@ -96,20 +97,111 @@ function NavSkeleton() {
   )
 }
 
+/**
+ * One collapsible sidebar block of accounts with its own total. Accounts and
+ * credit cards each render one, so they never share a heading or a total.
+ */
+function SidebarAccountGroup({
+  title,
+  accounts,
+  userCurrency,
+  collapsedClass,
+  onNavigate,
+}: {
+  title: string
+  accounts: Account[]
+  userCurrency: string
+  collapsedClass: string
+  onNavigate: () => void
+}) {
+  const { t } = useTranslation()
+  const locale = useDisplayLocale()
+  const { mask } = usePrivacyMode()
+  const [expanded, setExpanded] = useState(true)
+  const [showAll, setShowAll] = useState(false)
+  if (accounts.length === 0) return null
+  const total = sumAccountsTotal(accounts)
+
+  return (
+    <div className={cn('px-3 pb-2 mt-2', collapsedClass)}>
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center justify-between w-full px-3 py-2 hover:text-sidebar-foreground transition-colors"
+      >
+        <span className="text-[11px] uppercase tracking-[0.12em] font-semibold text-sidebar-muted">
+          {title}
+        </span>
+        <div className="flex items-center gap-2">
+          <span
+            className={`tabular-nums font-medium text-xs ${total < 0 ? 'text-rose-400' : 'text-sidebar-muted'}`}
+          >
+            {mask(formatCurrency(total, userCurrency, locale))}
+          </span>
+          <ChevronRight
+            size={12}
+            className={cn('text-sidebar-muted transition-transform', expanded && 'rotate-90')}
+          />
+        </div>
+      </button>
+      {expanded && (
+        <div className="mt-1 space-y-0.5">
+          {sortAccountsByAbsoluteBalance(accounts, (a) => sidebarAccountBalance(a).amount).slice(0, showAll ? accounts.length : 3).map((acc) => {
+            const { amount: balance, isPrimary: balanceIsPrimary } = sidebarAccountBalance(acc)
+            const balanceCurrency = balanceIsPrimary ? userCurrency : acc.currency
+            const typeKey = acc.type.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase()).replace(/^./, c => c.toUpperCase())
+
+            return (
+              <Link
+                key={acc.id}
+                to={`/accounts/${acc.id}`}
+                onClick={onNavigate}
+                className="flex items-center justify-between px-3 py-1.5 rounded-lg text-xs text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground transition-all"
+              >
+                <div className="truncate min-w-0">
+                  <span className="block truncate font-medium">{getAccountName(acc)}</span>
+                  <span className="block text-[10px] text-sidebar-muted/60">
+                    {t(`accounts.type${typeKey}`)}
+                    {acc.shared_balance_group && ` · ${t('accounts.sharedCreditBalance')}`}
+                  </span>
+                </div>
+                <div className="text-right shrink-0 ml-2">
+                  <span className={`block tabular-nums font-medium text-xs ${balance < 0 ? 'text-rose-400' : 'text-sidebar-foreground'}`}>
+                    {mask(formatCurrency(balance, balanceCurrency, locale))}
+                  </span>
+                </div>
+              </Link>
+            )
+          })}
+          {accounts.length > 3 && (
+            <button
+              onClick={() => setShowAll(!showAll)}
+              className="w-full px-3 py-1.5 text-[11px] font-medium text-sidebar-muted/70 hover:text-sidebar-foreground transition-colors text-center"
+            >
+              {showAll
+                ? t('common.showLess', { defaultValue: 'Show less' })
+                : t('common.showMore', {
+                    count: accounts.length - 3,
+                    defaultValue: `+${accounts.length - 3} more`,
+                  })}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function AppLayout() {
   const { t } = useTranslation()
   const { user, logout, updateUser } = useAuth()
   const { activeAccountIds } = useCollectionFilter()
   const userCurrency = user?.preferences?.currency_display ?? 'USD'
-  const locale = useDisplayLocale()
   const { theme, setTheme, resolvedTheme } = useTheme()
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [quickAddOpen, setQuickAddOpen] = useState(false)
   const { collapsed: desktopSidebarCollapsed, toggleCollapsed: toggleDesktopSidebar } = useSidebarState()
-  const [accountsExpanded, setAccountsExpanded] = useState(true)
-  const [accountsShowAll, setAccountsShowAll] = useState(false)
-  const { privacyMode, togglePrivacyMode, mask } = usePrivacyMode()
+  const { privacyMode, togglePrivacyMode } = usePrivacyMode()
   const [changePasswordOpen, setChangePasswordOpen] = useState(false)
   const [twoFactorOpen, setTwoFactorOpen] = useState(false)
   const [passkeysOpen, setPasskeysOpen] = useState(false)
@@ -197,12 +289,13 @@ export function AppLayout() {
   })
 
   const allAccounts = sidebarAccounts(accountsList ?? [])
-  // When a collection is active, the sidebar list + total reflect only its
+  // When a collection is active, the sidebar lists reflect only its
   // accounts (issue #105). null = all accounts.
   const visibleAccounts = activeAccountIds
     ? allAccounts.filter((a) => activeAccountIds.includes(a.id))
     : allAccounts
-  const totalBalance = sumAccountsTotal(visibleAccounts)
+  const visibleCards = visibleAccounts.filter((a) => a.type === 'credit_card')
+  const visibleNonCards = visibleAccounts.filter((a) => a.type !== 'credit_card')
   const versionA11yLabel = t('app.versionAriaLabel', { version: APP_VERSION })
 
   return (
@@ -487,77 +580,21 @@ export function AppLayout() {
             })}
           </nav>
 
-          {/* Account list in sidebar */}
-          {allAccounts.length > 0 && (
-            <div className={cn('px-3 pb-2 mt-2', desktopSidebarCollapsed && 'lg:hidden')}>
-              <button
-                onClick={() => setAccountsExpanded(!accountsExpanded)}
-                className="flex items-center justify-between w-full px-3 py-2 hover:text-sidebar-foreground transition-colors"
-              >
-                <span className="text-[11px] uppercase tracking-[0.12em] font-semibold text-sidebar-muted">
-                  {t('accounts.title')}
-                </span>
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`tabular-nums font-medium text-xs ${totalBalance < 0 ? 'text-rose-400' : 'text-sidebar-muted'}`}
-                  >
-                    {mask(formatCurrency(totalBalance, userCurrency, locale))}
-                  </span>
-                  <ChevronRight
-                    size={12}
-                    className={cn(
-                      'text-sidebar-muted transition-transform',
-                      accountsExpanded && 'rotate-90',
-                    )}
-                  />
-                </div>
-              </button>
-              {accountsExpanded && (
-                <div className="mt-1 space-y-0.5">
-                  {sortAccountsByAbsoluteBalance(visibleAccounts, (a) => sidebarAccountBalance(a).amount).slice(0, accountsShowAll ? visibleAccounts.length : 3).map((acc) => {
-                    const { amount: balance, isPrimary: balanceIsPrimary } = sidebarAccountBalance(acc)
-                    const balanceCurrency = balanceIsPrimary ? userCurrency : acc.currency
-                    const typeKey = acc.type.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase()).replace(/^./, c => c.toUpperCase())
-
-                    return (
-                      <Link
-                        key={acc.id}
-                        to={`/accounts/${acc.id}`}
-                        onClick={() => setSidebarOpen(false)}
-                        className="flex items-center justify-between px-3 py-1.5 rounded-lg text-xs text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground transition-all"
-                      >
-                        <div className="truncate min-w-0">
-                          <span className="block truncate font-medium">{getAccountName(acc)}</span>
-                          <span className="block text-[10px] text-sidebar-muted/60">
-                            {t(`accounts.type${typeKey}`)}
-                            {acc.shared_balance_group && ` · ${t('accounts.sharedCreditBalance')}`}
-                          </span>
-                        </div>
-                        <div className="text-right shrink-0 ml-2">
-                          <span className={`block tabular-nums font-medium text-xs ${balance < 0 ? 'text-rose-400' : 'text-sidebar-foreground'}`}>
-                            {mask(formatCurrency(balance, balanceCurrency, locale))}
-                          </span>
-                        </div>
-                      </Link>
-                    )
-                  })}
-                  {visibleAccounts.length > 3 && (
-                    <button
-                      onClick={() => setAccountsShowAll(!accountsShowAll)}
-                      className="w-full px-3 py-1.5 text-[11px] font-medium text-sidebar-muted/70 hover:text-sidebar-foreground transition-colors text-center"
-                    >
-                      {accountsShowAll
-                        ? t('common.showLess', { defaultValue: 'Show less' })
-                        : t('common.showMore', {
-                            count: visibleAccounts.length - 3,
-                            defaultValue: `+${visibleAccounts.length - 3} more`,
-                          })}
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
+          {/* Accounts and credit cards: separate blocks, headings and totals */}
+          <SidebarAccountGroup
+            title={t('accounts.title')}
+            accounts={visibleNonCards}
+            userCurrency={userCurrency}
+            collapsedClass={desktopSidebarCollapsed ? 'lg:hidden' : ''}
+            onNavigate={() => setSidebarOpen(false)}
+          />
+          <SidebarAccountGroup
+            title={t('nav.cards')}
+            accounts={visibleCards}
+            userCurrency={userCurrency}
+            collapsedClass={desktopSidebarCollapsed ? 'lg:hidden' : ''}
+            onNavigate={() => setSidebarOpen(false)}
+          />
           </div>
 
           <div className={cn(desktopSidebarCollapsed && 'lg:hidden')}>

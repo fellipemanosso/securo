@@ -39,13 +39,22 @@ describe('nav catalog', () => {
   })
 
   it('has a link for every module in the catalog', () => {
-    const covered = navItems.filter((i) => i.type === 'link').map((i) => i.module)
+    const covered = new Set(navItems.filter((i) => i.type === 'link').map((i) => i.module))
     expect([...covered].sort()).toEqual([...MODULE_IDS].sort())
   })
 
-  it('gives every link a distinct module', () => {
-    const covered = navItems.filter((i) => i.type === 'link').map((i) => i.module)
-    expect(new Set(covered).size).toBe(covered.length)
+  it('gives every link a distinct key and path', () => {
+    const links = navItems.filter((i) => i.type === 'link')
+    expect(new Set(links.map((i) => i.key)).size).toBe(links.length)
+    expect(new Set(links.map((i) => i.path)).size).toBe(links.length)
+  })
+
+  it('keeps accounts and cards as separate destinations under the accounts module', () => {
+    const byKey = Object.fromEntries(
+      navItems.filter((i) => i.type === 'link').map((i) => [i.key, i]),
+    )
+    expect(byKey.accounts).toMatchObject({ path: '/accounts', module: 'accounts' })
+    expect(byKey.cards).toMatchObject({ path: '/cards', module: 'accounts' })
   })
 })
 
@@ -55,6 +64,7 @@ describe('visibleNavItems', () => {
     expect(linkKeys(personal)).toEqual([
       'transactions',
       'accounts',
+      'cards',
       'import',
       'reports',
       'assets',
