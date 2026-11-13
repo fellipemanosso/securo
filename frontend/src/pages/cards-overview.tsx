@@ -23,7 +23,7 @@ import { TransferDialog } from '@/components/transfer-dialog'
 import { useCreateTransaction } from '@/hooks/use-create-transaction'
 import { invalidateFinancialQueries } from '@/lib/invalidate-queries'
 import { extractApiError } from '@/lib/api-errors'
-import { billCycleForMonth } from '@/lib/credit-card-cycle'
+import { billCycleForMonth, billCycleFromKnownDates } from '@/lib/credit-card-cycle'
 import { toast } from 'sonner'
 import type { Account, AccountSummary, CreditCardBill, RecurringTransaction } from '@/types'
 
@@ -194,6 +194,7 @@ export default function CardsOverviewPage() {
     const hasOfficialValue = bills.some((bill) => isSameMonth(parseISO(bill.due_date), month))
     if (hasOfficialValue || isBefore(month, currentMonth)) return null
     return billCycleForMonth(month, card.statement_close_day, card.payment_due_day)
+      ?? billCycleFromKnownDates(month, bills, card.next_close_date, card.next_due_date)
   }), [cards, billQueries, month, currentMonth])
 
   const estimateQueries = useQueries({

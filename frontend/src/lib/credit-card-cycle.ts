@@ -1,4 +1,4 @@
-import { addDays, format, parseISO } from 'date-fns'
+import { addDays, addMonths, differenceInCalendarMonths, format, isSameMonth, parseISO } from 'date-fns'
 
 function daysInMonth(year: number, month: number): number {
   return new Date(year, month + 1, 0).getDate()
@@ -33,6 +33,57 @@ export function billCycleForMonth(
   const previousMonth = close.getMonth() === 0 ? 11 : close.getMonth() - 1
   const previousYear = close.getMonth() === 0 ? close.getFullYear() - 1 : close.getFullYear()
   const previousClose = dateInMonth(previousYear, previousMonth, closeDay)
+
+  return {
+    start: format(previousClose, 'yyyy-MM-dd'),
+    end: format(addDays(close, -1), 'yyyy-MM-dd'),
+    dueDate: format(due, 'yyyy-MM-dd'),
+  }
+}
+
+type KnownBillDate = {
+  due_date: string
+  closing_date: string | null
+}
+
+/** Infer a missing open cycle from dates the bank has already supplied.
+ *
+ * Some Pluggy accounts expose bill dates but leave the account-level close
+ * and due days empty. Prefer the provider's explicit next dates when they
+ * match the selected month; otherwise project the latest known cycle by whole
+ * months. The result remains an estimate and is replaced as soon as /bills
+ * publishes the official statement.
+ */
+export function billCycleFromKnownDates(
+  month: Date,
+  bills: KnownBillDate[],
+  nextCloseDate?: string | null,
+  nextDueDate?: string | null,
+): { start: string; end: string; dueDate: string } | null {
+  const datedBills = bills
+    .filter((bill): bill is KnownBillDate & { closing_date: string } => !!bill.closing_date)
+    .sort((a, b) => b.due_date.localeCompare(a.due_date))
+
+  let close: Date | null = null
+  let due: Date | null = null
+
+  if (nextCloseDate && nextDueDate && isSameMonth(parseISO(nextDueDate), month)) {
+    close = parseISO(nextCloseDate)
+    due = parseISO(nextDueDate)
+  } else {
+    const reference = datedBills.find((bill) => parseISO(bill.due_date) < month)
+    if (!reference) return null
+    const referenceDue = parseISO(reference.due_date)
+    const monthDelta = differenceInCalendarMonths(month, referenceDue)
+    if (monthDelta < 1) return null
+    close = addMonths(parseISO(reference.closing_date), monthDelta)
+    due = addMonths(referenceDue, monthDelta)
+  }
+
+  const previousClose = datedBills
+    .map((bill) => parseISO(bill.closing_date))
+    .filter((candidate) => candidate < close)
+    .sort((a, b) => b.getTime() - a.getTime())[0] ?? addMonths(close, -1)
 
   return {
     start: format(previousClose, 'yyyy-MM-dd'),

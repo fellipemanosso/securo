@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { billCycleForMonth, closeDateForBill, isOpenCycleWindow } from './credit-card-cycle'
+import { billCycleForMonth, billCycleFromKnownDates, closeDateForBill, isOpenCycleWindow } from './credit-card-cycle'
 
 describe('billCycleForMonth', () => {
   it('builds the purchase window for a bill due after its close day', () => {
@@ -30,6 +30,33 @@ describe('billCycleForMonth', () => {
   it('cannot estimate a cycle without both configured days', () => {
     expect(billCycleForMonth(new Date(2026, 11, 1), null, 1)).toBeNull()
     expect(billCycleForMonth(new Date(2026, 11, 1), 24, null)).toBeNull()
+  })
+})
+
+describe('billCycleFromKnownDates', () => {
+  const bills = [
+    { due_date: '2026-11-11', closing_date: '2026-11-05' },
+    { due_date: '2026-10-13', closing_date: '2026-10-05' },
+  ]
+
+  it('uses explicit next dates from the provider when available', () => {
+    expect(billCycleFromKnownDates(new Date(2026, 11, 1), bills, '2026-12-05', '2026-12-11')).toEqual({
+      start: '2026-11-05',
+      end: '2026-12-04',
+      dueDate: '2026-12-11',
+    })
+  })
+
+  it('projects the newest known bank cycle when account-level dates are missing', () => {
+    expect(billCycleFromKnownDates(new Date(2026, 11, 1), bills)).toEqual({
+      start: '2026-11-05',
+      end: '2026-12-04',
+      dueDate: '2026-12-11',
+    })
+  })
+
+  it('returns null when no closing date is known', () => {
+    expect(billCycleFromKnownDates(new Date(2026, 11, 1), [{ due_date: '2026-11-11', closing_date: null }])).toBeNull()
   })
 })
 
