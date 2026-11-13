@@ -1,4 +1,45 @@
-import { format, parseISO } from 'date-fns'
+import { addDays, format, parseISO } from 'date-fns'
+
+function daysInMonth(year: number, month: number): number {
+  return new Date(year, month + 1, 0).getDate()
+}
+
+function dateInMonth(year: number, month: number, day: number): Date {
+  return new Date(year, month, Math.min(day, daysInMonth(year, month)))
+}
+
+/** Build the purchase window for the bill due in `month`.
+ *
+ * Brazilian cards assign a purchase made on the closing day to the next
+ * statement, so a cycle is [previous closing day, current closing day - 1].
+ * This is the local fallback used while the provider has not published an
+ * official bill yet.
+ */
+export function billCycleForMonth(
+  month: Date,
+  closeDay: number | null | undefined,
+  dueDay: number | null | undefined,
+): { start: string; end: string; dueDate: string } | null {
+  if (!closeDay || !dueDay) return null
+
+  const year = month.getFullYear()
+  const monthIndex = month.getMonth()
+  const due = dateInMonth(year, monthIndex, dueDay)
+  const closeInDueMonth = dateInMonth(year, monthIndex, closeDay)
+  const close = closeInDueMonth <= due
+    ? closeInDueMonth
+    : dateInMonth(monthIndex === 0 ? year - 1 : year, monthIndex === 0 ? 11 : monthIndex - 1, closeDay)
+
+  const previousMonth = close.getMonth() === 0 ? 11 : close.getMonth() - 1
+  const previousYear = close.getMonth() === 0 ? close.getFullYear() - 1 : close.getFullYear()
+  const previousClose = dateInMonth(previousYear, previousMonth, closeDay)
+
+  return {
+    start: format(previousClose, 'yyyy-MM-dd'),
+    end: format(addDays(close, -1), 'yyyy-MM-dd'),
+    dueDate: format(due, 'yyyy-MM-dd'),
+  }
+}
 
 /** Derive a bill's cycle close date from the account's statement_close_day.
  * Pluggy doesn't expose the close date directly, but it's recoverable: the

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
-import { addMonths, isSameMonth, parseISO, startOfMonth } from 'date-fns'
+import { addMonths, isBefore, isSameMonth, parseISO, startOfMonth } from 'date-fns'
 import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, CreditCard, Pencil, Plus, ReceiptText, Repeat2 } from 'lucide-react'
 import { accounts as accountsApi, categories as categoriesApi, categoryGroups as categoryGroupsApi, recurring as recurringApi, transactions as transactionsApi } from '@/lib/api'
 import { getAccountName } from '@/lib/account-utils'
@@ -23,15 +23,22 @@ import { TransferDialog } from '@/components/transfer-dialog'
 import { useCreateTransaction } from '@/hooks/use-create-transaction'
 import { invalidateFinancialQueries } from '@/lib/invalidate-queries'
 import { extractApiError } from '@/lib/api-errors'
+import { billCycleForMonth } from '@/lib/credit-card-cycle'
 import { toast } from 'sonner'
-import type { Account, CreditCardBill, RecurringTransaction } from '@/types'
+import type { Account, AccountSummary, CreditCardBill, RecurringTransaction } from '@/types'
 
 type CardSnapshot = {
   account: Account
   amount: number | null
   amountPrimary: number | null
   bill: CreditCardBill | null
+  dueDate: string | null
   source: 'bank' | 'manual' | 'estimate' | 'unavailable'
+}
+
+type CycleEstimate = {
+  summary?: AccountSummary
+  dueDate?: string
 }
 
 const MONTHLY_FACTOR: Record<RecurringTransaction['frequency'], number> = {
@@ -52,7 +59,14 @@ function amountInPrimary(account: Account, amount: number | null, primaryCurrenc
   return null
 }
 
-function snapshotForMonth(account: Account, bills: CreditCardBill[], month: Date, currentMonth: Date, primaryCurrency: string): CardSnapshot {
+function snapshotForMonth(
+  account: Account,
+  bills: CreditCardBill[],
+  month: Date,
+  currentMonth: Date,
+  primaryCurrency: string,
+  estimate?: CycleEstimate,
+): CardSnapshot {
   const matchingBills = bills
     .filter((bill) => isSameMonth(parseISO(bill.due_date), month))
     .sort((a, b) => Number(b.source === 'bank') - Number(a.source === 'bank') || b.due_date.localeCompare(a.due_date))
@@ -64,7 +78,20 @@ function snapshotForMonth(account: Account, bills: CreditCardBill[], month: Date
       amount: Number(bill.total_amount),
       amountPrimary: amountInPrimary(account, Number(bill.total_amount), primaryCurrency),
       bill,
+      dueDate: bill.due_date,
       source: bill.source,
+    }
+  }
+
+  if (!isBefore(month, currentMonth) && estimate?.summary) {
+    const amount = Number(estimate.summary.projected_expenses ?? estimate.summary.monthly_expenses ?? 0)
+    return {
+      account,
+      amount,
+      amountPrimary: estimate.summary.projected_expenses_primary ?? estimate.summary.monthly_expenses_primary ?? amountInPrimary(account, amount, primaryCurrency),
+      bill: null,
+      dueDate: estimate.dueDate ?? account.next_due_date,
+      source: 'estimate',
     }
   }
 
@@ -77,15 +104,16 @@ function snapshotForMonth(account: Account, bills: CreditCardBill[], month: Date
       amount,
       amountPrimary: account.open_bill_total_primary ?? account.balance_primary ?? null,
       bill: null,
+      dueDate: account.next_due_date,
       source: 'estimate',
     }
   }
 
-  return { account, amount: null, amountPrimary: null, bill: null, source: 'unavailable' }
+  return { account, amount: null, amountPrimary: null, bill: null, dueDate: account.next_due_date, source: 'unavailable' }
 }
 
 function dueLabel(snapshot: CardSnapshot, locale: string) {
-  const dueDate = snapshot.bill?.due_date ?? snapshot.account.next_due_date
+  const dueDate = snapshot.dueDate
   if (!dueDate) return 'Vencimento não informado'
   return `Vence em ${new Intl.DateTimeFormat(locale, { day: '2-digit', month: 'short' }).format(parseISO(dueDate))}`
 }
@@ -161,9 +189,32 @@ export default function CardsOverviewPage() {
     })),
   })
 
+  const estimateCycles = useMemo(() => cards.map((card, index) => {
+    const bills = billQueries[index]?.data ?? []
+    const hasOfficialValue = bills.some((bill) => isSameMonth(parseISO(bill.due_date), month))
+    if (hasOfficialValue || isBefore(month, currentMonth)) return null
+    return billCycleForMonth(month, card.statement_close_day, card.payment_due_day)
+  }), [cards, billQueries, month, currentMonth])
+
+  const estimateQueries = useQueries({
+    queries: cards.map((card, index) => {
+      const cycle = estimateCycles[index]
+      const hasPreviousBills = (billQueries[index]?.data?.length ?? 0) > 0
+      return {
+        queryKey: ['accounts', card.id, 'summary', cycle?.start, cycle?.end, { unbilled_only: hasPreviousBills, card_overview_estimate: true }],
+        queryFn: () => accountsApi.summary(card.id, cycle!.start, cycle!.end, undefined, hasPreviousBills || undefined),
+        enabled: !!cycle,
+        staleTime: 1000 * 60 * 5,
+      }
+    }),
+  })
+
   const snapshots = useMemo(() => cards.map((card, index) =>
-    snapshotForMonth(card, billQueries[index]?.data ?? [], month, currentMonth, primaryCurrency),
-  ), [cards, billQueries, month, currentMonth, primaryCurrency])
+    snapshotForMonth(card, billQueries[index]?.data ?? [], month, currentMonth, primaryCurrency, {
+      summary: estimateQueries[index]?.data,
+      dueDate: estimateCycles[index]?.dueDate,
+    }),
+  ), [cards, billQueries, estimateCycles, estimateQueries, month, currentMonth, primaryCurrency])
 
   const cardIds = useMemo(() => new Set(cards.map((card) => card.id)), [cards])
   const cardRecurring = useMemo(() => (recurringList ?? [])
@@ -189,7 +240,7 @@ export default function CardsOverviewPage() {
     return total
   }, 0)
   const missingConversions = snapshots.some((item) => item.amount != null && item.account.currency !== primaryCurrency && item.amountPrimary == null)
-  const isLoading = accountsLoading || recurringLoading || billQueries.some((query) => query.isLoading)
+  const isLoading = accountsLoading || recurringLoading || billQueries.some((query) => query.isLoading) || estimateQueries.some((query) => query.isLoading)
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 pb-10">
@@ -275,7 +326,7 @@ export default function CardsOverviewPage() {
               <div className="flex items-center justify-between border-b border-border px-5 py-4 sm:px-6">
                 <div>
                   <h2 className="font-semibold">Faturas por cartão</h2>
-                  <p className="mt-0.5 text-xs text-muted-foreground">Valores recebidos do banco têm prioridade sobre estimativas.</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">Banco primeiro; enquanto a fatura não chega, usamos as compras do ciclo.</p>
                 </div>
                 <span className="text-xs text-muted-foreground tabular-nums">{cards.length} {cards.length === 1 ? 'cartão' : 'cartões'}</span>
               </div>
@@ -299,7 +350,7 @@ export default function CardsOverviewPage() {
                             <div className="text-right">
                               <p className="font-semibold tabular-nums">{value}</p>
                               <Badge variant="secondary" className={snapshot.source === 'bank' ? 'mt-1 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : snapshot.source === 'manual' ? 'mt-1 bg-blue-500/10 text-blue-700 dark:text-blue-300' : snapshot.source === 'estimate' ? 'mt-1 bg-amber-500/10 text-amber-700 dark:text-amber-300' : 'mt-1'}>
-                                {snapshot.source === 'bank' ? 'Informado pelo banco' : snapshot.source === 'manual' ? `Ajuste manual · ${snapshot.bill?.status === 'paid' ? 'Paga' : 'Aberta'}` : snapshot.source === 'estimate' ? 'Estimativa do Securo' : 'Aguardando dados'}
+                                {snapshot.source === 'bank' ? 'Informado pelo banco' : snapshot.source === 'manual' ? `Ajuste manual · ${snapshot.bill?.status === 'paid' ? 'Paga' : 'Aberta'}` : snapshot.source === 'estimate' ? 'Estimativa pelas compras' : 'Aguardando dados'}
                               </Badge>
                             </div>
                           </div>

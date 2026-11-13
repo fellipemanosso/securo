@@ -1,6 +1,37 @@
 import { describe, expect, it } from 'vitest'
 
-import { closeDateForBill, isOpenCycleWindow } from './credit-card-cycle'
+import { billCycleForMonth, closeDateForBill, isOpenCycleWindow } from './credit-card-cycle'
+
+describe('billCycleForMonth', () => {
+  it('builds the purchase window for a bill due after its close day', () => {
+    expect(billCycleForMonth(new Date(2026, 11, 1), 24, 1)).toEqual({
+      start: '2026-10-24',
+      end: '2026-11-23',
+      dueDate: '2026-12-01',
+    })
+  })
+
+  it('keeps close and due in the same month when close comes first', () => {
+    expect(billCycleForMonth(new Date(2026, 10, 1), 5, 20)).toEqual({
+      start: '2026-10-05',
+      end: '2026-11-04',
+      dueDate: '2026-11-20',
+    })
+  })
+
+  it('clamps configured days and crosses the year boundary', () => {
+    expect(billCycleForMonth(new Date(2027, 0, 1), 31, 4)).toEqual({
+      start: '2026-11-30',
+      end: '2026-12-30',
+      dueDate: '2027-01-04',
+    })
+  })
+
+  it('cannot estimate a cycle without both configured days', () => {
+    expect(billCycleForMonth(new Date(2026, 11, 1), null, 1)).toBeNull()
+    expect(billCycleForMonth(new Date(2026, 11, 1), 24, null)).toBeNull()
+  })
+})
 
 describe('closeDateForBill', () => {
   it('takes the close day of the due date month when it falls on or before the due date', () => {
