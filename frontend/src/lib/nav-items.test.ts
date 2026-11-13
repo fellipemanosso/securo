@@ -65,6 +65,7 @@ describe('visibleNavItems', () => {
       'transactions',
       'accounts',
       'cards',
+      'connections',
       'import',
       'reports',
       'assets',

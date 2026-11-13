@@ -113,6 +113,7 @@
     "invoices": "Invoices",
     "accounts": "Accounts",
     "cards": "Cards",
+    "connections": "Integrations",
     "collections": "Collections",
     "import": "Import",
     "rules": "Rules",

@@ -1,12 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { formatAccountMask, getAccountLabel, getAccountName } from '@/lib/account-utils'
-import { getConnectionName } from '@/lib/connection-utils'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { useDisplayLocale, useDateLocale } from '@/hooks/use-display-locale'
+import { useDisplayLocale } from '@/hooks/use-display-locale'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import axios from 'axios'
-import { accounts, assets, connections, currencies } from '@/lib/api'
+import { accounts, assets, currencies } from '@/lib/api'
 import { localDateString } from '@/lib/date-utils'
 import { invalidateFinancialQueries } from '@/lib/invalidate-queries'
 import { toast } from 'sonner'
@@ -21,21 +19,14 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { DatePickerInput } from '@/components/ui/date-picker-input'
-import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import type { Account, BankConnection, LoanAmortization, LoanRatePeriod } from '@/types'
-import { RefreshCw, TriangleAlert, Unlink, Settings } from 'lucide-react'
-import { AccountIcon, ConnectionLogo } from '@/components/account-icon'
+import type { Account, LoanAmortization, LoanRatePeriod } from '@/types'
+import { AccountIcon } from '@/components/account-icon'
 import { getAccountTypeConfig } from '@/lib/account-type-config'
 import { AccountPageActions } from '@/components/account-page-actions'
 import { AccountRowActions } from '@/components/account-row-actions'
 import { PageHeader } from '@/components/page-header'
 import { PageRefreshButton } from '@/components/page-refresh-button'
-import { BankConnectDialog } from '@/components/bank-connect-dialog'
-import { ConnectorSelectDialog, type Provider } from '@/components/connector-select-dialog'
-import { OAuthConnectDialog } from '@/components/oauth-connect-dialog'
-import { TokenConnectDialog } from '@/components/token-connect-dialog'
-import { ConnectionSettingsDialog } from '@/components/connection-settings-dialog'
 import { usePrivacyMode } from '@/hooks/use-privacy-mode'
 import { useAuth } from '@/contexts/auth-context'
 import { useCollectionFilter } from '@/contexts/collection-filter-context'
@@ -59,7 +50,6 @@ export default function AccountsPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const locale = useDisplayLocale()
-  const dateLocale = useDateLocale()
   const { mask } = usePrivacyMode()
   const { user } = useAuth()
   const { activeAccountIds } = useCollectionFilter()
@@ -73,103 +63,19 @@ export default function AccountsPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingAccount, setEditingAccount] = useState<Account | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
-  const [connectorSelectOpen, setConnectorSelectOpen] = useState(false)
-  const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null)
-  const [settingsConnection, setSettingsConnection] = useState<BankConnection | null>(null)
-  const [disconnectingConnection, setDisconnectingConnection] = useState<BankConnection | null>(null)
   const [closingAccountId, setClosingAccountId] = useState<string | null>(null)
-  const [reconnectConnId, setReconnectConnId] = useState<string | null>(null)
-  const [reconnectItemId, setReconnectItemId] = useState<string | null>(null)
-  const [tokenReconnectConnection, setTokenReconnectConnection] = useState<BankConnection | null>(null)
 
-  const { data: accountsList, isLoading: accountsLoading, isFetching: accountsFetching } = useQuery({
+  const { data: accountsList, isLoading, isFetching: accountsFetching } = useQuery({
     queryKey: ['accounts'],
     queryFn: () => accounts.list(),
   })
-
-  const { data: connectionsList, isLoading: connectionsLoading } = useQuery({
-    queryKey: ['connections'],
-    queryFn: connections.list,
-  })
-
-  const { data: providersList } = useQuery({
-    queryKey: ['connections', 'providers'],
-    queryFn: connections.getProviders,
-    staleTime: 1000 * 60 * 10,
-  })
-
-  const providersByName = useMemo(() => {
-    const map = new Map<string, Provider>()
-    for (const p of providersList ?? []) map.set(p.name, p as Provider)
-    return map
-  }, [providersList])
-
-  const handleReconnectClick = async (conn: BankConnection) => {
-    const providerInfo = providersByName.get(conn.provider)
-    if (providerInfo?.flow_type === 'oauth') {
-      try {
-        const url = await connections.getReauthUrl(conn.id)
-        window.location.assign(url)
-      } catch (e) {
-        const message = e instanceof Error ? e.message : String(e)
-        toast.error(message || t('accounts.connectError'))
-      }
-      return
-    }
-    if (providerInfo?.flow_type === 'token') {
-      setTokenReconnectConnection(conn)
-      return
-    }
-    // Widget flow (Pluggy): re-open the widget with the existing item_id.
-    setReconnectConnId(conn.id)
-    setReconnectItemId(conn.external_id)
-  }
 
   const { data: closedAccountsList } = useQuery({
     queryKey: ['accounts', 'closed'],
     queryFn: () => accounts.list(true),
   })
-  const closedAccounts = closedAccountsList?.filter((a) => a.is_closed && inActiveCollection(a)) ?? []
-
-  const syncMutation = useMutation({
-    mutationFn: (id: string) => connections.sync(id),
-    onSuccess: (result) => {
-      invalidateFinancialQueries(queryClient)
-      queryClient.invalidateQueries({ queryKey: ['connections'] })
-      // The provider can throttle the sync (429) and still return success
-      // without pulling anything: say so instead of a false "Sync completed".
-      if (result.sync_outcome === 'rate_limited') {
-        toast.warning(t('accounts.syncRateLimited'))
-      } else {
-        toast.success(t('accounts.syncDone'))
-      }
-      const merged = result?.merged_count
-      if (merged && merged > 0) {
-        toast.info(t('accounts.mergedCount', { count: merged }))
-      }
-    },
-    onError: (err) => {
-      queryClient.invalidateQueries({ queryKey: ['connections'] })
-      const detail = axios.isAxiosError(err)
-        ? err.response?.data?.detail
-        : null
-      const message = typeof detail === 'string' ? detail : detail?.message
-      toast.error(message || t('accounts.syncError'))
-    },
-  })
-
-  const disconnectMutation = useMutation({
-    mutationFn: (id: string) => connections.delete(id),
-    onSuccess: () => {
-      invalidateFinancialQueries(queryClient)
-      queryClient.invalidateQueries({ queryKey: ['connections'] })
-      queryClient.invalidateQueries({ queryKey: ['assets'] })
-      queryClient.invalidateQueries({ queryKey: ['asset-groups'] })
-      queryClient.invalidateQueries({ queryKey: ['portfolio-trend'] })
-      setDisconnectingConnection(null)
-      toast.success(t('accounts.disconnected'))
-    },
-  })
+  // Credit cards live on their own page (/cards) and bank links on /connections.
+  const closedAccounts = closedAccountsList?.filter((a) => a.is_closed && a.type !== 'credit_card' && inActiveCollection(a)) ?? []
 
   const createMutation = useMutation({
     mutationFn: (data: { name: string; type: string; balance?: number; currency?: string }) =>
@@ -229,10 +135,7 @@ export default function AccountsPage() {
     onError: () => toast.error(t('common.error')),
   })
 
-  const isLoading = accountsLoading || connectionsLoading
-  // Credit cards live on their own page (/cards) and sidebar menu.
-  const manualAccounts = accountsList?.filter((a) => a.connection_id === null && a.type !== 'credit_card' && inActiveCollection(a)) ?? []
-  const bankAccounts = accountsList?.filter((a) => a.connection_id !== null && a.type !== 'credit_card' && inActiveCollection(a)) ?? []
+  const listedAccounts = accountsList?.filter((a) => a.type !== 'credit_card' && inActiveCollection(a)) ?? []
 
   return (
     <div className="space-y-6">
@@ -248,7 +151,6 @@ export default function AccountsPage() {
             <AccountPageActions
               canWrite={canWrite}
               onAddAccount={() => { setEditingAccount(null); setDialogOpen(true) }}
-              onConnectBank={() => setConnectorSelectOpen(true)}
               onOpenCollections={() => navigate('/collections')}
             />
           </div>
@@ -261,14 +163,10 @@ export default function AccountsPage() {
         </div>
       ) : (
         <div className="space-y-6">
-          {/* Manual Accounts */}
           <div className="bg-card rounded-xl border border-border shadow-sm">
-            <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
-              <h2 className="text-sm font-medium text-muted-foreground">{t('accounts.manualAccounts')}</h2>
-            </div>
-            {manualAccounts.length > 0 ? (
+            {listedAccounts.length > 0 ? (
               <div className="divide-y divide-muted">
-                {manualAccounts.map((acc) => {
+                {listedAccounts.map((acc) => {
                   const cfg = getAccountTypeConfig(acc.type)
                   const bal = Number(acc.current_balance)
                   const accountMask = formatAccountMask(acc)
@@ -281,7 +179,6 @@ export default function AccountsPage() {
                           <p className="text-xs text-muted-foreground">
                             {t(cfg.label)}
                             {accountMask && <> · <span className="tabular-nums">{accountMask}</span></>}
-                            {acc.shared_balance_group && <> · <span>{t('accounts.sharedCreditBalance')}</span></>}
                           </p>
                         </div>
                       </Link>
@@ -300,7 +197,7 @@ export default function AccountsPage() {
                           accountName={getAccountName(acc)}
                           onEdit={() => { setEditingAccount(acc); setDialogOpen(true) }}
                           onClose={() => setClosingAccountId(acc.id)}
-                          onDelete={() => setDeletingId(acc.id)}
+                          onDelete={acc.connection_id === null ? () => setDeletingId(acc.id) : undefined}
                           deletePending={deleteMutation.isPending}
                         />
                       )}
@@ -311,172 +208,11 @@ export default function AccountsPage() {
             ) : (
               <div className="px-5 py-8 text-center">
                 <p className="text-sm text-muted-foreground">
-                  {t(activeAccountIds ? 'accounts.emptyFiltered' : 'accounts.noManualAccounts')}
+                  {t(activeAccountIds ? 'accounts.emptyFiltered' : 'accounts.noAccountsFound')}
                 </p>
               </div>
             )}
           </div>
-
-          {/* Bank Connections */}
-          {connectionsList && connectionsList.length > 0 ? (
-            <div className="space-y-3">
-              {connectionsList.map((conn) => {
-                const connAccounts = bankAccounts.filter((a) => a.connection_id === conn.id)
-                const needsReconnect = conn.status !== 'active'
-                // An error state does not always mean the token is dead: an
-                // upstream auth issue can be fixed without re-pasting, so the
-                // row offers a plain retry next to the reconnect action.
-                const canRetrySync = conn.status === 'error'
-                const syncPending = syncMutation.isPending && syncMutation.variables === conn.id
-                return (
-                  <div key={conn.id} className="bg-card rounded-xl border border-border shadow-sm">
-                    {/* Connection header */}
-                    <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
-                      <div className="flex items-center gap-3">
-                        {/* One bank's favicon would misrepresent a multi-
-                            institution link — fall back to the generic icon. */}
-                        <ConnectionLogo
-                          logoUrl={(conn.institutions?.length ?? 0) > 1 ? null : conn.logo_url}
-                        />
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <p className="text-sm font-semibold text-foreground">{getConnectionName(conn, t)}</p>
-                            <Badge
-                              variant={conn.status === 'active' ? 'default' : 'secondary'}
-                              className={
-                                conn.status === 'active'
-                                  ? 'text-[10px] px-1.5 py-0 h-4'
-                                  : 'text-[10px] px-1.5 py-0 h-4 border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300'
-                              }
-                            >
-                              {t(`accounts.connectionStatus.${conn.status}`, conn.status)}
-                            </Badge>
-                          </div>
-                          {conn.last_sync_at && (
-                            <p className="text-[11px] text-muted-foreground mt-0.5">
-                              {t('accounts.lastSync')}: {new Date(conn.last_sync_at).toLocaleString(dateLocale)}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      {canWrite && (
-                        <div className="flex items-center gap-1.5">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
-                            onClick={() => setSettingsConnection(conn)}
-                            title={t('connections.settings')}
-                          >
-                            <Settings size={14} />
-                          </Button>
-                          {canRetrySync && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
-                              onClick={() => syncMutation.mutate(conn.id)}
-                              disabled={syncPending}
-                              title={t('accounts.retrySync')}
-                              aria-label={t('accounts.retrySync')}
-                            >
-                              <RefreshCw size={14} className={syncPending ? 'animate-spin' : ''} />
-                            </Button>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className={needsReconnect
-                              ? 'relative h-8 w-8 p-0 text-amber-500 hover:bg-amber-500/10 hover:text-amber-600 dark:text-amber-400 dark:hover:text-amber-300'
-                              : 'h-8 w-8 p-0 text-muted-foreground hover:text-foreground'}
-                            onClick={() => needsReconnect ? handleReconnectClick(conn) : syncMutation.mutate(conn.id)}
-                            disabled={syncPending}
-                            title={needsReconnect
-                              ? conn.status === 'expired'
-                                ? t('accounts.connectionExpired')
-                                : t('accounts.connectionError')
-                              : t('accounts.sync')}
-                            aria-label={needsReconnect ? t('accounts.reconnect') : t('accounts.sync')}
-                          >
-                            <RefreshCw size={14} className={syncPending ? 'animate-spin' : ''} />
-                            {needsReconnect && (
-                              <TriangleAlert
-                                size={10}
-                                className="absolute -right-0.5 -top-0.5 rounded-full bg-card text-amber-500"
-                              />
-                            )}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0 text-muted-foreground hover:text-rose-500"
-                            onClick={() => setDisconnectingConnection(conn)}
-                            disabled={disconnectMutation.isPending}
-                            title={t('accounts.disconnect')}
-                          >
-                            <Unlink size={14} />
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                    {/* Accounts list */}
-                    {connAccounts.length > 0 ? (
-                      <div className="divide-y divide-muted">
-                        {connAccounts.map((acc) => {
-                          const cfg = getAccountTypeConfig(acc.type)
-                          const bal = Number(acc.current_balance)
-                          const accountMask = formatAccountMask(acc)
-                          return (
-                            <div key={acc.id} className="group flex items-center px-5 py-3 hover:bg-muted/50 transition-colors">
-                              <Link to={`/accounts/${acc.id}`} className="flex items-center gap-3 flex-1 min-w-0">
-                                <AccountIcon account={acc} />
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-sm font-medium text-foreground truncate">{getAccountName(acc)}</p>
-                                  <p className="text-xs text-muted-foreground">
-                                    {t(cfg.label)}
-                                    {accountMask && <> · <span className="tabular-nums">{accountMask}</span></>}
-                                    {acc.shared_balance_group && <> · <span>{t('accounts.sharedCreditBalance')}</span></>}
-                                  </p>
-                                </div>
-                              </Link>
-                              <div className="shrink-0 text-right">
-                                <p className={`text-xs sm:text-sm font-semibold tabular-nums ${bal < 0 ? 'text-rose-500' : 'text-foreground'}`}>
-                                  {mask(formatCurrency(bal, acc.currency, locale))}
-                                </p>
-                                {acc.balance_primary != null && acc.currency !== userCurrency && (
-                                  <p className="text-[10px] text-muted-foreground tabular-nums">
-                                    {mask(formatCurrency(acc.balance_primary, userCurrency, locale))}
-                                  </p>
-                                )}
-                              </div>
-                              {canWrite && (
-                                <AccountRowActions
-                                  accountName={getAccountName(acc)}
-                                  onEdit={() => { setEditingAccount(acc); setDialogOpen(true) }}
-                                  onClose={() => setClosingAccountId(acc.id)}
-                                  deletePending={deleteMutation.isPending}
-                                />
-                              )}
-                            </div>
-                          )
-                        })}
-                      </div>
-                    ) : (
-                      <div className="px-5 py-4">
-                        <p className="text-sm text-muted-foreground">
-                          {t(activeAccountIds ? 'accounts.emptyFiltered' : 'accounts.noAccountsFound')}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          ) : (
-            <div className="bg-card rounded-xl border border-dashed border-border p-8 text-center">
-              <p className="text-sm text-muted-foreground">{t('accounts.noBankConnections')}</p>
-            </div>
-          )}
 
           {/* Closed Accounts */}
           {closedAccounts.length > 0 && (
@@ -539,30 +275,6 @@ export default function AccountsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Confirm disconnect dialog */}
-      <Dialog open={!!disconnectingConnection} onOpenChange={() => setDisconnectingConnection(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('accounts.confirmDisconnectTitle')}</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            {t('accounts.confirmDisconnectDesc', { institution: disconnectingConnection ? getConnectionName(disconnectingConnection, t) : '' })}
-          </p>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDisconnectingConnection(null)}>
-              {t('common.cancel')}
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => disconnectingConnection && disconnectMutation.mutate(disconnectingConnection.id)}
-              disabled={disconnectMutation.isPending}
-            >
-              {disconnectMutation.isPending ? t('common.loading') : t('accounts.disconnect')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       {/* Confirm close dialog */}
       <Dialog open={!!closingAccountId} onOpenChange={() => setClosingAccountId(null)}>
         <DialogContent>
@@ -591,65 +303,6 @@ export default function AccountsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Connector Select Dialog */}
-      <ConnectorSelectDialog
-        open={connectorSelectOpen}
-        onClose={() => setConnectorSelectOpen(false)}
-        onSelect={(provider) => setSelectedProvider(provider)}
-      />
-
-      {/* Bank Connect Dialog — widget-based (Pluggy) */}
-      <BankConnectDialog
-        open={!!selectedProvider && selectedProvider.flow_type === 'widget'}
-        onClose={() => setSelectedProvider(null)}
-        provider={selectedProvider?.name}
-        supportsAssetSync={selectedProvider?.supports_asset_sync ?? false}
-      />
-
-      {/* OAuth Connect Dialog — institution-pickers (Enable Banking) */}
-      <OAuthConnectDialog
-        open={!!selectedProvider && selectedProvider.flow_type === 'oauth'}
-        onClose={() => setSelectedProvider(null)}
-        provider={selectedProvider?.name ?? ''}
-        supportsAssetSync={selectedProvider?.supports_asset_sync ?? false}
-      />
-
-      {/* Token Connect Dialog — paste-a-token flow (SimpleFIN) */}
-      <TokenConnectDialog
-        open={!!selectedProvider && selectedProvider.flow_type === 'token'}
-        onClose={() => setSelectedProvider(null)}
-        provider={selectedProvider?.name ?? ''}
-        supportsAssetSync={selectedProvider?.supports_asset_sync ?? false}
-      />
-
-      {/* Reconnect Dialog — widget-based (Pluggy) */}
-      <BankConnectDialog
-        open={!!reconnectConnId}
-        onClose={() => { setReconnectConnId(null); setReconnectItemId(null) }}
-        reconnectConnectionId={reconnectConnId ?? undefined}
-        updateItemId={reconnectItemId ?? undefined}
-      />
-
-      {/* Reconnect Dialog — paste-a-token flow (SimpleFIN) */}
-      <TokenConnectDialog
-        open={!!tokenReconnectConnection}
-        onClose={() => setTokenReconnectConnection(null)}
-        provider={tokenReconnectConnection?.provider ?? ''}
-        reconnectConnectionId={tokenReconnectConnection?.id}
-      />
-
-      {/* Connection Settings Dialog */}
-      <ConnectionSettingsDialog
-        open={!!settingsConnection}
-        onClose={() => setSettingsConnection(null)}
-        connection={settingsConnection}
-        supportsAssetSync={
-          settingsConnection
-            ? providersByName.get(settingsConnection.provider)?.supports_asset_sync ?? false
-            : false
-        }
-      />
 
       {/* Account Dialog */}
       <AccountDialog
@@ -724,6 +377,7 @@ export function AccountDialog({
   onClose,
   account,
   onSave,
+  defaultType = 'checking',
   loading,
 }: {
   open: boolean
@@ -742,6 +396,7 @@ export function AccountDialog({
     payment_due_day?: number | null
   }) => void
   loading: boolean
+  defaultType?: string
 }) {
   const { t } = useTranslation()
   const { user } = useAuth()
@@ -758,7 +413,7 @@ export function AccountDialog({
   })
   const [name, setName] = useState(account?.name ?? '')
   const [displayName, setDisplayName] = useState(account?.display_name ?? '')
-  const [type, setType] = useState(account?.type ?? 'checking')
+  const [type, setType] = useState(account?.type ?? defaultType)
   const [balance, setBalance] = useState(account?.balance?.toString() ?? '0')
   const [currency, setCurrency] = useState(account?.currency ?? userCurrency)
   // The opening balance's own date (issue #1204); today for a new account
@@ -788,7 +443,7 @@ export function AccountDialog({
     setFormSource({ account, balanceDate: date })
     setName(account?.name ?? '')
     setDisplayName(account?.display_name ?? '')
-    setType(account?.type ?? 'checking')
+    setType(account?.type ?? defaultType)
     setBalance(account?.balance?.toString() ?? '0')
     setCurrency(account?.currency ?? userCurrency)
     setBalanceDate(date)

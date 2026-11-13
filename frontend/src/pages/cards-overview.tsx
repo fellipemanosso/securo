@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { addMonths, isBefore, isSameMonth, parseISO, startOfMonth } from 'date-fns'
-import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, CreditCard, Pencil, Plus, ReceiptText, Repeat2, Trash2 } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, CreditCard, Pencil, Plus, ReceiptText, Repeat2, Trash2 } from 'lucide-react'
 import { accounts as accountsApi, categories as categoriesApi, categoryGroups as categoryGroupsApi, recurring as recurringApi, transactions as transactionsApi } from '@/lib/api'
 import { getAccountName } from '@/lib/account-utils'
 import { formatCurrency } from '@/lib/format'
@@ -25,6 +25,7 @@ import { useCreateTransaction } from '@/hooks/use-create-transaction'
 import { invalidateFinancialQueries } from '@/lib/invalidate-queries'
 import { extractApiError } from '@/lib/api-errors'
 import { billCycleForMonth, billCycleFromKnownDates } from '@/lib/credit-card-cycle'
+import { AccountDialog } from '@/pages/accounts'
 import { toast } from 'sonner'
 import type { Account, AccountSummary, CreditCardBill, RecurringTransaction } from '@/types'
 
@@ -253,18 +254,30 @@ export default function CardsOverviewPage() {
   }, 0)
   const missingConversions = snapshots.some((item) => item.amount != null && item.account.currency !== primaryCurrency && item.amountPrimary == null)
   const isLoading = accountsLoading || recurringLoading || billQueries.some((query) => query.isLoading) || estimateQueries.some((query) => query.isLoading)
+  const [addCardOpen, setAddCardOpen] = useState(false)
+  const createCardMutation = useMutation({
+    mutationFn: (data: Parameters<typeof accountsApi.create>[0]) => accountsApi.create(data),
+    onSuccess: () => {
+      invalidateFinancialQueries(queryClient)
+      setAddCardOpen(false)
+      toast.success('Cartão criado')
+    },
+    onError: (error: unknown) => toast.error(extractApiError(error)),
+  })
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 pb-10">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-2">
-          <Button asChild variant="ghost" size="sm" className="-ml-2 h-8 w-fit text-muted-foreground">
-            <Link to="/accounts"><ArrowLeft size={15} /> Contas</Link>
-          </Button>
           <h1 className="text-2xl font-semibold tracking-tight">Cartões</h1>
           <p className="max-w-2xl text-sm text-muted-foreground">
             Faturas, limites e compromissos recorrentes em uma única leitura mensal.
           </p>
+          {canWrite && (
+            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setAddCardOpen(true)}>
+              <Plus size={15} /> Adicionar cartão
+            </Button>
+          )}
         </div>
         <div className="flex items-center rounded-lg border border-border bg-card p-1" aria-label="Selecionar mês">
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setMonth((value) => addMonths(value, -1))} aria-label="Mês anterior">
@@ -289,9 +302,12 @@ export default function CardsOverviewPage() {
           <CreditCard className="mx-auto mb-4 text-muted-foreground" size={30} />
           <h2 className="text-lg font-semibold">Nenhum cartão encontrado</h2>
           <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-            Conecte um banco ou cadastre uma conta do tipo cartão de crédito para acompanhar as faturas aqui.
+            Conecte um banco em Integrações ou cadastre um cartão manualmente para acompanhar as faturas aqui.
           </p>
-          <Button asChild className="mt-5"><Link to="/accounts">Ir para contas</Link></Button>
+          <div className="mt-5 flex flex-wrap justify-center gap-2">
+            <Button asChild variant="outline"><Link to="/connections">Ir para integrações</Link></Button>
+            {canWrite && <Button onClick={() => setAddCardOpen(true)}><Plus size={15} /> Adicionar cartão</Button>}
+          </div>
         </div>
       ) : (
         <>
@@ -521,6 +537,17 @@ export default function CardsOverviewPage() {
           }
         }}
       />
+
+      {addCardOpen && (
+        <AccountDialog
+          open
+          defaultType="credit_card"
+          account={null}
+          onClose={() => setAddCardOpen(false)}
+          onSave={(data) => createCardMutation.mutate(data as Parameters<typeof accountsApi.create>[0])}
+          loading={createCardMutation.isPending}
+        />
+      )}
     </div>
   )
 }

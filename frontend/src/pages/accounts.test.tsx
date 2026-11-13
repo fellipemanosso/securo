@@ -3,24 +3,15 @@ import { screen } from '@testing-library/react'
 
 import AccountsPage, { AccountDialog } from '@/pages/accounts'
 import { renderWithProviders, t } from '@/test/utils'
-import type { Account, BankConnection } from '@/types'
+import type { Account } from '@/types'
 
 const api = vi.hoisted(() => ({
   accountsList: vi.fn(),
-  connectionsList: vi.fn(),
-  sync: vi.fn(),
 }))
 
 vi.mock('@/lib/api', () => ({
   accounts: { list: api.accountsList },
   assets: { list: vi.fn().mockResolvedValue([]) },
-  connections: {
-    list: api.connectionsList,
-    getProviders: vi.fn().mockResolvedValue([]),
-    sync: api.sync,
-    delete: vi.fn(),
-    getReauthUrl: vi.fn(),
-  },
   currencies: { list: vi.fn().mockResolvedValue([]) },
 }))
 
@@ -37,7 +28,7 @@ vi.mock('@/contexts/collection-filter-context', () => ({
 }))
 
 vi.mock('@/hooks/use-privacy-mode', () => ({
-  usePrivacyMode: () => ({ mask: false }),
+  usePrivacyMode: () => ({ mask: (value: string) => value }),
 }))
 
 vi.mock('@/hooks/use-display-locale', () => ({
@@ -49,37 +40,14 @@ vi.mock('@/lib/invalidate-queries', () => ({
   invalidateFinancialQueries: vi.fn(),
 }))
 
-vi.mock('@/components/bank-connect-dialog', () => ({ BankConnectDialog: () => null }))
-vi.mock('@/components/connector-select-dialog', () => ({ ConnectorSelectDialog: () => null }))
-vi.mock('@/components/oauth-connect-dialog', () => ({ OAuthConnectDialog: () => null }))
-vi.mock('@/components/token-connect-dialog', () => ({ TokenConnectDialog: () => null }))
-vi.mock('@/components/connection-settings-dialog', () => ({ ConnectionSettingsDialog: () => null }))
 vi.mock('@/components/account-page-actions', () => ({ AccountPageActions: () => null }))
 vi.mock('@/components/account-row-actions', () => ({ AccountRowActions: () => null }))
 
-function makeConnection(overrides: Partial<BankConnection>): BankConnection {
-  return {
-    id: 'conn-1',
-    user_id: 'user-1',
-    provider: 'simplefin',
-    institution_name: 'Institution B',
-    display_name: null,
-    logo_url: null,
-    external_id: 'INST-B',
-    status: 'active',
-    settings: null,
-    last_sync_at: null,
-    created_at: '2026-10-01T00:00:00Z',
-    institutions: [],
-    ...overrides,
-  }
-}
-
-function makeAccount(connectionId: string): Account {
+function makeAccount(overrides: Partial<Account> = {}): Account {
   return {
     id: 'acc-1',
     user_id: 'user-1',
-    connection_id: connectionId,
+    connection_id: null,
     external_id: 'acc-external-1',
     name: 'Healthy Checking',
     display_name: null,
@@ -97,52 +65,42 @@ function makeAccount(connectionId: string): Account {
     statement_close_day: null,
     payment_due_day: null,
     is_closed: false,
+    ...overrides,
   } as unknown as Account
 }
 
-describe('AccountsPage connection row actions', () => {
+describe('AccountsPage lists', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     api.accountsList.mockImplementation((includeClosed: boolean) =>
-      Promise.resolve(includeClosed ? [] : [makeAccount('conn-1')]),
+      Promise.resolve(includeClosed ? [] : [
+        makeAccount(),
+        makeAccount({ id: 'acc-bank', name: 'Bank Savings', connection_id: 'conn-1', type: 'savings' }),
+        makeAccount({ id: 'card-1', name: 'Black Card', type: 'credit_card' }),
+      ]),
     )
-    api.connectionsList.mockResolvedValue([])
-    api.sync.mockResolvedValue({ sync_outcome: 'success', merged_count: 0 })
   })
 
-  it('offers a retry next to reconnect for a connection in the error state', async () => {
-    api.connectionsList.mockResolvedValue([makeConnection({ id: 'conn-err', status: 'error' })])
+  it('lists manual and bank-linked accounts together', async () => {
     renderWithProviders(<AccountsPage />, { route: '/accounts' })
 
-    await screen.findByRole('button', { name: t('accounts.retrySync') })
-    expect(screen.getByRole('button', { name: t('accounts.reconnect') })).toBeInTheDocument()
+    expect(await screen.findByText('Healthy Checking')).toBeInTheDocument()
+    expect(screen.getByText('Bank Savings')).toBeInTheDocument()
   })
 
-  it('keeps reconnect as the only action for an expired connection', async () => {
-    api.connectionsList.mockResolvedValue([makeConnection({ id: 'conn-exp', status: 'expired' })])
+  it('leaves credit cards to the cards page', async () => {
     renderWithProviders(<AccountsPage />, { route: '/accounts' })
 
-    await screen.findByRole('button', { name: t('accounts.reconnect') })
-    expect(screen.queryByRole('button', { name: t('accounts.retrySync') })).not.toBeInTheDocument()
+    await screen.findByText('Healthy Checking')
+    expect(screen.queryByText('Black Card')).not.toBeInTheDocument()
   })
 
-  it('keeps sync as the only action for an active connection', async () => {
-    api.connectionsList.mockResolvedValue([makeConnection({ id: 'conn-ok', status: 'active' })])
+  it('does not manage bank connections', async () => {
     renderWithProviders(<AccountsPage />, { route: '/accounts' })
 
-    await screen.findByRole('button', { name: t('accounts.sync') })
+    await screen.findByText('Healthy Checking')
+    expect(screen.queryByRole('button', { name: t('accounts.sync') })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: t('accounts.reconnect') })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: t('accounts.retrySync') })).not.toBeInTheDocument()
-  })
-
-  it('retries the sync for the connection whose row the retry button sits in', async () => {
-    api.connectionsList.mockResolvedValue([makeConnection({ id: 'conn-err', status: 'error' })])
-    const { user } = renderWithProviders(<AccountsPage />, { route: '/accounts' })
-
-    const retry = await screen.findByRole('button', { name: t('accounts.retrySync') })
-    await user.click(retry)
-
-    expect(api.sync).toHaveBeenCalledWith('conn-err')
   })
 })
 
@@ -151,7 +109,7 @@ describe('AccountDialog account types', () => {
     { kind: 'manual', connectionId: null },
     { kind: 'bank-connected', connectionId: 'conn-1' },
   ])('saves Loan when editing an existing $kind checking account', async ({ connectionId }) => {
-    const account = { ...makeAccount('conn-1'), connection_id: connectionId }
+    const account = makeAccount({ connection_id: connectionId })
     const onSave = vi.fn()
     const { user } = renderWithProviders(
       <AccountDialog open account={account} onClose={vi.fn()} onSave={onSave} loading={false} />,

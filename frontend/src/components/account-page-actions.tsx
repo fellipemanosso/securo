@@ -11,7 +11,6 @@ import {
 export type AccountPageActionsProps = {
   canWrite: boolean
   onAddAccount: () => void
-  onConnectBank: () => void
   onOpenCollections: () => void
   testId?: string
 }
@@ -24,12 +23,6 @@ function DesktopSecondaryActions(props: AccountPageActionsProps) {
         <Layers size={16} />
         {t('collections.title')}
       </Button>
-      {props.canWrite && (
-        <Button variant="outline" className="hidden gap-1.5 sm:inline-flex" onClick={props.onConnectBank}>
-          <Plus size={16} />
-          {t('accounts.connectBank')}
-        </Button>
-      )}
     </>
   )
 }
@@ -47,7 +40,6 @@ function MobileSecondaryMenu(props: AccountPageActionsProps) {
         <DropdownMenuItem onSelect={props.onOpenCollections}>
           <Layers size={16} />{t('collections.title')}
         </DropdownMenuItem>
-        {props.canWrite && <DropdownMenuItem onSelect={props.onConnectBank}><Plus size={16} />{t('accounts.connectBank')}</DropdownMenuItem>}
       </DropdownMenuContent>
     </DropdownMenu>
   )
@@ -55,7 +47,7 @@ function MobileSecondaryMenu(props: AccountPageActionsProps) {
 
 /**
  * Preserves the primary Add Account action while moving secondary mobile actions into a menu.
- * @example `<AccountPageActions canWrite onAddAccount={openForm} onConnectBank={connect} onOpenCollections={openCollections} />`
+ * @example `<AccountPageActions canWrite onAddAccount={openForm} onOpenCollections={openCollections} />`
  */
 export function AccountPageActions(props: AccountPageActionsProps) {
   const { t } = useTranslation()
