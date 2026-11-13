@@ -228,6 +228,15 @@ export interface CreditCardBill {
   minimum_payment: number | null
   closing_date: string | null
   forecast_date: string | null
+  source: 'bank' | 'manual'
+  status: 'open' | 'paid'
+}
+
+export interface CreditCardBillWrite {
+  due_date: string
+  closing_date: string
+  total_amount: number
+  status: 'open' | 'paid'
 }
 
 export interface Collection {

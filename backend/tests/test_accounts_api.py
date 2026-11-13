@@ -750,6 +750,70 @@ async def test_get_account_bills_rejects_invalid_limit(
 
 
 @pytest.mark.asyncio
+async def test_create_manual_credit_card_bill_and_update_same_cycle(
+    client: AsyncClient, auth_headers, session: AsyncSession, test_user,
+):
+    cc = await _make_cc_account(session, test_user.id, "C6")
+    payload = {
+        "closing_date": "2026-10-23",
+        "due_date": "2026-11-03",
+        "total_amount": 11622.60,
+        "status": "paid",
+    }
+    created = await client.post(f"/api/accounts/{cc.id}/bills", headers=auth_headers, json=payload)
+    assert created.status_code == 200
+    assert created.json()["source"] == "manual"
+    assert created.json()["status"] == "paid"
+    assert created.json()["closing_date"] == "2026-10-23"
+
+    payload["total_amount"] = 11620.00
+    updated = await client.post(f"/api/accounts/{cc.id}/bills", headers=auth_headers, json=payload)
+    assert updated.status_code == 200
+    assert updated.json()["id"] == created.json()["id"]
+    assert updated.json()["total_amount"] == 11620.0
+
+    listed = await client.get(f"/api/accounts/{cc.id}/bills", headers=auth_headers)
+    assert len(listed.json()) == 1
+
+
+@pytest.mark.asyncio
+async def test_manual_bill_does_not_override_provider_bill(
+    client: AsyncClient, auth_headers, session: AsyncSession, test_user,
+):
+    cc = await _make_cc_account(session, test_user.id, "C6")
+    provider = await _make_bill(
+        session, test_user.id, cc.id,
+        external_id="pluggy-bill", due_date=_date(2026, 12, 1), total="11217.77",
+    )
+    response = await client.post(
+        f"/api/accounts/{cc.id}/bills", headers=auth_headers,
+        json={
+            "closing_date": "2026-11-24", "due_date": "2026-12-01",
+            "total_amount": 999.0, "status": "open",
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["id"] == str(provider.id)
+    assert response.json()["source"] == "bank"
+    assert response.json()["total_amount"] == 11217.77
+
+
+@pytest.mark.asyncio
+async def test_manual_bill_rejects_closing_on_or_after_due_date(
+    client: AsyncClient, auth_headers, session: AsyncSession, test_user,
+):
+    cc = await _make_cc_account(session, test_user.id, "C6")
+    response = await client.post(
+        f"/api/accounts/{cc.id}/bills", headers=auth_headers,
+        json={
+            "closing_date": "2026-12-01", "due_date": "2026-12-01",
+            "total_amount": 100, "status": "open",
+        },
+    )
+    assert response.status_code == 400
+
+
+@pytest.mark.asyncio
 async def test_get_account_reports_same_balance_as_list(
     client: AsyncClient, auth_headers, session, test_user, test_workspace
 ):

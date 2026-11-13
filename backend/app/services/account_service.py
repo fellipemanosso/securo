@@ -418,6 +418,52 @@ async def get_credit_card_bills(
     return list(result.scalars().all())
 
 
+async def upsert_manual_credit_card_bill(
+    session: AsyncSession,
+    account_id: uuid.UUID,
+    workspace_id: uuid.UUID,
+    user_id: uuid.UUID,
+    data,
+) -> Optional[CreditCardBill]:
+    """Create or replace the manual statement for one exact card cycle."""
+    account = await get_account(session, account_id, workspace_id)
+    if account is None or account.type != "credit_card":
+        return None
+    if data.closing_date >= data.due_date:
+        raise ValueError("Closing date must be before due date")
+
+    result = await session.execute(
+        select(CreditCardBill).where(
+            CreditCardBill.account_id == account_id,
+            CreditCardBill.due_date == data.due_date,
+        )
+    )
+    matching = list(result.scalars().all())
+    # A provider statement is authoritative. Never let a manual correction
+    # shadow it once the integration starts returning this cycle.
+    provider_bill = next((bill for bill in matching if bill.source == "bank"), None)
+    if provider_bill is not None:
+        return provider_bill
+    bill = matching[0] if matching else None
+    if bill is None:
+        bill = CreditCardBill(
+            user_id=user_id,
+            workspace_id=workspace_id,
+            account_id=account_id,
+            external_id=f"manual:{uuid.uuid4()}",
+            due_date=data.due_date,
+            total_amount=data.total_amount,
+            currency=account.currency,
+        )
+        session.add(bill)
+    bill.closing_date = data.closing_date
+    bill.total_amount = data.total_amount
+    bill.raw_data = {"securo_manual": True, "status": data.status}
+    await session.commit()
+    await session.refresh(bill)
+    return bill
+
+
 async def get_account(session: AsyncSession, account_id: uuid.UUID, workspace_id: uuid.UUID) -> Optional[Account]:
     result = await session.execute(
         select(Account)

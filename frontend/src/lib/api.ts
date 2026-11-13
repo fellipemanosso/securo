@@ -548,6 +548,10 @@ export const accounts = {
     const { data } = await api.get(`/accounts/${id}/bills`, { params: { limit } })
     return data
   },
+  saveBill: async (id: string, body: import('@/types').CreditCardBillWrite): Promise<CreditCardBill> => {
+    const { data } = await api.post(`/accounts/${id}/bills`, body)
+    return data
+  },
   close: async (id: string): Promise<Account> => {
     const { data } = await api.post(`/accounts/${id}/close`)
     return data

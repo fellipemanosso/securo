@@ -54,3 +54,12 @@ class CreditCardBill(Base):
     __table_args__ = (
         UniqueConstraint("account_id", "external_id", name="uq_cc_bills_account_external_id"),
     )
+
+    @property
+    def source(self) -> str:
+        return "manual" if (self.raw_data or {}).get("securo_manual") else "bank"
+
+    @property
+    def status(self) -> str:
+        value = (self.raw_data or {}).get("status")
+        return value if value in {"open", "paid"} else "open"

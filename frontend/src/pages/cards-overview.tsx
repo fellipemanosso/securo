@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { addMonths, isSameMonth, parseISO, startOfMonth } from 'date-fns'
-import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, CreditCard, Plus, ReceiptText, Repeat2 } from 'lucide-react'
+import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, CreditCard, Pencil, Plus, ReceiptText, Repeat2 } from 'lucide-react'
 import { accounts as accountsApi, categories as categoriesApi, categoryGroups as categoryGroupsApi, recurring as recurringApi, transactions as transactionsApi } from '@/lib/api'
 import { getAccountName } from '@/lib/account-utils'
 import { formatCurrency } from '@/lib/format'
@@ -15,6 +15,9 @@ import { AccountIcon } from '@/components/account-icon'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { TransactionDialog } from '@/components/transaction-dialog'
 import { TransferDialog } from '@/components/transfer-dialog'
 import { useCreateTransaction } from '@/hooks/use-create-transaction'
@@ -28,7 +31,7 @@ type CardSnapshot = {
   amount: number | null
   amountPrimary: number | null
   bill: CreditCardBill | null
-  source: 'bank' | 'estimate' | 'unavailable'
+  source: 'bank' | 'manual' | 'estimate' | 'unavailable'
 }
 
 const MONTHLY_FACTOR: Record<RecurringTransaction['frequency'], number> = {
@@ -52,7 +55,7 @@ function amountInPrimary(account: Account, amount: number | null, primaryCurrenc
 function snapshotForMonth(account: Account, bills: CreditCardBill[], month: Date, currentMonth: Date, primaryCurrency: string): CardSnapshot {
   const matchingBills = bills
     .filter((bill) => isSameMonth(parseISO(bill.due_date), month))
-    .sort((a, b) => b.due_date.localeCompare(a.due_date))
+    .sort((a, b) => Number(b.source === 'bank') - Number(a.source === 'bank') || b.due_date.localeCompare(a.due_date))
   const bill = matchingBills[0] ?? null
 
   if (bill) {
@@ -61,7 +64,7 @@ function snapshotForMonth(account: Account, bills: CreditCardBill[], month: Date
       amount: Number(bill.total_amount),
       amountPrimary: amountInPrimary(account, Number(bill.total_amount), primaryCurrency),
       bill,
-      source: 'bank',
+      source: bill.source,
     }
   }
 
@@ -100,6 +103,8 @@ export default function CardsOverviewPage() {
   const [month, setMonth] = useState(currentMonth)
   const [purchaseCard, setPurchaseCard] = useState<Account | null>(null)
   const [paymentSnapshot, setPaymentSnapshot] = useState<CardSnapshot | null>(null)
+  const [billSnapshot, setBillSnapshot] = useState<CardSnapshot | null>(null)
+  const [billForm, setBillForm] = useState({ closing_date: '', due_date: '', total_amount: '', status: 'open' as 'open' | 'paid' })
   const createTransaction = useCreateTransaction({ onDone: () => setPurchaseCard(null) })
 
   const { data: accountList, isLoading: accountsLoading } = useQuery({
@@ -122,6 +127,25 @@ export default function CardsOverviewPage() {
     },
     onError: (error: unknown) => toast.error(extractApiError(error)),
   })
+  const billMutation = useMutation({
+    mutationFn: ({ accountId, body }: { accountId: string; body: Parameters<typeof accountsApi.saveBill>[1] }) => accountsApi.saveBill(accountId, body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['accounts'] })
+      setBillSnapshot(null)
+      toast.success('Fatura ajustada')
+    },
+    onError: (error: unknown) => toast.error(extractApiError(error)),
+  })
+
+  const openBillEditor = (snapshot: CardSnapshot) => {
+    setBillSnapshot(snapshot)
+    setBillForm({
+      closing_date: snapshot.bill?.closing_date ?? '',
+      due_date: snapshot.bill?.due_date ?? snapshot.account.next_due_date ?? '',
+      total_amount: snapshot.amount == null ? '' : String(Math.abs(snapshot.amount)),
+      status: snapshot.bill?.status ?? 'open',
+    })
+  }
 
   const cards = useMemo(() => (accountList ?? []).filter((account) =>
     account.type === 'credit_card'
@@ -274,8 +298,8 @@ export default function CardsOverviewPage() {
                             </Link>
                             <div className="text-right">
                               <p className="font-semibold tabular-nums">{value}</p>
-                              <Badge variant="secondary" className={snapshot.source === 'bank' ? 'mt-1 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : snapshot.source === 'estimate' ? 'mt-1 bg-amber-500/10 text-amber-700 dark:text-amber-300' : 'mt-1'}>
-                                {snapshot.source === 'bank' ? 'Informado pelo banco' : snapshot.source === 'estimate' ? 'Estimativa do Securo' : 'Aguardando dados'}
+                              <Badge variant="secondary" className={snapshot.source === 'bank' ? 'mt-1 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : snapshot.source === 'manual' ? 'mt-1 bg-blue-500/10 text-blue-700 dark:text-blue-300' : snapshot.source === 'estimate' ? 'mt-1 bg-amber-500/10 text-amber-700 dark:text-amber-300' : 'mt-1'}>
+                                {snapshot.source === 'bank' ? 'Informado pelo banco' : snapshot.source === 'manual' ? `Ajuste manual · ${snapshot.bill?.status === 'paid' ? 'Paga' : 'Aberta'}` : snapshot.source === 'estimate' ? 'Estimativa do Securo' : 'Aguardando dados'}
                               </Badge>
                             </div>
                           </div>
@@ -311,6 +335,9 @@ export default function CardsOverviewPage() {
                                 disabled={!snapshot.amount || snapshot.amount <= 0}
                               >
                                 <ReceiptText size={14} /> Pagar fatura
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-8 gap-1.5" onClick={() => openBillEditor(snapshot)}>
+                                <Pencil size={14} /> Ajustar fatura
                               </Button>
                             </div>
                           )}
@@ -386,6 +413,25 @@ export default function CardsOverviewPage() {
         defaultDescription={paymentSnapshot ? `Pagamento de fatura - ${getAccountName(paymentSnapshot.account)}` : undefined}
         lockToAccount
       />
+
+      <Dialog open={!!billSnapshot} onOpenChange={(open) => !open && setBillSnapshot(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Ajustar fatura{billSnapshot ? ` · ${getAccountName(billSnapshot.account)}` : ''}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">Informe os dados oficiais deste ciclo. Se o banco enviar a fatura depois, o valor bancário terá prioridade.</p>
+          <div className="grid gap-4 py-2 sm:grid-cols-2">
+            <div className="space-y-2"><Label htmlFor="bill-closing">Fechamento</Label><Input id="bill-closing" type="date" value={billForm.closing_date} onChange={(event) => setBillForm((value) => ({ ...value, closing_date: event.target.value }))} /></div>
+            <div className="space-y-2"><Label htmlFor="bill-due">Vencimento</Label><Input id="bill-due" type="date" value={billForm.due_date} onChange={(event) => setBillForm((value) => ({ ...value, due_date: event.target.value }))} /></div>
+            <div className="space-y-2"><Label htmlFor="bill-total">Valor da fatura</Label><Input id="bill-total" type="number" min="0.01" step="0.01" value={billForm.total_amount} onChange={(event) => setBillForm((value) => ({ ...value, total_amount: event.target.value }))} /></div>
+            <div className="space-y-2"><Label htmlFor="bill-status">Situação</Label><select id="bill-status" className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm" value={billForm.status} onChange={(event) => setBillForm((value) => ({ ...value, status: event.target.value as 'open' | 'paid' }))}><option value="open">Aberta</option><option value="paid">Paga</option></select></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBillSnapshot(null)}>Cancelar</Button>
+            <Button disabled={!billForm.closing_date || !billForm.due_date || !Number(billForm.total_amount) || billMutation.isPending} onClick={() => billSnapshot && billMutation.mutate({ accountId: billSnapshot.account.id, body: { ...billForm, total_amount: Number(billForm.total_amount) } })}>{billMutation.isPending ? 'Salvando…' : 'Salvar ajuste'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

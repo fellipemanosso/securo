@@ -24,6 +24,7 @@ from app.schemas.account import (
     AccountSummary,
     AccountUpdate,
     CreditCardBillRead,
+    CreditCardBillWrite,
 )
 from app.services import account_service
 from app.services.admin_service import get_credit_card_accounting_mode
@@ -191,6 +192,24 @@ async def get_account_bills(
     if bills is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
     return bills
+
+
+@router.post("/{account_id}/bills", response_model=CreditCardBillRead)
+async def create_manual_account_bill(
+    account_id: uuid.UUID,
+    data: CreditCardBillWrite,
+    ctx: WorkspaceContext = Depends(current_writable_workspace),
+    session: AsyncSession = Depends(get_async_session),
+):
+    try:
+        bill = await account_service.upsert_manual_credit_card_bill(
+            session, account_id, ctx.workspace.id, ctx.user_id, data,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    if bill is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Credit-card account not found")
+    return bill
 
 
 @router.get("/{account_id}/loan-schedule", response_model=LoanScheduleRead)

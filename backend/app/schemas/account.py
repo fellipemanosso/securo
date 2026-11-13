@@ -134,8 +134,19 @@ class CreditCardBillRead(BaseModel):
     total_amount: float
     currency: str
     minimum_payment: Optional[float] = None
+    closing_date: Optional[date] = None
+    forecast_date: Optional[date] = None
+    source: Literal["bank", "manual"] = "bank"
+    status: Literal["open", "paid"] = "open"
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class CreditCardBillWrite(BaseModel):
+    due_date: date
+    closing_date: date
+    total_amount: Decimal = Field(gt=0)
+    status: Literal["open", "paid"] = "open"
 
 
 class AccountSummary(BaseModel):
