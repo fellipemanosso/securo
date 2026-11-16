@@ -507,8 +507,14 @@ export default function AccountDetailPage() {
       // on the previous close (which belongs to the NEXT cycle per
       // Brazilian convention) shows up. The backend's `bill_id IS NULL`
       // filter prevents already-billed txs from leaking in.
-      if (account.statement_close_day) {
-        cycles.push(creditCardCycleBoundaries(account.statement_close_day, new Date()))
+      // Skip it when the last bill already covers that cycle (a bill entered
+      // ahead of time), or the same month would show twice.
+      const trailing = account.statement_close_day
+        ? creditCardCycleBoundaries(account.statement_close_day, new Date())
+        : null
+      const lastClosing = billsAsc[billsAsc.length - 1].closing_date
+      if (trailing && !(lastClosing && lastClosing > trailing.end)) {
+        cycles.push(trailing)
       }
       return cycles.slice(isMobile ? -4 : -6)
     }
@@ -1451,7 +1457,11 @@ export default function AccountDetailPage() {
         // currently being viewed. For the current cycle this matches the "current
         // open balance" since nothing has been paid yet; for past cycles it shows
         // that month's burn rate against the (current) limit.
-        const cycleBillTotal = (primaryShown ? summary?.projected_expenses_primary : undefined) ?? summary?.projected_expenses ?? summary?.monthly_expenses ?? 0
+        const closedBankBill = !primaryShown && activeBill?.source === 'bank' && activeBill.closing_date
+          && activeBill.closing_date < format(new Date(), 'yyyy-MM-dd')
+          ? Number(activeBill.total_amount)
+          : null
+        const cycleBillTotal = closedBankBill ?? (primaryShown ? summary?.projected_expenses_primary : undefined) ?? summary?.projected_expenses ?? summary?.monthly_expenses ?? 0
         const utilized = limit != null ? cycleBillTotal : null
         const rawPct = limit != null && limit > 0 && utilized != null ? (utilized / limit) * 100 : null
         const pct = rawPct != null ? Math.min(100, rawPct) : null
