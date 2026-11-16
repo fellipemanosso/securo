@@ -130,8 +130,18 @@ async def test_patch_unknown_card_is_404(
     assert response.status_code == 404
 
 
+async def _hide(client: AsyncClient, auth_headers, account_id: str, *last4s: str) -> None:
+    for last4 in last4s:
+        response = await client.patch(
+            f"/api/accounts/{account_id}/cards/{last4}",
+            headers=auth_headers,
+            json={"is_hidden": True},
+        )
+        assert response.status_code == 200
+
+
 @pytest.mark.asyncio
-async def test_transactions_list_excludes_cards_but_keeps_rows_without_card(
+async def test_transactions_list_omits_hidden_cards_but_keeps_rows_without_card(
     client: AsyncClient, auth_headers, session: AsyncSession, test_user
 ):
     account_id = await _create_card_account(client, auth_headers)
@@ -139,12 +149,10 @@ async def test_transactions_list_excludes_cards_but_keeps_rows_without_card(
         session, test_user, account_id,
         [("1111", "10.00", 0), ("2222", "20.00", 0), ("3333", "30.00", 0), (None, "40.00", 0)],
     )
+    await _hide(client, auth_headers, account_id, "1111", "2222")
 
-    response = await client.get(
-        "/api/transactions",
-        headers=auth_headers,
-        params={"account_id": account_id, "exclude_card_last4": ["1111", "2222"]},
-    )
+    # No account filter: hiding is a property of the card, not of one screen.
+    response = await client.get("/api/transactions", headers=auth_headers)
 
     assert response.status_code == 200
     body = response.json()
@@ -181,12 +189,10 @@ async def test_account_summary_excludes_cards_but_keeps_rows_without_card(
     url = f"/api/accounts/{account_id}/summary"
 
     everything = await client.get(url, headers=auth_headers)
-    without_one = await client.get(
-        url, headers=auth_headers, params={"exclude_card_last4": ["1111"]}
-    )
-    without_both = await client.get(
-        url, headers=auth_headers, params={"exclude_card_last4": ["1111", "2222"]}
-    )
+    await _hide(client, auth_headers, account_id, "1111")
+    without_one = await client.get(url, headers=auth_headers)
+    await _hide(client, auth_headers, account_id, "2222")
+    without_both = await client.get(url, headers=auth_headers)
 
     assert everything.json()["monthly_expenses"] == pytest.approx(150.00)
     assert without_one.json()["monthly_expenses"] == pytest.approx(50.00)
@@ -221,10 +227,9 @@ async def test_account_summary_with_hidden_card_never_goes_negative_from_card_pa
     )
     await session.commit()
 
+    await _hide(client, auth_headers, account_id, "2222")
     response = await client.get(
-        f"/api/accounts/{account_id}/summary",
-        headers=auth_headers,
-        params={"exclude_card_last4": ["2222"]},
+        f"/api/accounts/{account_id}/summary", headers=auth_headers
     )
 
     assert response.json()["monthly_expenses"] == pytest.approx(100.00)

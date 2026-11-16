@@ -525,9 +525,9 @@ export const accounts = {
   delete: async (id: string): Promise<void> => {
     await api.delete(`/accounts/${id}`)
   },
-  summary: async (id: string, from?: string, to?: string, billId?: string, unbilledOnly?: boolean, excludeCardLast4?: string[]): Promise<AccountSummary> => {
+  summary: async (id: string, from?: string, to?: string, billId?: string, unbilledOnly?: boolean): Promise<AccountSummary> => {
     const { data } = await api.get(`/accounts/${id}/summary`, {
-      params: { from, to, bill_id: billId, unbilled_only: unbilledOnly || undefined, exclude_card_last4: excludeCardLast4 },
+      params: { from, to, bill_id: billId, unbilled_only: unbilledOnly || undefined },
       paramsSerializer: { indexes: null },
     })
     return data
@@ -646,7 +646,6 @@ export const transactions = {
     user_pnl_only?: boolean
     exclude_ignored?: boolean
     tags?: string[]
-    exclude_card_last4?: string[]
     min_amount?: number
     max_amount?: number
     sort_by?: string

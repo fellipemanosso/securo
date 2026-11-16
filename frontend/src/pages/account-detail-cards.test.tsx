@@ -104,17 +104,18 @@ describe('credit card cards control', () => {
     expect(screen.getAllByText('4 tx')).toHaveLength(2)
   })
 
-  it('hides a card and re-queries the statement without it', async () => {
+  it('hides a card and reloads the statement, which the server then serves without it', async () => {
     const user = await openCardsPopover()
     await screen.findByText('Wife')
+    const listCalls = api.transactions.list.mock.calls.length
+    const summaryCalls = api.accounts.summary.mock.calls.length
 
     await user.click(screen.getAllByRole('button', { name: 'Hide card' })[0])
 
     await waitFor(() => expect(api.accounts.updateCard).toHaveBeenCalledWith('acc-1', '1876', { is_hidden: true }))
     await waitFor(() => {
-      const calls = api.transactions.list.mock.calls.map(([args]) => args as Record<string, unknown>)
-      expect(calls.some((c) => JSON.stringify(c.exclude_card_last4) === '["1876"]')).toBe(true)
-      expect(api.accounts.summary.mock.calls.some((c) => JSON.stringify(c[5]) === '["1876"]')).toBe(true)
+      expect(api.transactions.list.mock.calls.length).toBeGreaterThan(listCalls)
+      expect(api.accounts.summary.mock.calls.length).toBeGreaterThan(summaryCalls)
     })
     expect(await screen.findByText(/Hidden cards \(1\)/)).toBeInTheDocument()
   })

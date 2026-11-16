@@ -322,12 +322,12 @@ export default function AccountDetailPage() {
     enabled: !!id && isCreditCard,
   })
   const hiddenCardLast4 = cards.filter(c => c.is_hidden).map(c => c.last4)
-  const excludeCardLast4 = hiddenCardLast4.length > 0 ? hiddenCardLast4 : undefined
   const cardUpdateMutation = useMutation({
     mutationFn: ({ last4, payload }: { last4: string; payload: { alias?: string | null; is_hidden?: boolean } }) =>
       accounts.updateCard(id!, last4, payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['accounts', id, 'cards'] })
+      // Hiding is a property of the card: every list and total changes.
+      queryClient.invalidateQueries()
     },
     onError: (err) => toast.error(extractApiError(err, t('accountCards.updateError'))),
   })
@@ -460,15 +460,14 @@ export default function AccountDetailPage() {
     // For the in-progress cycle (no bill match), unbilled_only excludes
     // txs already linked to a closed bill (anti-double-count).
     queryKey: activeBill
-      ? ['accounts', id, 'summary', { bill_id: activeBill.id, from: filterFrom, to: filterTo, exclude_card_last4: excludeCardLast4 }]
-      : ['accounts', id, 'summary', filterFrom, filterTo, { unbilled_only: isInProgressCycle, exclude_card_last4: excludeCardLast4 }],
+      ? ['accounts', id, 'summary', { bill_id: activeBill.id, from: filterFrom, to: filterTo }]
+      : ['accounts', id, 'summary', filterFrom, filterTo, { unbilled_only: isInProgressCycle }],
     queryFn: () => accounts.summary(
       id!,
       filterFrom || undefined,
       filterTo || undefined,
       activeBill?.id,
       isInProgressCycle || undefined,
-      excludeCardLast4,
     ),
     enabled: !!id,
   })
@@ -482,8 +481,8 @@ export default function AccountDetailPage() {
   }, [account, filterFrom])
 
   const { data: previousCycleSummary } = useQuery({
-    queryKey: ['accounts', id, 'summary', previousCycle?.start, previousCycle?.end, { exclude_card_last4: excludeCardLast4 }],
-    queryFn: () => accounts.summary(id!, previousCycle!.start, previousCycle!.end, undefined, undefined, excludeCardLast4),
+    queryKey: ['accounts', id, 'summary', previousCycle?.start, previousCycle?.end],
+    queryFn: () => accounts.summary(id!, previousCycle!.start, previousCycle!.end),
     enabled: !!id && !!previousCycle,
   })
 
@@ -543,12 +542,11 @@ export default function AccountDetailPage() {
       // in-progress cycle (no bill) sets unbilled_only so prior-bill txs
       // that fall in the window aren't double-counted in the bar.
       queryKey: c.bill
-        ? ['accounts', id, 'summary', { bill_id: c.bill.id, from: c.start, to: c.end, exclude_card_last4: excludeCardLast4 }]
-        : ['accounts', id, 'summary', c.start, c.end, { unbilled_only: billsAsc.length > 0, exclude_card_last4: excludeCardLast4 }],
+        ? ['accounts', id, 'summary', { bill_id: c.bill.id, from: c.start, to: c.end }]
+        : ['accounts', id, 'summary', c.start, c.end, { unbilled_only: billsAsc.length > 0 }],
       queryFn: () => accounts.summary(
         id!, c.start, c.end, c.bill?.id,
         c.bill ? undefined : (billsAsc.length > 0 || undefined),
-        excludeCardLast4,
       ),
       enabled: !!id,
     })),
@@ -566,7 +564,6 @@ export default function AccountDetailPage() {
       include_opening_balance: true,
       unbilled_only: isInProgressCycle,
       statement_view: isCreditCard,
-      exclude_card_last4: excludeCardLast4,
     }],
     queryFn: async () => {
       const params = {
@@ -587,7 +584,6 @@ export default function AccountDetailPage() {
         to: filterTo || undefined,
         limit: CYCLE_PAGE_SIZE,
         include_opening_balance: true,
-        exclude_card_last4: excludeCardLast4,
       }
       const first = await transactions.list({ ...params, page: 1 })
       const items = [...first.items]

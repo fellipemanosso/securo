@@ -37,7 +37,8 @@ from app.services._query_filters import (
     line_amount,
     line_category_id,
     line_primary_or_amount,
-    not_on_cards,
+    not_on_hidden_cards,
+    workspace_has_hidden_cards,
     reporting_date_col,
     with_category_lines,
 )
@@ -1131,7 +1132,6 @@ async def get_account_summary(
     date_from: Optional[_Date] = None, date_to: Optional[_Date] = None,
     bill_id: Optional[uuid.UUID] = None,
     unbilled_only: bool = False,
-    exclude_card_last4: Optional[list[str]] = None,
 ) -> Optional[dict]:
     account = await get_account(session, account_id, workspace_id)
     if not account:
@@ -1266,8 +1266,7 @@ async def get_account_summary(
     ) if bill_id is not None else None
 
     def _scope(query):
-        if exclude_card_last4:
-            query = query.where(not_on_cards(exclude_card_last4))
+        query = query.where(not_on_hidden_cards())
         if bill_id is not None:
             unlinked_in_window = _and(
                 Transaction.bill_id.is_(None),
@@ -1365,7 +1364,7 @@ async def get_account_summary(
             ), 0)).where(
                 Transaction.account_id == account_id,
                 _before_window(),
-                *([not_on_cards(exclude_card_last4)] if exclude_card_last4 else []),
+                not_on_hidden_cards(),
                 # Rows linked to the selected bill belong to it whatever
                 # their date (see `_scope`), so they are not older debt.
                 *([] if bill_id is None else [or_(
@@ -1409,7 +1408,7 @@ async def get_account_summary(
     # whole card, not to one last4, so once cards are hidden it cannot be
     # split between them: netting it against only the visible cards' charges
     # would push the total negative.
-    if exclude_card_last4:
+    if await workspace_has_hidden_cards(session, workspace_id, account_id):
         netted_now = netted_total = 0.0
     else:
         netted_now = max(0.0, paid_now - prior_debt)

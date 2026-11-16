@@ -15,6 +15,7 @@ from sqlalchemy.orm import aliased
 
 from app.core.app_clock import app_today
 from app.models.account import Account
+from app.models.account_card import AccountCard
 from app.models.category import Category
 from app.models.transaction import Transaction
 from app.models.transaction_category_line import TransactionCategoryLine
@@ -122,16 +123,31 @@ def is_not_ignored():
     )
 
 
-def not_on_cards(last4s: Iterable[str]):
-    """SQL filter: the row was not charged to one of the given cards.
+def not_on_hidden_cards():
+    """SQL filter: the row was not charged to a card the user hid.
 
-    A row without a card (manual entries, imports, bank fees) is never
-    excluded: hiding a card hides only what is known to be its own.
+    Hiding is a property of the card (`account_cards.is_hidden`), so every
+    list and total applies it. A row without a card (manual entries, imports,
+    bank fees) is never excluded: hiding a card hides only what is known to
+    be its own.
     """
-    return or_(
-        Transaction.card_last4.is_(None),
-        Transaction.card_last4.not_in(list(last4s)),
+    return ~exists().where(
+        AccountCard.account_id == Transaction.account_id,
+        AccountCard.last4 == Transaction.card_last4,
+        AccountCard.is_hidden.is_(True),
     )
+
+
+async def workspace_has_hidden_cards(
+    session: AsyncSession, workspace_id: uuid.UUID, account_id: Optional[uuid.UUID] = None
+) -> bool:
+    """Whether any card is hidden in the workspace (or on one account)."""
+    query = select(AccountCard.id).where(
+        AccountCard.workspace_id == workspace_id, AccountCard.is_hidden.is_(True)
+    )
+    if account_id is not None:
+        query = query.where(AccountCard.account_id == account_id)
+    return (await session.execute(query.limit(1))).first() is not None
 
 
 # ---------------------------------------------------------------------------
@@ -273,6 +289,7 @@ def counts_as_pnl(category_id):
     """
     return and_(
         Transaction.transfer_pair_id.is_(None),
+        not_on_hidden_cards(),
         Transaction.is_ignored.is_(False),
         Transaction.exclude_from_pnl.is_(False),
         # Settlement *debits* are repayments of debts that were already

@@ -77,7 +77,6 @@ async def get_account_summary(
     date_to: Optional[str] = Query(None, alias="to", description="YYYY-MM-DD"),
     bill_id: Optional[uuid.UUID] = Query(None, description="Aggregate by bill_id (issue #92); takes precedence over from/to"),
     unbilled_only: bool = Query(False, description="Cycle-math fallback only: exclude txs already linked to any bill"),
-    exclude_card_last4: Optional[list[str]] = Query(None, description="Drop transactions charged to these card last-4 values; transactions without a card are always kept"),
     ctx: WorkspaceContext = Depends(current_workspace),
     session: AsyncSession = Depends(get_async_session),
 ):
@@ -85,7 +84,7 @@ async def get_account_summary(
     to_date = date.fromisoformat(date_to) if date_to else None
     summary = await account_service.get_account_summary(
         session, account_id, ctx.workspace.id, date_from=from_date, date_to=to_date,
-        bill_id=bill_id, unbilled_only=unbilled_only, exclude_card_last4=exclude_card_last4,
+        bill_id=bill_id, unbilled_only=unbilled_only,
     )
     if not summary:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
