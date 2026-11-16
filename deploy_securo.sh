@@ -1,52 +1,39 @@
 #!/bin/bash
-# Roda NO SERVIDOR (Swarm), no mesmo estilo do deploy do hotmanager.
-# Ajuste as variáveis conforme os nomes dos serviços da stack no Portainer.
+# Roda NO SERVIDOR (Swarm). As imagens são construídas no GitHub Actions
+# (release.yml) e publicadas em ghcr.io/fellipemanosso; aqui só puxamos e
+# atualizamos os serviços da stack "securo".
+#
+# Fluxo completo a cada atualização:
+#   (local)    git push origin main && gh workflow run release.yml --ref main
+#   (servidor) ./deploy_securo.sh
 set -euo pipefail
 
-REPO_DIR=${REPO_DIR:-/root/securo}
 STACK=${STACK:-securo}
-BACKEND_IMAGE=securo-backend
-FRONTEND_IMAGE=securo-frontend
-# Serviços que usam a imagem do backend (a ordem importa: backend primeiro).
+REGISTRY=ghcr.io/fellipemanosso
+BACKEND_IMAGE=$REGISTRY/securo-backend:latest
+FRONTEND_IMAGE=$REGISTRY/securo-frontend:latest
 BACKEND_SERVICES=("${STACK}_backend" "${STACK}_celery-worker" "${STACK}_celery-beat")
 FRONTEND_SERVICE="${STACK}_frontend"
-KEEP_IMAGES=3
 
-cd "$REPO_DIR"
+echo "[1/5] Baixando imagens..."
+docker pull "$BACKEND_IMAGE"
+docker pull "$FRONTEND_IMAGE"
 
-echo "[1/6] Sincronizando código com origin/main..."
-git fetch origin main
-git reset --hard origin/main
-SHA=$(git rev-parse --short=12 HEAD)
-
-echo "[2/6] Buildando imagens ($SHA)..."
-docker build --pull -t "$BACKEND_IMAGE:$SHA" -t "$BACKEND_IMAGE:latest" ./backend
-docker build --pull --build-arg VITE_APP_VERSION="$SHA" \
-  -t "$FRONTEND_IMAGE:$SHA" -t "$FRONTEND_IMAGE:latest" ./frontend
-
-echo "[3/6] Atualizando backend e workers..."
+echo "[2/5] Atualizando backend e workers..."
 for svc in "${BACKEND_SERVICES[@]}"; do
-  docker service update --image "$BACKEND_IMAGE:$SHA" "$svc"
+  docker service update --force --image "$BACKEND_IMAGE" "$svc"
 done
 
-echo "[4/6] Aplicando migrations (alembic upgrade head)..."
+echo "[3/5] Aplicando migrations (alembic upgrade head)..."
 CID=$(docker ps -q -f "name=${STACK}_backend\." | head -n1)
 [ -n "$CID" ] || { echo "container do backend não encontrado" >&2; exit 1; }
 docker exec "$CID" alembic upgrade head
 
-echo "[5/6] Atualizando frontend..."
-docker service update --image "$FRONTEND_IMAGE:$SHA" "$FRONTEND_SERVICE"
+echo "[4/5] Atualizando frontend..."
+docker service update --force --image "$FRONTEND_IMAGE" "$FRONTEND_SERVICE"
+
+echo "[5/5] Verificando tarefas ativas..."
 for svc in "${BACKEND_SERVICES[@]}" "$FRONTEND_SERVICE"; do
   docker service ps "$svc" --filter desired-state=running
 done
-
-echo "[6/6] Limpando..."
-for img in "$BACKEND_IMAGE" "$FRONTEND_IMAGE"; do
-  docker images "$img" --format '{{.Repository}}:{{.Tag}}' \
-    | grep -v ':latest$' \
-    | tail -n +$((KEEP_IMAGES + 1)) \
-    | xargs -r -n1 docker rmi || true
-done
 docker image prune -f
-docker builder prune -f --keep-storage 10GB
-docker system df
