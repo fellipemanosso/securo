@@ -405,7 +405,12 @@ export default function AccountDetailPage() {
     setFilterTouched(true)
     // Bill-aware nav: step through the bills list when we have it, so prev/next
     // mirrors the bank's actual statements (handles dynamic close days).
-    if (billsAsc.length > 0) {
+    // Beyond the in-progress cycle there are no bills to step through, so
+    // stepping back from there must walk cycle by cycle; otherwise the bill
+    // index would jump from January straight over December to November.
+    const pastInProgress = !activeBill && !!account?.statement_close_day &&
+      filterFrom > creditCardCycleBoundaries(account.statement_close_day, new Date()).start
+    if (billsAsc.length > 0 && !pastInProgress) {
       const currentIdx = activeBill
         ? billsAsc.indexOf(activeBill)
         : billsAsc.length // viewing in-progress cycle past the newest bill
