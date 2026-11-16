@@ -1202,11 +1202,15 @@ export default function AccountDetailPage() {
         const dfLocale = resolveDateFnsLocale(i18n.resolvedLanguage ?? i18n.language)
         const totals = timelineQueries.map((q, i) => {
           const c = timelineCycles[i]
-          // Single source of truth: live debit sum from the summary endpoint,
-          // filtered by bill_id when the cycle has a bill (handles dynamic
-          // close days) or by [start, end] otherwise. Same number whether
-          // the bar is active or not — clicking doesn't shift the value.
-          const total = Number(q.data?.projected_expenses ?? q.data?.monthly_expenses ?? 0)
+          // A closed bank bill is final: the bank's total is the number the
+          // user pays, so show it as is. Open and manual cycles are summed
+          // live from the summary endpoint (bill_id when the cycle has a
+          // bill, [start, end] otherwise).
+          const bankTotal = !primaryShown && c.bill?.source === 'bank' && c.bill.closing_date
+            && c.bill.closing_date < format(new Date(), 'yyyy-MM-dd')
+            ? Number(c.bill.total_amount)
+            : null
+          const total = bankTotal ?? Number(q.data?.projected_expenses ?? q.data?.monthly_expenses ?? 0)
           return {
             ...c,
             total,
@@ -1268,7 +1272,11 @@ export default function AccountDetailPage() {
         // can lag any charges added since the last sync). Otherwise use the
         // summary endpoint's monthly_expenses now nets refund credits against
         // debits for CC accounts (matches the bank's bill total).
-        const billTotal = (primaryShown ? summary?.projected_expenses_primary : undefined) ?? summary?.projected_expenses ?? summary?.monthly_expenses ?? 0
+        const closedBankTotal = !primaryShown && activeBill?.source === 'bank' && activeBill.closing_date
+          && activeBill.closing_date < format(new Date(), 'yyyy-MM-dd')
+          ? Number(activeBill.total_amount)
+          : null
+        const billTotal = closedBankTotal ?? (primaryShown ? summary?.projected_expenses_primary : undefined) ?? summary?.projected_expenses ?? summary?.monthly_expenses ?? 0
         // "Default cycle" = the bill the user is here to pay (next due). The
         // AGORA tag on Limite disponível only shows when viewing a different cycle.
         const isDefaultCycle =
