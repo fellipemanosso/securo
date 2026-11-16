@@ -1033,9 +1033,19 @@ async def ensure_account_cards(
     missing = (
         await session.execute(seen.where(Transaction.card_last4.not_in(known)))
     ).scalars().all()
-    for last4 in missing:
-        session.add(AccountCard(workspace_id=workspace_id, account_id=account_id, last4=last4))
     if missing:
+        # Two cards hidden back to back send two requests that both find the
+        # same rows missing; ON CONFLICT keeps the loser from a 500.
+        from sqlalchemy.dialects.postgresql import insert as pg_insert
+
+        await session.execute(
+            pg_insert(AccountCard)
+            .values([
+                {"workspace_id": workspace_id, "account_id": account_id, "last4": last4}
+                for last4 in missing
+            ])
+            .on_conflict_do_nothing(index_elements=["account_id", "last4"])
+        )
         await session.flush()
 
 
@@ -1395,9 +1405,15 @@ async def get_account_summary(
         )
         paid_later = float(paid_later_result.scalar() or 0)
     # What the posted payments leave over after the older debt, and what
-    # the pending/future ones add on top of that.
-    netted_now = max(0.0, paid_now - prior_debt)
-    netted_total = max(0.0, paid_now + paid_later - prior_debt)
+    # the pending/future ones add on top of that. A payment is made to the
+    # whole card, not to one last4, so once cards are hidden it cannot be
+    # split between them: netting it against only the visible cards' charges
+    # would push the total negative.
+    if exclude_card_last4:
+        netted_now = netted_total = 0.0
+    else:
+        netted_now = max(0.0, paid_now - prior_debt)
+        netted_total = max(0.0, paid_now + paid_later - prior_debt)
 
     # Income = SUM of credit transactions in window (excluding opening_balance
     # and paired transfers).

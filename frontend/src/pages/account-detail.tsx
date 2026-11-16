@@ -967,11 +967,11 @@ export default function AccountDetailPage() {
       <div className="mb-6 space-y-4">
         {/* Breadcrumb */}
         <Link
-          to="/accounts"
+          to={isCreditCard ? '/cards' : '/accounts'}
           className="inline-flex items-center text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowLeft className="h-3.5 w-3.5 mr-1" />
-          {t('accounts.backToAccounts')}
+          {isCreditCard ? t('nav.cards') : t('accounts.backToAccounts')}
         </Link>
 
         {/* Title row */}

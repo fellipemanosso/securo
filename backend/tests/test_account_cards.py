@@ -192,3 +192,39 @@ async def test_account_summary_excludes_cards_but_keeps_rows_without_card(
     assert without_one.json()["monthly_expenses"] == pytest.approx(50.00)
     assert without_one.json()["projected_expenses"] == pytest.approx(50.00)
     assert without_both.json()["monthly_expenses"] == pytest.approx(10.00)
+
+
+@pytest.mark.asyncio
+async def test_account_summary_with_hidden_card_never_goes_negative_from_card_payment(
+    client: AsyncClient, auth_headers, session: AsyncSession, test_user
+):
+    account_id = await _create_card_account(client, auth_headers)
+    await _add_charges(
+        session, test_user, account_id, [("1111", "100.00", 0), ("2222", "150.00", 0)]
+    )
+    # The bill was paid in full from a checking account: one credit on the
+    # card, with no last4, paired to the debit on the other side.
+    session.add(
+        Transaction(
+            id=uuid.uuid4(),
+            user_id=test_user.id,
+            account_id=uuid.UUID(account_id),
+            description="Pagamento recebido",
+            amount=Decimal("250.00"),
+            currency="BRL",
+            date=date.today(),
+            type="credit",
+            source="manual",
+            transfer_pair_id=uuid.uuid4(),
+            created_at=datetime.now(timezone.utc),
+        )
+    )
+    await session.commit()
+
+    response = await client.get(
+        f"/api/accounts/{account_id}/summary",
+        headers=auth_headers,
+        params={"exclude_card_last4": ["2222"]},
+    )
+
+    assert response.json()["monthly_expenses"] == pytest.approx(100.00)
