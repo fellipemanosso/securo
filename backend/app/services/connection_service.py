@@ -1224,7 +1224,11 @@ def _apply_bank_bill_placement(
     # the bank has not billed yet.
     if tx.bill_id is not None:
         return False
-    forecast = forecast_bill_due_date(txn_data.bill_forecast_month, account, tx.date)
+    forecast = forecast_bill_due_date(
+        txn_data.bill_forecast_month,
+        account,
+        tx.installment_purchase_date or tx.date,
+    )
     if forecast is not None:
         tx.effective_bill_date = forecast
         tx.effective_bill_date_source = "provider"

@@ -165,6 +165,34 @@ async def test_sync_ignores_a_forecast_naming_a_bill_closed_before_the_purchase(
 
 
 @pytest.mark.asyncio
+async def test_sync_places_a_future_installment_on_its_forecast_bill(
+    session: AsyncSession, test_user, test_workspace
+):
+    """Itaú sends installment 10/12 of a 2026-02-04 purchase ahead of
+    billing, dated 2026-12-11 (the due date of its bill), with the forecast
+    "2026-12". Its own date would put it a bill later."""
+    conn = BankConnection(
+        id=uuid.uuid4(), user_id=test_user.id, provider="test",
+        external_id="item", institution_name="Bank", credentials={"token": "t"},
+        status="active", created_at=datetime.now(timezone.utc),
+    )
+    session.add(conn)
+    await session.commit()
+    installment = TransactionData(
+        external_id="rafaela-10", description="ZP*RAFAELA 10/12", amount=Decimal("2615.46"),
+        date=date(2026, 12, 11), type="debit", currency="BRL", status="pending",
+        installment_number=10, total_installments=12,
+        installment_purchase_date=date(2026, 2, 4),
+        bill_forecast_month=date(2026, 12, 1),
+    )
+
+    row = await _sync(session, test_user, test_workspace, conn, installment)
+
+    assert row.effective_bill_date == date(2026, 12, 9)
+    assert row.effective_date == date(2026, 12, 9)
+
+
+@pytest.mark.asyncio
 async def test_sync_keeps_a_users_own_placement_over_the_forecast(
     session: AsyncSession, test_user, test_workspace
 ):

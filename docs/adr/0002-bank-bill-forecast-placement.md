@@ -8,7 +8,7 @@ Some charges are billed months after the purchase, such as a Pix no crédito, so
 
 A separate forecast column would keep the user's override field purely manual, but every statement, summary, report, and timeline query would then have to merge two placements. Reusing the placement field with a source keeps one membership rule.
 
-Trusting every forecast was the first version (migration 112). Connectors disagree on what the field means: Nubank sends the due month, C6 a month whose bill had already closed when the purchase was made, which hid all of C6's open charges on a past bill. Accepting a forecast only when it defers the charge holds for both, because no bill can carry a charge made after it closed; migration 113 dropped the forecasts that defer nothing.
+Trusting every forecast was the first version (migration 112). Connectors disagree on what the field means: Nubank sends the due month, C6 a month whose bill had already closed when the purchase was made, which hid all of C6's open charges on a past bill. Accepting a forecast only when it falls after the bill cycle math gives the purchase holds for both, because no bill can carry a charge made after it closed; migration 113 dropped the forecasts that defer nothing. For an installment the purchase is its original purchase date, not the row's date: Itaú sends future installments dated on the due date of the bill they land on, which put each one a bill late until migration 116.
 
 ## Consequences
 
