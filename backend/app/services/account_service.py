@@ -50,6 +50,7 @@ from app.services.credit_card_service import (
     get_cycle_dates,
 )
 from app.services.fx_rate_service import _resolve_rate, stamp_primary_amount
+from app.services.installment_forecast import forecast_installments, on_bill
 from app.models.category import Category
 
 # Loan accounts only: contract terms the payment schedule is computed from.
@@ -1477,6 +1478,14 @@ async def get_account_summary(
     forecast_expenses = float(forecast_expense_result.scalar() or 0) - (
         netted_total - netted_now
     )
+    if unbilled_only and cycle is not None and not cycle["degenerate"]:
+        # Installments the bank has not sent yet but will bill on this
+        # statement (see installment_forecast).
+        for forecast in on_bill(
+            await forecast_installments(session, [account.id]), cycle["prev"], cycle["this"]
+        ):
+            amount = float(forecast.amount)
+            forecast_expenses += amount if forecast.type == "debit" else -amount
 
     opening_balance = (
         await get_period_opening_balance(session, account, date_from)

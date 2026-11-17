@@ -24,6 +24,7 @@ const api = vi.hoisted(() => ({
     update: vi.fn(),
     runningBalance: vi.fn(),
     cards: vi.fn(),
+    installmentForecasts: vi.fn(async () => []),
   },
   transactions: { list: vi.fn(), update: vi.fn(), delete: vi.fn(), create: vi.fn() },
   dashboard: { projectedTransactions: vi.fn() },

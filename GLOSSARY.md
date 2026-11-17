@@ -19,3 +19,7 @@ _Avoid_: Fatura estimada
 **Previsão de Cobrança**:
 Fatura em que a instituição financeira informa que vai cobrar uma compra que ainda não faturou, como um Pix no crédito.
 _Avoid_: Projeção de Fatura
+
+**Parcela Prevista**:
+Parcela de uma compra parcelada que a instituição financeira ainda não enviou, esperada numa Fatura futura.
+_Avoid_: Projeção de Fatura, Previsão de Cobrança

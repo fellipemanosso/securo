@@ -19,6 +19,7 @@ const api = vi.hoisted(() => ({
     list: vi.fn(),
     update: vi.fn(),
     cards: vi.fn(),
+    installmentForecasts: vi.fn(),
   },
   transactions: { list: vi.fn(), update: vi.fn(), delete: vi.fn(), create: vi.fn() },
   dashboard: { projectedTransactions: vi.fn() },
@@ -113,6 +114,7 @@ beforeEach(() => {
   api.accounts.creditCardTimeline.mockResolvedValue(timeline)
   api.accounts.list.mockResolvedValue([account])
   api.accounts.cards.mockResolvedValue([])
+  api.accounts.installmentForecasts.mockResolvedValue([])
   api.accounts.summary.mockResolvedValue({
     monthly_income: 0, monthly_expenses: 0, projected_income: 0, projected_expenses: 0,
   })
@@ -224,5 +226,19 @@ describe('credit card cycle window', () => {
     // earlier, named by its dates instead of a statement month.
     expect(previous).toBeDisabled()
     expect(screen.getByTitle('Next cycle')).toBeEnabled()
+  })
+
+  it('lists the installments the bank will bill on the open statement', async () => {
+    api.accounts.installmentForecasts.mockResolvedValue([{
+      key: 'tx-1:7', description: 'THIAGO PEREIRA', amount: 720, currency: 'BRL', type: 'debit',
+      purchase_date: '2026-05-06', due_date: '2026-10-10', installment_number: 7,
+      total_installments: 10, category_id: null, card_last4: '9984',
+    }])
+
+    await renderPage()
+
+    await waitFor(() => expect(api.accounts.installmentForecasts).toHaveBeenCalledWith('acc-1', 'cycle:2026-09-30'))
+    expect(await screen.findByText('THIAGO PEREIRA')).toBeInTheDocument()
+    expect(screen.getByText('7/10')).toBeInTheDocument()
   })
 })

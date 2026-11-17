@@ -4,7 +4,7 @@ import hashlib
 import json
 import logging
 import time
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Optional
 from urllib.parse import parse_qs, urlparse
@@ -262,6 +262,30 @@ def _date_or_none(value) -> Optional[date]:
         return date.fromisoformat(str(value)[:10])
     except ValueError:
         return None
+
+
+# Brazil has kept UTC-3 all year since 2019, so a fixed offset needs no tz
+# database in the image.
+_BRAZIL = timezone(timedelta(hours=-3))
+
+
+def _local_transaction_date(value: str) -> date:
+    """The Brazilian calendar day of a Pluggy transaction timestamp.
+
+    Pluggy sends `date` in UTC. A purchase at 21:00 in Brasília is already
+    the next day there, which moved charges near the closing day onto the
+    wrong statement (C6 lists them a day earlier). A bare midnight is a date
+    without a time of day and is taken as it is.
+    """
+    if len(value) <= 10:
+        return date.fromisoformat(value[:10])
+    try:
+        moment = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return date.fromisoformat(value[:10])
+    if moment.tzinfo is None or moment.time() == datetime.min.time():
+        return moment.date()
+    return moment.astimezone(_BRAZIL).date()
 
 
 def _parse_bill_forecast_month(value) -> Optional[date]:
@@ -722,7 +746,7 @@ class PluggyProvider(BankProvider):
                     else:
                         txn_type = "credit" if amount_raw >= 0 else "debit"
 
-                    txn_date = date.fromisoformat(txn["date"][:10])
+                    txn_date = _local_transaction_date(txn["date"])
 
                     # Pending vs booked status
                     status = "pending" if txn.get("status") == "PENDING" else "posted"

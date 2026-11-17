@@ -263,6 +263,21 @@ export interface CreditCardTimeline {
   default_key: string | null
 }
 
+/** An installment the bank will bill on a statement but has not sent yet. */
+export interface InstallmentForecast {
+  key: string
+  description: string
+  amount: number
+  currency: string
+  type: 'debit' | 'credit'
+  purchase_date: string
+  due_date: string
+  installment_number: number
+  total_installments: number
+  category_id: string | null
+  card_last4: string | null
+}
+
 export interface Collection {
   id: string
   user_id: string

@@ -22,6 +22,11 @@ from app.models.credit_card_bill import CreditCardBill
 from app.models.transaction import Transaction
 from app.services._query_filters import counts_on_bill, not_on_hidden_cards
 from app.services.credit_card_service import cc_cycle_bill_due_dates
+from app.services.installment_forecast import (
+    InstallmentForecast,
+    forecast_installments,
+    on_bill,
+)
 
 
 @dataclass(frozen=True)
@@ -335,6 +340,9 @@ class CreditCardTimeline:
                             uuid.UUID(projection.account_id), []
                         ).append(projection)
             accounts_by_id = {account.id: account for account in accounts}
+            installments_by_account: dict[uuid.UUID, list[InstallmentForecast]] = {}
+            for forecast in await forecast_installments(session, list(result)):
+                installments_by_account.setdefault(forecast.account_id, []).append(forecast)
             for account_id, timeline in tuple(result.items()):
                 account = accounts_by_id[account_id]
                 account_transactions = by_account.get(account_id, ())
@@ -371,6 +379,17 @@ class CreditCardTimeline:
                         if item.start <= bucket <= item.end:
                             amount = Decimal(str(projection.amount))
                             total += amount if projection.type == "debit" else -amount
+                    if by_due:
+                        for forecast in on_bill(
+                            installments_by_account.get(account_id, ()),
+                            cycle["prev"],
+                            cycle["this"],
+                        ):
+                            total += (
+                                forecast.amount
+                                if forecast.type == "debit"
+                                else -forecast.amount
+                            )
                     projected_items.append(replace(item, amount=total))
                 result[account_id] = CardTimeline(
                     tuple(projected_items), timeline.default_key

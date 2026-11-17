@@ -1,3 +1,4 @@
+import calendar
 import hashlib
 import logging
 import re
@@ -1637,6 +1638,7 @@ async def handle_oauth_callback(
             )
 
         await ensure_account_cards(session, account.id, workspace_id)
+        await _carry_charges_past_closed_bill(session, account)
 
         # After importing the initial batch, reconcile the opening balance so
         # that SUM(all transactions) matches the provider-reported balance. Any
@@ -2367,7 +2369,6 @@ def _compute_bill_close_date(due_date: date, close_day: Optional[int]) -> date:
     pays the bill. Stamping them at due_date makes them appear chronologically
     after the payment in the tx list, which doesn't match real bank semantics.
     """
-    import calendar  # local — not used elsewhere in this file
     if not close_day:
         return due_date
     last = calendar.monthrange(due_date.year, due_date.month)[1]
@@ -2620,6 +2621,66 @@ def _fill_cycle_days_from_bills(account: Account, bills) -> bool:
         account.payment_due_day = latest.due_date.day
         filled = True
     return filled
+
+
+async def _carry_charges_past_closed_bill(session: AsyncSession, account: Account) -> None:
+    """Place charges the latest closed bank bill left out on the next bill.
+
+    A bank bills what has posted by its closing day. A charge still pending
+    then (C6: purchases on the eve of the close) goes on the next bill, while
+    its purchase date keeps it in the closed bill's window. When the bank
+    links its charges to bills, an unlinked charge in a closed bill's window
+    is one that bill left out. Only the latest closed bill counts: a charge
+    left out of an older one never posted. Placed charges keep their bill.
+    """
+    if account.type != "credit_card":
+        return
+    today = app_today()
+    bills = [
+        bill
+        for bill in (
+            await session.execute(
+                select(CreditCardBill)
+                .where(
+                    CreditCardBill.account_id == account.id,
+                    CreditCardBill.closing_date.is_not(None),
+                )
+                .order_by(CreditCardBill.due_date)
+            )
+        ).scalars()
+        if bill.source == "bank"
+    ]
+    closed = [bill for bill in bills if bill.closing_date < today]
+    if len(closed) < 2:
+        return
+    latest, previous = closed[-1], closed[-2]
+    if not await session.scalar(
+        select(func.count()).select_from(Transaction).where(Transaction.bill_id == latest.id)
+    ):
+        return
+    later = bills[bills.index(latest) + 1:]
+    if later:
+        next_due = later[0].due_date
+    else:
+        year = latest.due_date.year + (latest.due_date.month == 12)
+        month = 1 if latest.due_date.month == 12 else latest.due_date.month + 1
+        next_due = date(
+            year, month, min(latest.due_date.day, calendar.monthrange(year, month)[1])
+        )
+    left_out = await session.execute(
+        select(Transaction).where(
+            Transaction.account_id == account.id,
+            Transaction.source == "sync",
+            Transaction.bill_id.is_(None),
+            Transaction.effective_bill_date.is_(None),
+            Transaction.date >= previous.closing_date,
+            Transaction.date < latest.closing_date,
+        )
+    )
+    for tx in left_out.scalars():
+        tx.effective_bill_date = next_due
+        tx.effective_bill_date_source = "provider"
+        apply_effective_date(tx, account)
 
 
 # Outcome of a sync that completed without raising, reported to the caller
@@ -3204,6 +3265,7 @@ async def sync_connection(
                 )
 
             await ensure_account_cards(session, account.id, workspace_id)
+            await _carry_charges_past_closed_bill(session, account)
 
             # Reconcile the opening balance after any new transactions land so
             # SUM(all txs) keeps matching account.balance from the provider.

@@ -32,3 +32,22 @@ November 2026, right after connecting it.
   Placing charges on it (migration 112) emptied the open December 2026 bill;
   a forecast now only counts when it defers a charge past its cycle-math bill
   (ADR 0002, migration 113), so C6 charges follow cycle math and `billId`.
+
+## Open statement
+
+Compared with the bank app's December 2026 statement (open on 2026-11-17,
+R$ 12.789,93), the synced rows lacked three things:
+
+- Installments of older purchases. C6 sends installment k only once it is
+  billed, so installment k+1 never arrives ahead of time (THIAGO 7/10, CEA
+  2/3, BAGATELLE 5/6 and others, R$ 1.437,25). Securo derives them
+  (ADR 0003).
+- Charges still pending at the November close (purchases of 2026-10-23,
+  R$ 475,90, and two refunds of 2026-10-18). C6 bills them on the next
+  statement. When a closed bank statement leaves out a charge from its window,
+  sync places it on the next statement (`_carry_charges_past_closed_bill`,
+  latest closed statement only, and only when the bank links its charges to
+  bills).
+- The calendar day. Pluggy sends timestamps in UTC; a purchase after 21:00 in
+  Brasília was dated a day late. Dates are now taken in Brasília time
+  (migration 114 fixed stored rows).

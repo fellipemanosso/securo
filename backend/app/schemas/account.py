@@ -210,6 +210,22 @@ class AccountSummary(BaseModel):
     fx_fallback: bool = False
 
 
+class InstallmentForecastRead(BaseModel):
+    """An installment the bank will bill on a statement but has not sent."""
+
+    key: str
+    description: str
+    amount: float
+    currency: str
+    type: str
+    purchase_date: date
+    due_date: date
+    installment_number: int
+    total_installments: int
+    category_id: Optional[uuid.UUID] = None
+    card_last4: Optional[str] = None
+
+
 class AccountRunningBalancePoint(BaseModel):
     """End-of-day balance on the account page's walk (#1202)."""
 

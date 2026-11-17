@@ -24,6 +24,7 @@ import type {
   Collection,
   CreditCardBill,
   CreditCardTimeline,
+  InstallmentForecast,
   LoanBalanceAdjustment,
   LoanBalanceUpdate,
   LoanSchedule,
@@ -541,6 +542,12 @@ export const accounts = {
     const { data } = await api.get('/accounts/credit-card-timeline', {
       params: { account_ids: accountIds, from, to },
       paramsSerializer: { indexes: null },
+    })
+    return data
+  },
+  installmentForecasts: async (id: string, cycleKey: string): Promise<InstallmentForecast[]> => {
+    const { data } = await api.get(`/accounts/${id}/installment-forecasts`, {
+      params: { cycle_key: cycleKey },
     })
     return data
   },

@@ -326,6 +326,14 @@ export default function AccountDetailPage() {
         : undefined,
   })
 
+  // Installments of older purchases that the bank bills on this statement
+  // but has not sent yet. Only statement projections can have them.
+  const { data: installmentForecasts } = useQuery({
+    queryKey: ['accounts', id, 'installment-forecasts', activeCycleKey],
+    queryFn: () => accounts.installmentForecasts(id!, activeCycleKey!),
+    enabled: !!id && account?.type === 'credit_card' && activeCycle?.kind === 'projection',
+  })
+
   // Any other account pages through the period newest first. Each row
   // carries the balance right after it, which the server walks over the
   // whole range, so a page's balances don't depend on the pages before or
@@ -629,9 +637,48 @@ export default function AccountDetailPage() {
     })
   }, [isCreditCard, cycleTxData, runningBalanceSeries, projectedRows, filterFrom, filterTo, dateLocale, usePrimary, displayCurrency, activeBill])
 
+  const installmentForecastRows = useMemo((): Transaction[] => (
+    (installmentForecasts ?? []).map((forecast): Transaction => ({
+      id: `installment-forecast-${forecast.key}`,
+      user_id: '',
+      account_id: id ?? null,
+      category_id: forecast.category_id,
+      category: categoriesList?.find((category) => category.id === forecast.category_id) ?? null,
+      external_id: null,
+      description: forecast.description,
+      original_description: null,
+      amount: forecast.amount,
+      currency: forecast.currency,
+      date: forecast.purchase_date,
+      type: forecast.type,
+      source: 'projected',
+      status: 'pending',
+      payee: null,
+      payee_id: null,
+      payee_name: null,
+      notes: null,
+      transfer_pair_id: null,
+      amount_primary: null,
+      fx_rate_used: null,
+      fx_fallback: false,
+      installment_series_id: null,
+      installment_number: forecast.installment_number,
+      total_installments: forecast.total_installments,
+      installment_total_amount: null,
+      installment_purchase_date: forecast.purchase_date,
+      card_last4: forecast.card_last4,
+      bill_id: null,
+      effective_bill_date: null,
+      recurring_transaction_id: null,
+      splits: [],
+      is_ignored: false,
+      virtual: true,
+    }))
+  ), [installmentForecasts, categoriesList, id])
+
   const ccRunningTotal = useMemo((): TxWithBalance[] => {
     if (!isCreditCard || !cycleTxData?.items) return []
-    const ascending = [...cycleTxData.items].sort(
+    const ascending = [...cycleTxData.items, ...installmentForecastRows].sort(
       (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
     )
     let running = 0
@@ -645,7 +692,7 @@ export default function AccountDetailPage() {
       return { ...tx, runningBalance: running }
     })
     return withBalance.reverse()
-  }, [cycleTxData, isCreditCard, usePrimary, displayCurrency])
+  }, [cycleTxData, installmentForecastRows, isCreditCard, usePrimary, displayCurrency])
 
   // Merged list: real transactions, pending rows, and virtual recurring
   // projections. The newest row is the forecast at the end of the range,

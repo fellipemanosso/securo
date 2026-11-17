@@ -25,6 +25,7 @@ from app.schemas.account import (
     CreditCardBillRead,
     CreditCardBillWrite,
     CreditCardTimelineRead,
+    InstallmentForecastRead,
     LoanBalanceAdjustment,
     LoanBalanceUpdate,
     LoanScheduleRead,
@@ -35,7 +36,9 @@ from app.services.credit_card_timeline import (
     CreditCardTimeline,
     StaleCycleKeyError,
 )
+from app.services.credit_card_service import cc_cycle_bill_due_dates
 from app.services.fx_rate_service import _resolve_rate
+from app.services.installment_forecast import forecast_installments, on_bill
 
 router = APIRouter(prefix="/api/accounts", tags=["accounts"])
 
@@ -155,6 +158,54 @@ async def get_account_summary(
                 summary[f"{field}_primary"] = float(converted.quantize(Decimal("0.01")))
 
     return summary
+
+
+@router.get(
+    "/{account_id}/installment-forecasts",
+    response_model=list[InstallmentForecastRead],
+)
+async def get_installment_forecasts(
+    account_id: uuid.UUID,
+    cycle_key: str = Query(...),
+    ctx: WorkspaceContext = Depends(current_workspace),
+    session: AsyncSession = Depends(get_async_session),
+):
+    """Installments the bank will bill on this statement but has not sent."""
+    try:
+        scope = await CreditCardTimeline.resolve(
+            session, ctx.workspace.id, account_id, cycle_key
+        )
+    except StaleCycleKeyError as error:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
+    account = await account_service.get_account(session, account_id, ctx.workspace.id)
+    if account is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
+    # Only statement projections are still open to forecasts: a bank
+    # statement already says what it billed.
+    cycle = cc_cycle_bill_due_dates(
+        scope.start, scope.end, account.statement_close_day, account.payment_due_day
+    ) if scope.projection else None
+    if cycle is None or cycle["degenerate"]:
+        return []
+    forecasts = on_bill(
+        await forecast_installments(session, [account.id]), cycle["prev"], cycle["this"]
+    )
+    return [
+        InstallmentForecastRead(
+            key=forecast.key,
+            description=forecast.description,
+            amount=float(forecast.amount),
+            currency=forecast.currency,
+            type=forecast.type,
+            purchase_date=forecast.purchase_date,
+            due_date=forecast.due_date,
+            installment_number=forecast.installment_number,
+            total_installments=forecast.total_installments,
+            category_id=forecast.category_id,
+            card_last4=forecast.card_last4,
+        )
+        for forecast in forecasts
+    ]
 
 
 @router.get("/{account_id}/balance-history")
