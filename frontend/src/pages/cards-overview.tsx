@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { addMonths, isBefore, isSameMonth, parseISO, startOfMonth } from 'date-fns'
-import { CalendarDays, ChevronLeft, ChevronRight, CreditCard, Pencil, Plus, ReceiptText, Repeat2, Trash2 } from 'lucide-react'
+import { CalendarDays, Check, ChevronLeft, ChevronRight, CreditCard, Pencil, Plus, ReceiptText, Repeat2, Trash2, X } from 'lucide-react'
 import { accounts as accountsApi, categories as categoriesApi, categoryGroups as categoryGroupsApi, recurring as recurringApi, transactions as transactionsApi } from '@/lib/api'
 import { getAccountName } from '@/lib/account-utils'
 import { formatCurrency } from '@/lib/format'
@@ -136,6 +136,8 @@ export default function CardsOverviewPage() {
   const [billSnapshot, setBillSnapshot] = useState<CardSnapshot | null>(null)
   const [deleteBillSnapshot, setDeleteBillSnapshot] = useState<CardSnapshot | null>(null)
   const [billForm, setBillForm] = useState({ closing_date: '', due_date: '', total_amount: '', status: 'open' as 'open' | 'paid' })
+  const [renamingCard, setRenamingCard] = useState<Account | null>(null)
+  const [displayNameDraft, setDisplayNameDraft] = useState('')
   const createTransaction = useCreateTransaction({ onDone: () => setPurchaseCard(null) })
 
   const { data: accountList, isLoading: accountsLoading } = useQuery({
@@ -176,6 +178,28 @@ export default function CardsOverviewPage() {
     },
     onError: (error: unknown) => toast.error(extractApiError(error)),
   })
+  const renameCardMutation = useMutation({
+    mutationFn: ({ id, displayName }: { id: string; displayName: string }) =>
+      accountsApi.update(id, { display_name: displayName.trim() || null }),
+    onSuccess: (updated) => {
+      queryClient.setQueryData<Account[]>(['accounts'], (current) =>
+        current?.map((account) => account.id === updated.id ? updated : account),
+      )
+      setRenamingCard(null)
+      toast.success('Nome do cartão atualizado')
+    },
+    onError: (error: unknown) => toast.error(extractApiError(error)),
+  })
+
+  const startRenamingCard = (card: Account) => {
+    setRenamingCard(card)
+    setDisplayNameDraft(card.display_name ?? '')
+  }
+
+  const cancelRenamingCard = () => {
+    setRenamingCard(null)
+    setDisplayNameDraft('')
+  }
 
   const openBillEditor = (snapshot: CardSnapshot) => {
     setBillSnapshot(snapshot)
@@ -371,10 +395,55 @@ export default function CardsOverviewPage() {
                         <AccountIcon account={card} size="lg" />
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-                            <Link to={`/accounts/${card.id}`} className="min-w-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                              <h3 className="truncate text-sm font-semibold">{getAccountName(card)}</h3>
+                            <div className={`min-w-0 flex-1 ${renamingCard?.id === card.id ? 'basis-full sm:basis-auto' : ''}`}>
+                              {renamingCard?.id === card.id ? (
+                                <form
+                                  className="flex max-w-sm items-center gap-1.5"
+                                  onSubmit={(event) => {
+                                    event.preventDefault()
+                                    renameCardMutation.mutate({ id: card.id, displayName: displayNameDraft })
+                                  }}
+                                >
+                                  <Input
+                                    autoFocus
+                                    aria-label="Nome de exibição do cartão"
+                                    value={displayNameDraft}
+                                    onChange={(event) => setDisplayNameDraft(event.target.value)}
+                                    onKeyDown={(event) => {
+                                      if (event.key === 'Escape') cancelRenamingCard()
+                                    }}
+                                    placeholder={card.name}
+                                    className="h-8"
+                                  />
+                                  <Button
+                                    type="submit"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 shrink-0"
+                                    aria-label="Salvar nome do cartão"
+                                    disabled={renameCardMutation.isPending}
+                                  >
+                                    <Check size={15} />
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 shrink-0"
+                                    aria-label="Cancelar alteração do nome"
+                                    onClick={cancelRenamingCard}
+                                    disabled={renameCardMutation.isPending}
+                                  >
+                                    <X size={15} />
+                                  </Button>
+                                </form>
+                              ) : (
+                                <Link to={`/accounts/${card.id}`} className="block min-w-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                                  <h3 className="truncate text-sm font-semibold">{getAccountName(card)}</h3>
+                                </Link>
+                              )}
                               <p className="mt-0.5 text-xs text-muted-foreground">{dueLabel(snapshot, dateLocale)}</p>
-                            </Link>
+                            </div>
                             <div className="text-right">
                               <p className="font-semibold tabular-nums">{value}</p>
                               <Badge variant="secondary" className={snapshot.source === 'bank' ? 'mt-1 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : snapshot.source === 'manual' ? 'mt-1 bg-blue-500/10 text-blue-700 dark:text-blue-300' : snapshot.source === 'estimate' ? 'mt-1 bg-amber-500/10 text-amber-700 dark:text-amber-300' : 'mt-1'}>
@@ -418,6 +487,16 @@ export default function CardsOverviewPage() {
                               <Button variant="ghost" size="sm" className="h-8 gap-1.5" onClick={() => openBillEditor(snapshot)}>
                                 <Pencil size={14} /> Ajustar fatura
                               </Button>
+                              {renamingCard?.id !== card.id && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 gap-1.5"
+                                  onClick={() => startRenamingCard(card)}
+                                >
+                                  <Pencil size={14} /> Renomear cartão
+                                </Button>
+                              )}
                             </div>
                           )}
                         </div>
