@@ -2,34 +2,6 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal, Optional
-class CreditCardTimelineItemRead(BaseModel):
-    account_id: uuid.UUID
-    due_month: str
-    kind: Literal["statement", "projection", "unavailable"]
-    cycle_key: Optional[str] = None
-    start: Optional[date] = None
-    end: Optional[date] = None
-    closing_date: Optional[date] = None
-    due_date: Optional[date] = None
-    amount: Optional[float] = None
-    primary_amount: Optional[float] = None
-    source: Optional[Literal["bank", "manual"]] = None
-    record_id: Optional[uuid.UUID] = None
-    status: Optional[Literal["open", "paid"]] = None
-    editable: bool = False
-    unavailable_reason: Optional[
-        Literal["past_statement_missing", "missing_close_config", "missing_due_config"]
-    ] = None
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class CreditCardTimelineRead(BaseModel):
-    account_id: uuid.UUID
-    items: list[CreditCardTimelineItemRead]
-    default_key: Optional[str] = None
-
-
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -168,6 +140,34 @@ class CreditCardBillRead(BaseModel):
     status: Literal["open", "paid"] = "open"
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class CreditCardTimelineItemRead(BaseModel):
+    account_id: uuid.UUID
+    due_month: str
+    kind: Literal["statement", "projection", "unavailable"]
+    cycle_key: Optional[str] = None
+    start: Optional[date] = None
+    end: Optional[date] = None
+    closing_date: Optional[date] = None
+    due_date: Optional[date] = None
+    amount: Optional[float] = None
+    primary_amount: Optional[float] = None
+    source: Optional[Literal["bank", "manual"]] = None
+    record_id: Optional[uuid.UUID] = None
+    status: Optional[Literal["open", "paid"]] = None
+    editable: bool = False
+    unavailable_reason: Optional[
+        Literal["past_statement_missing", "missing_close_config", "missing_due_config"]
+    ] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CreditCardTimelineRead(BaseModel):
+    account_id: uuid.UUID
+    items: list[CreditCardTimelineItemRead]
+    default_key: Optional[str] = None
 
 
 class CreditCardBillWrite(BaseModel):
