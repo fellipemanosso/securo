@@ -13,7 +13,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 from typing import Literal, Optional, Sequence
 
-from sqlalchemy import or_, select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.account import Account
@@ -21,6 +21,7 @@ from app.models.bank_connection import BankConnection
 from app.models.credit_card_bill import CreditCardBill
 from app.models.transaction import Transaction
 from app.services._query_filters import not_on_hidden_cards
+from app.services.credit_card_service import cc_cycle_bill_due_dates
 
 
 @dataclass(frozen=True)
@@ -275,8 +276,15 @@ class CreditCardTimeline:
                     await session.execute(
                         select(Transaction).where(
                             Transaction.account_id.in_(ids),
-                            Transaction.date >= range_start,
-                            Transaction.date <= range_end,
+                            or_(
+                                and_(
+                                    Transaction.date >= range_start,
+                                    Transaction.date <= range_end,
+                                ),
+                                # Placed on a later bill than its purchase
+                                # date, e.g. a Pix no crédito.
+                                Transaction.effective_bill_date >= range_start,
+                            ),
                             Transaction.bill_id.is_(None),
                             Transaction.is_ignored.is_(False),
                             Transaction.source != "opening_balance",
@@ -308,17 +316,33 @@ class CreditCardTimeline:
                         projected_by_account.setdefault(
                             uuid.UUID(projection.account_id), []
                         ).append(projection)
+            accounts_by_id = {account.id: account for account in accounts}
             for account_id, timeline in tuple(result.items()):
+                account = accounts_by_id[account_id]
                 account_transactions = by_account.get(account_id, ())
                 projected_items = []
                 for item in timeline.items:
                     if item.kind != "projection" or item.start is None or item.end is None:
                         projected_items.append(item)
                         continue
+                    # Same membership as the cycle's transaction list: a bill
+                    # placement counts on the bill whose (previous due, due]
+                    # range holds it, an unplaced charge by purchase date.
+                    cycle = cc_cycle_bill_due_dates(
+                        item.start,
+                        item.end,
+                        account.statement_close_day,
+                        account.payment_due_day,
+                    )
+                    by_due = cycle is not None and not cycle["degenerate"]
                     total = Decimal("0")
                     for transaction in account_transactions:
-                        bucket = transaction.effective_bill_date or transaction.date
-                        if item.start <= bucket <= item.end:
+                        placement = transaction.effective_bill_date
+                        if by_due and placement is not None:
+                            member = cycle["prev"] < placement <= cycle["this"]
+                        else:
+                            member = item.start <= (placement or transaction.date) <= item.end
+                        if member:
                             total += (
                                 transaction.amount
                                 if transaction.type == "debit"

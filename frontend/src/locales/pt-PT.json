@@ -1069,6 +1069,7 @@
     "billOverrideTooltip": "Movida para a fatura com vencimento em {{date}}",
     "effectiveBillDate": "Data efetiva da fatura",
     "effectiveBillDateHint": "manual, sobrescreve o ciclo automático",
+    "effectiveBillDateForecastHint": "previsão do banco, altere para sobrepor manualmente",
     "effectiveBillDatePlaceholder": "Vencimento da fatura (opcional)",
     "linkAsTransfer": "Vincular como transferência",
     "linkTransferTitle": "Vincular como transferência",

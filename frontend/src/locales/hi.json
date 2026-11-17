@@ -1070,6 +1070,7 @@
     "billOverrideTooltip": "{{date}} को देय बिल में ले जाया गया",
     "effectiveBillDate": "प्रभावी बिल तिथि",
     "effectiveBillDateHint": "मैन्युअल, अपने आप के चक्र को ओवरराइड करता है",
+    "effectiveBillDateForecastHint": "बैंक का अनुमान, मैन्युअल रूप से बदलने के लिए इसे बदलें",
     "effectiveBillDatePlaceholder": "बिल देय तिथि (वैकल्पिक)",
     "clearOverride": "ओवरराइड हटाएँ",
     "linkAsTransfer": "ट्रांसफ़र के रूप में जोड़ें",

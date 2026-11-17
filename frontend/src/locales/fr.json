@@ -1072,6 +1072,7 @@
     "billOverrideTooltip": "Déplacée vers la facture due le {{date}}",
     "effectiveBillDate": "Date de facture effective",
     "effectiveBillDateHint": "manuelle, remplace le cycle automatique",
+    "effectiveBillDateForecastHint": "prévision de la banque, modifiez-la pour la remplacer manuellement",
     "effectiveBillDatePlaceholder": "Date d'échéance de la facture (optionnel)",
     "clearOverride": "Effacer le remplacement",
     "linkAsTransfer": "Lier comme virement",

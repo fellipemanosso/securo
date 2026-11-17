@@ -1393,7 +1393,9 @@ function TransactionForm({
             <Label>
               {t('transactions.effectiveBillDate', 'Effective bill date')}{' '}
               <span className="text-muted-foreground font-normal text-xs">
-                ({t('transactions.effectiveBillDateHint', 'manual, overrides the automatic cycle')})
+                ({seed?.effective_bill_date_source === 'provider' && effectiveBillDate === seed.effective_bill_date
+                  ? t('transactions.effectiveBillDateForecastHint', 'bank forecast, change it to override manually')
+                  : t('transactions.effectiveBillDateHint', 'manual, overrides the automatic cycle')})
               </span>
             </Label>
             <div className="inline-flex items-center gap-1">

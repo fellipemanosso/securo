@@ -1070,6 +1070,7 @@
     "billOverrideTooltip": "Verschoben auf die Abrechnung fällig am {{date}}",
     "effectiveBillDate": "Effektives Abrechnungsdatum",
     "effectiveBillDateHint": "manuell, überschreibt den automatischen Zyklus",
+    "effectiveBillDateForecastHint": "Prognose der Bank, zum manuellen Überschreiben ändern",
     "effectiveBillDatePlaceholder": "Fälligkeitsdatum (optional)",
     "clearOverride": "Überschreibung aufheben",
     "linkAsTransfer": "Als Umbuchung verknüpfen",

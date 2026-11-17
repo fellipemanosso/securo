@@ -72,9 +72,9 @@ def apply_effective_date(transaction, account, *, bill_due_date: Optional[date] 
     """Populate `transaction.effective_date` based on the account type.
 
     Resolution order (highest priority first):
-    1. `transaction.effective_bill_date` — manual user override; whatever
-       the user set wins, since they're hand-correcting a bucketing they
-       disagree with (issue #92's LucasFidelis suggestion).
+    1. `transaction.effective_bill_date` — the bill the tx is placed on: a
+       manual user override (issue #92) or, until the bank bills the
+       charge, the bank's forecast (`effective_bill_date_source`).
     2. `bill_due_date` — bank-truth from Pluggy /bills (passed in by the
        sync layer when a bill is linked).
     3. Cycle math from `account.statement_close_day` / `payment_due_day`.
@@ -100,6 +100,22 @@ def apply_effective_date(transaction, account, *, bill_due_date: Optional[date] 
             )
     else:
         transaction.effective_date = transaction.date
+
+
+def forecast_bill_due_date(forecast_month: Optional[date], account) -> Optional[date]:
+    """Due date of the bill the bank forecasts a charge on.
+
+    The forecast names a due month; the configured due day picks the date in
+    it, clamped to the month's length. None when there is no forecast, the
+    account is not a credit card, or it has no due day to place it with."""
+    if forecast_month is None or account is None:
+        return None
+    if getattr(account, "type", None) != "credit_card":
+        return None
+    due_day = getattr(account, "payment_due_day", None)
+    if not due_day:
+        return None
+    return _clamp_day(forecast_month.year, forecast_month.month, due_day)
 
 
 def compute_effective_date(

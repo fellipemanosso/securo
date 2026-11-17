@@ -55,7 +55,7 @@ from app.services.asset_group_service import (
     _unique_default_name,
     ensure_group_for_connection,
 )
-from app.services.credit_card_service import apply_effective_date
+from app.services.credit_card_service import apply_effective_date, forecast_bill_due_date
 from app.services.rule_engine import merge_notes
 from app.services.rule_service import (
     apply_rules_to_transaction,
@@ -1191,6 +1191,43 @@ async def _find_installment_source(
     return result.scalars().first()
 
 
+def _apply_bank_bill_placement(
+    tx: Transaction,
+    txn_data: TransactionData,
+    account: Account,
+    bills_by_external_id: dict[str, CreditCardBill],
+) -> bool:
+    """Place a synced charge on the bill the bank names for it.
+
+    The bank's billId beats its billForecastDate, which only covers charges
+    not billed yet, and replaces an earlier forecast once the charge is
+    billed. A user's own placement beats both. Returns False, leaving the
+    row untouched, when the bank names no bill or the user placed it.
+    """
+    if tx.effective_bill_date is not None and tx.effective_bill_date_source != "provider":
+        return False
+    bill = (
+        bills_by_external_id.get(txn_data.bill_external_id)
+        if txn_data.bill_external_id
+        else None
+    )
+    if bill is not None:
+        tx.bill_id = bill.id
+        tx.effective_bill_date = None
+        tx.effective_bill_date_source = None
+        apply_effective_date(tx, account, bill_due_date=bill.due_date)
+        return True
+    forecast = forecast_bill_due_date(txn_data.bill_forecast_month, account)
+    # A charge already on a bank bill keeps it: a forecast only places what
+    # the bank has not billed yet.
+    if forecast is None or tx.bill_id is not None:
+        return False
+    tx.effective_bill_date = forecast
+    tx.effective_bill_date_source = "provider"
+    apply_effective_date(tx, account)
+    return True
+
+
 async def get_connections(session: AsyncSession, workspace_id: uuid.UUID) -> list[BankConnection]:
     result = await session.execute(
         select(BankConnection)
@@ -1500,16 +1537,9 @@ async def handle_oauth_callback(
                         txn_data,
                         replace_external_id=synced_dup.source == "sync",
                     )
-                    if (
-                        txn_data.bill_external_id
-                        and synced_dup.effective_bill_date is None
-                    ):
-                        bill = bills_by_external_id.get(txn_data.bill_external_id)
-                        if bill is not None and synced_dup.bill_id != bill.id:
-                            synced_dup.bill_id = bill.id
-                            apply_effective_date(
-                                synced_dup, account, bill_due_date=bill.due_date
-                            )
+                    _apply_bank_bill_placement(
+                        synced_dup, txn_data, account, bills_by_external_id
+                    )
                 elif synced_dup.external_id != txn_data.external_id:
                     _merge_sync_metadata(
                         synced_dup,
@@ -1544,11 +1574,6 @@ async def handle_oauth_callback(
                 )
                 payee_id = payee_entity.id
 
-            bill = (
-                bills_by_external_id.get(txn_data.bill_external_id)
-                if txn_data.bill_external_id
-                else None
-            )
             transaction = Transaction(
                 user_id=user_id,
                 workspace_id=workspace_id,
@@ -1571,11 +1596,11 @@ async def handle_oauth_callback(
                 total_installments=txn_data.total_installments,
                 installment_total_amount=txn_data.installment_total_amount,
                 installment_purchase_date=txn_data.installment_purchase_date,
-                bill_id=bill.id if bill else None,
             )
-            apply_effective_date(
-                transaction, account, bill_due_date=bill.due_date if bill else None
-            )
+            if not _apply_bank_bill_placement(
+                transaction, txn_data, account, bills_by_external_id
+            ):
+                apply_effective_date(transaction, account)
             if split_source is not None:
                 category_line_service.copy_lines_to(transaction, split_source.category_lines)
             session.add(transaction)
@@ -2903,21 +2928,12 @@ async def sync_connection(
                     # picks up bill_id + bank-truth effective_date on the
                     # first sync after the bill becomes available. Same
                     # branch covers re-bucketing if the bank moved a tx to
-                    # a different bill (e.g. a chargeback).
-                    #
-                    # User's manual override wins: if effective_bill_date is
-                    # set, we don't touch bill_id or effective_date — the
-                    # user has explicitly overridden the auto bucketing.
-                    if (
-                        txn_data.bill_external_id
-                        and existing_tx.effective_bill_date is None
-                    ):
-                        bill = bills_by_external_id.get(txn_data.bill_external_id)
-                        if bill is not None and existing_tx.bill_id != bill.id:
-                            existing_tx.bill_id = bill.id
-                            apply_effective_date(
-                                existing_tx, account, bill_due_date=bill.due_date
-                            )
+                    # a different bill (e.g. a chargeback) and a new forecast
+                    # for a charge the bank has not billed yet. A user's own
+                    # placement is never touched.
+                    _apply_bank_bill_placement(
+                        existing_tx, txn_data, account, bills_by_external_id
+                    )
                     continue
 
                 # Pass 2: Fuzzy match against manual transactions
@@ -2954,16 +2970,9 @@ async def sync_connection(
                             txn_data,
                             replace_external_id=synced_dup.source == "sync",
                         )
-                        if (
-                            txn_data.bill_external_id
-                            and synced_dup.effective_bill_date is None
-                        ):
-                            bill = bills_by_external_id.get(txn_data.bill_external_id)
-                            if bill is not None and synced_dup.bill_id != bill.id:
-                                synced_dup.bill_id = bill.id
-                                apply_effective_date(
-                                    synced_dup, account, bill_due_date=bill.due_date
-                                )
+                        _apply_bank_bill_placement(
+                            synced_dup, txn_data, account, bills_by_external_id
+                        )
                     elif synced_dup.external_id != txn_data.external_id:
                         # Same logical posted row re-keyed by a provider such
                         # as SimpleFIN. Keep the user's row and move its
@@ -3011,11 +3020,6 @@ async def sync_connection(
                     )
                     sync_payee_id = sync_payee_entity.id
 
-                bill = (
-                    bills_by_external_id.get(txn_data.bill_external_id)
-                    if txn_data.bill_external_id
-                    else None
-                )
                 transaction = Transaction(
                     user_id=user_id,
                     workspace_id=workspace_id,
@@ -3038,13 +3042,11 @@ async def sync_connection(
                     total_installments=txn_data.total_installments,
                     installment_total_amount=txn_data.installment_total_amount,
                     installment_purchase_date=txn_data.installment_purchase_date,
-                    bill_id=bill.id if bill else None,
                 )
-                apply_effective_date(
-                    transaction,
-                    account,
-                    bill_due_date=bill.due_date if bill else None,
-                )
+                if not _apply_bank_bill_placement(
+                    transaction, txn_data, account, bills_by_external_id
+                ):
+                    apply_effective_date(transaction, account)
                 if split_source is not None:
                     category_line_service.copy_lines_to(transaction, split_source.category_lines)
                 preview = await preview_rules_for_transaction(

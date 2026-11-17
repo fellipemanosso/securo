@@ -1070,6 +1070,7 @@
     "billOverrideTooltip": "Verplaatst naar de rekening met verschuldigde waarde {{date}}",
     "effectiveBillDate": "Effectieve factuurdatum",
     "effectiveBillDateHint": "handmatig, heft de automatische cyclus op",
+    "effectiveBillDateForecastHint": "prognose van de bank, wijzig om handmatig op te heffen",
     "effectiveBillDatePlaceholder": "Vervaldatum factuur (optioneel)",
     "clearOverride": "Overschrijving wissen",
     "linkAsTransfer": "Link als overdracht",

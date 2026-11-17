@@ -82,11 +82,13 @@ class Transaction(Base):
     installment_series_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True), nullable=True, index=True
     )
-    # User-set manual override for which bill cycle this tx belongs to. Null
-    # by default; only meaningful for credit-card accounts. When set, beats
-    # both Pluggy's billId and the cycle-math fallback (issue #92, the
-    # LucasFidelis cycle_override request).
+    # Which bill (named by its due date) this credit-card tx is placed on,
+    # ahead of cycle math. Null by default. `effective_bill_date_source` says
+    # who placed it: "manual" (the user, issue #92) beats everything, including
+    # Pluggy's billId; "provider" (the bank's billForecastDate for a charge not
+    # billed yet) gives way to billId as soon as the bank bills the charge.
     effective_bill_date: Mapped[Optional[_date]] = mapped_column(Date, nullable=True)
+    effective_bill_date_source: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
     # FK to the bill this transaction belongs to (issue #92). Set during sync
     # for providers that expose a bills feed; null otherwise — in which case
     # the read path falls back to locally-computed cycle math via

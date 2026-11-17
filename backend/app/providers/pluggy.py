@@ -264,6 +264,16 @@ def _date_or_none(value) -> Optional[date]:
         return None
 
 
+def _parse_bill_forecast_month(value) -> Optional[date]:
+    """First day of a "YYYY-MM" billForecastDate; None for anything else."""
+    if not isinstance(value, str) or len(value) < 7:
+        return None
+    try:
+        return date.fromisoformat(f"{value[:7]}-01")
+    except ValueError:
+        return None
+
+
 # Fields from Pluggy /investments we promote to HoldingData top-level.
 # Everything else is preserved verbatim in `metadata` so we don't lose
 # information we might want later (status, rates, issuer, institution,
@@ -770,6 +780,13 @@ class PluggyProvider(BankProvider):
                     bill_external_id = (
                         str(bill_external_id_raw) if bill_external_id_raw else None
                     )
+                    # "YYYY-MM" due month of the bill the bank expects to
+                    # charge this on, sent for pending and future charges too
+                    # (Open Finance connectors only). Pix no crédito is billed
+                    # months after the purchase, so cycle math misplaces it.
+                    bill_forecast_month = _parse_bill_forecast_month(
+                        cc_meta.get("billForecastDate")
+                    )
                     card_number_raw = cc_meta.get("cardNumber")
                     card_last4 = str(card_number_raw)[-4:] if card_number_raw else None
 
@@ -791,6 +808,7 @@ class PluggyProvider(BankProvider):
                             installment_total_amount=inst_total_amount_dec,
                             installment_purchase_date=inst_purchase_date,
                             bill_external_id=bill_external_id,
+                            bill_forecast_month=bill_forecast_month,
                             card_last4=card_last4,
                         )
                     )

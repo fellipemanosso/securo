@@ -391,15 +391,65 @@ async def get_transactions(
         # /transactions list and other generic callers leave it False.
         if unbilled_only:
             base_query = base_query.where(Transaction.bill_id.is_(None))
-        # Forward-pointing override catch (issue #162): a manual override
-        # pointing past this cycle's right edge (e.g., user wants the tx
-        # on a future bill that doesn't exist yet) won't fit any closed
-        # bill window either — past bills are by definition behind us.
-        # Honor the user's explicit intent by including those orphans in
-        # the in-progress cycle so the tx stays visible until a real bill
-        # eventually anchors it. Limited to `unbilled_only` so the global
-        # /transactions list isn't reshaped by the same rule.
-        if unbilled_only and to_date is not None:
+        # Single-account date window: if it is exactly one bill cycle of a
+        # credit card account, membership is bill-based, not window-based. A
+        # bill placement (`effective_bill_date`, the user's or the bank's
+        # forecast) names a bill by its DUE date, and a due date can sit
+        # inside the NEXT cycle's purchase window (close 24 / due 18: the Aug
+        # bill is due 08-18, inside the Sep window 07-24 to 08-23), so window
+        # bucketing put placed txs on the wrong bill and emptied their own
+        # bill (issue #563). The rule: an unplaced tx stays in the window
+        # exactly as before; a placed one belongs to this bill when the
+        # placement falls after the previous bill's due date and on or before
+        # this bill's due date, so every placement maps to exactly one bill.
+        # This holds for statement projections too: a Pix no crédito the
+        # bank bills two months out shows on that bill only.
+        cycle = None
+        if from_date is not None and to_date is not None:
+            # The list endpoint funnels the single account_id param into
+            # account_ids, so accept either shape when exactly one account is
+            # in scope.
+            single_account = account_id
+            if single_account is None and account_ids is not None and len(account_ids) == 1:
+                single_account = account_ids[0]
+            if single_account is not None:
+                acct_row = (
+                    await session.execute(
+                        select(
+                            Account.type,
+                            Account.statement_close_day,
+                            Account.payment_due_day,
+                        ).where(Account.id == single_account)
+                    )
+                ).first()
+                if acct_row is not None and acct_row[0] == "credit_card":
+                    cycle = cc_cycle_bill_due_dates(
+                        from_date, to_date, acct_row[1], acct_row[2]
+                    )
+        if cycle is not None and not cycle["degenerate"]:
+            from sqlalchemy import and_ as _and
+
+            override = Transaction.effective_bill_date
+            base_query = base_query.where(
+                or_(
+                    _and(
+                        override.is_(None),
+                        filter_date_col >= from_date,
+                        filter_date_col <= to_date,
+                    ),
+                    _and(
+                        override > cycle["prev"],
+                        override <= cycle["this"],
+                    ),
+                )
+            )
+        elif unbilled_only and to_date is not None:
+            # Forward-pointing placement catch (issue #162): without a
+            # cycle to name bills by, a placement past this window's right
+            # edge fits no window at all. Keep such orphans in the
+            # in-progress window so they stay visible. Limited to
+            # `unbilled_only` so the global /transactions list isn't
+            # reshaped by the same rule.
             from sqlalchemy import and_ as _and
             window_clauses = []
             if from_date:
@@ -413,64 +463,10 @@ async def get_transactions(
                 ),
             ))
         else:
-            # Single-account date window: if it is exactly one bill cycle of
-            # a credit card account, membership is bill-based, not
-            # window-based. A manual effective_bill_date names a bill by its
-            # DUE date, and a due date can sit inside the NEXT cycle's
-            # purchase window (close 24 / due 18: the Aug bill is due 08-18,
-            # inside the Sep window 07-24 to 08-23), so window bucketing
-            # put overridden txs on the wrong bill and emptied their own
-            # bill (issue #563). The rule: no override stays in the window
-            # exactly as before; an override belongs to this bill when it
-            # falls after the previous bill's due date and on or before
-            # this bill's due date, so every override date maps to exactly
-            # one bill. Any other window shape, or an account whose
-            # close/due days make two bills share a due date (degenerate),
-            # keeps the historical behavior untouched.
-            cycle = None
-            if from_date is not None and to_date is not None:
-                # The list endpoint funnels the single account_id param into
-                # account_ids, so accept either shape when exactly one
-                # account is in scope.
-                single_account = account_id
-                if single_account is None and account_ids is not None and len(account_ids) == 1:
-                    single_account = account_ids[0]
-                if single_account is not None:
-                    acct_row = (
-                        await session.execute(
-                            select(
-                                Account.type,
-                                Account.statement_close_day,
-                                Account.payment_due_day,
-                            ).where(Account.id == single_account)
-                        )
-                    ).first()
-                    if acct_row is not None and acct_row[0] == "credit_card":
-                        cycle = cc_cycle_bill_due_dates(
-                            from_date, to_date, acct_row[1], acct_row[2]
-                        )
-            if cycle is None or cycle["degenerate"]:
-                if from_date:
-                    base_query = base_query.where(filter_date_col >= from_date)
-                if to_date:
-                    base_query = base_query.where(filter_date_col <= to_date)
-            else:
-                from sqlalchemy import and_ as _and
-
-                override = Transaction.effective_bill_date
-                base_query = base_query.where(
-                    or_(
-                        _and(
-                            override.is_(None),
-                            filter_date_col >= from_date,
-                            filter_date_col <= to_date,
-                        ),
-                        _and(
-                            override > cycle["prev"],
-                            override <= cycle["this"],
-                        ),
-                    )
-                )
+            if from_date:
+                base_query = base_query.where(filter_date_col >= from_date)
+            if to_date:
+                base_query = base_query.where(filter_date_col <= to_date)
     if search:
         term = f"%{search}%"
         base_query = base_query.where(
@@ -929,6 +925,7 @@ async def create_transaction(
         status=data.status or "posted",
         notes=data.notes,
         effective_bill_date=data.effective_bill_date,
+        effective_bill_date_source="manual" if data.effective_bill_date is not None else None,
         installment_number=data.installment_number,
         total_installments=data.total_installments,
         installment_total_amount=data.installment_total_amount,
@@ -1044,6 +1041,9 @@ async def create_installment_series(
             status=data.first_installment_status if i == 1 else "pending",
             notes=base.notes,
             effective_bill_date=base.effective_bill_date,
+            effective_bill_date_source=(
+                "manual" if base.effective_bill_date is not None else None
+            ),
             installment_number=i,
             total_installments=n,
             installment_total_amount=total,
@@ -1649,6 +1649,21 @@ async def _apply_update_to_row(
     if description_changed:
         _preserve_original_description(tx)
         tx.description_is_rule_managed = False
+
+    # The form echoes the bill placement back on every save. Only a different
+    # date is the user's own choice; an unchanged one keeps a bank forecast a
+    # forecast, so the bank can still move the charge once it bills it.
+    if "effective_bill_date" in update_data:
+        if update_data["effective_bill_date"] == tx.effective_bill_date:
+            update_data = {
+                key: value
+                for key, value in update_data.items()
+                if key != "effective_bill_date"
+            }
+        else:
+            tx.effective_bill_date_source = (
+                "manual" if update_data["effective_bill_date"] is not None else None
+            )
 
     fx_keys = {"amount_primary", "fx_rate_used"}
     for key, value in update_data.items():

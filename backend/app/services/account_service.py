@@ -1166,22 +1166,22 @@ async def get_account_summary(
     if account.type in LIABILITY_ACCOUNT_TYPES and account.connection_id:
         current_balance = -current_balance
 
-    # Bucketing date: for credit-card txs the user can override which cycle
-    # a tx belongs to via `effective_bill_date`. We honor that first so the
-    # totals card and bar chart agree with the transactions list (issue #92).
+    # Bucketing date: for credit-card txs a bill placement (the user's
+    # override or the bank's forecast) names the cycle a tx belongs to via
+    # `effective_bill_date`. We honor that first so the totals card and bar
+    # chart agree with the transactions list (issue #92).
     bucket_date = func.coalesce(Transaction.effective_bill_date, Transaction.date)
 
-    # Bill-based membership for the plain (cycle-math) window: when the
-    # caller sent a window that is exactly one bill cycle of this credit
-    # card account, an overridden tx belongs to the bill whose
-    # (previous due date, due date] range contains the override, not to the
-    # purchase window that contains it (for due-before-close cards a due
-    # date sits in the NEXT cycle's window, issue #563).
+    # Bill-based membership for a cycle window (statement projections
+    # included): when the caller sent a window that is exactly one bill cycle
+    # of this credit card account, a placed tx belongs to the bill whose
+    # (previous due date, due date] range contains the placement, not to the
+    # purchase window that contains it (for due-before-close cards a due date
+    # sits in the NEXT cycle's window, issue #563).
     cycle = None
     if (
         explicit_window
         and bill_id is None
-        and not unbilled_only
         and account.type == "credit_card"
     ):
         cycle = cc_cycle_bill_due_dates(
@@ -1270,12 +1270,12 @@ async def get_account_summary(
         # txs so an in-progress cycle's bar/total doesn't double-count past-
         # bill txs whose date falls in the window (see get_transactions).
         if unbilled_only:
-            # Forward-pointing override catch (issue #162): mirror
-            # get_transactions so the in-progress cycle's totals include
-            # txs whose manual override points past the cycle window.
-            # Without this the tx list and totals diverge — the tx shows
-            # in the list (after the catch in get_transactions) but its
-            # amount drops out of the strip pill / summary card.
+            if cycle is not None and not cycle["degenerate"]:
+                return query.where(Transaction.bill_id.is_(None), _membership())
+            # Forward-pointing placement catch (issue #162): mirror
+            # get_transactions so, without a cycle to name bills by, the
+            # in-progress totals include txs placed past the window. Without
+            # this the tx list and totals diverge.
             future_override = _and(
                 Transaction.effective_bill_date.is_not(None),
                 Transaction.effective_bill_date > date_to,

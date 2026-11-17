@@ -15,3 +15,7 @@ _Avoid_: Projeção, Ciclo de Faturamento
 **Projeção de Fatura**:
 Estimativa do valor esperado para um Ciclo de Faturamento ainda não representado por uma Fatura.
 _Avoid_: Fatura estimada
+
+**Previsão de Cobrança**:
+Fatura em que a instituição financeira informa que vai cobrar uma compra que ainda não faturou, como um Pix no crédito.
+_Avoid_: Projeção de Fatura

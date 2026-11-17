@@ -1069,6 +1069,7 @@
     "billOverrideTooltip": "Spostato all'estratto conto in scadenza il {{date}}",
     "effectiveBillDate": "Data effettiva di addebito",
     "effectiveBillDateHint": "manuale, ha la precedenza sul ciclo automatico",
+    "effectiveBillDateForecastHint": "previsione della banca, modificala per sovrascriverla manualmente",
     "effectiveBillDatePlaceholder": "Scadenza estratto conto (facoltativo)",
     "linkAsTransfer": "Collega come trasferimento",
     "linkTransferTitle": "Collega come trasferimento",

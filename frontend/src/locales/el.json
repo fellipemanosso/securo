@@ -1333,6 +1333,7 @@
     "billOverrideTooltip": "Μεταφέρθηκε στον λογαριασμό που λήγει στις {{date}}",
     "effectiveBillDate": "Ημερομηνία ισχύος λογαριασμού",
     "effectiveBillDateHint": "χειροκίνητο, παρακάμπτει τον αυτόματο κύκλο",
+    "effectiveBillDateForecastHint": "πρόβλεψη της τράπεζας, αλλάξτε τη για χειροκίνητη παράκαμψη",
     "effectiveBillDatePlaceholder": "Ημερομηνία λήξης λογαριασμού (προαιρετικό)",
     "clearOverride": "Εκκαθάριση παράκαμψης",
     "linkAsTransfer": "Σύνδεση ως μεταφορά",

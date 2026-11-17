@@ -7,30 +7,6 @@ export interface User {
   is_2fa_enabled: boolean
   preferences: UserPreferences
 }
-export interface CreditCardTimelineItem {
-  account_id: string
-  due_month: string
-  kind: 'statement' | 'projection' | 'unavailable'
-  cycle_key: string | null
-  start: string | null
-  end: string | null
-  closing_date: string | null
-  due_date: string | null
-  amount: number | null
-  primary_amount: number | null
-  source: 'bank' | 'manual' | null
-  record_id: string | null
-  status: 'open' | 'paid' | null
-  editable: boolean
-  unavailable_reason: 'past_statement_missing' | 'missing_close_config' | 'missing_due_config' | null
-}
-
-export interface CreditCardTimeline {
-  account_id: string
-  items: CreditCardTimelineItem[]
-  default_key: string | null
-}
-
 
 export interface AdminUser {
   id: string
@@ -263,6 +239,30 @@ export interface CreditCardBillWrite {
   status: 'open' | 'paid'
 }
 
+export interface CreditCardTimelineItem {
+  account_id: string
+  due_month: string
+  kind: 'statement' | 'projection' | 'unavailable'
+  cycle_key: string | null
+  start: string | null
+  end: string | null
+  closing_date: string | null
+  due_date: string | null
+  amount: number | null
+  primary_amount: number | null
+  source: 'bank' | 'manual' | null
+  record_id: string | null
+  status: 'open' | 'paid' | null
+  editable: boolean
+  unavailable_reason: 'past_statement_missing' | 'missing_close_config' | 'missing_due_config' | null
+}
+
+export interface CreditCardTimeline {
+  account_id: string
+  items: CreditCardTimelineItem[]
+  default_key: string | null
+}
+
 export interface Collection {
   id: string
   user_id: string
@@ -361,11 +361,12 @@ export interface Transaction {
   installment_purchase_date: string | null
   installment_series_id: string | null
   bill_id: string | null
-  // Manual override for which credit-card bill cycle this tx belongs to
-  // (issue #92). Empty / null = use auto bucketing (Pluggy bill_id when
-  // available, cycle math otherwise). Setting it forces the tx into the
-  // bill whose due_date matches.
+  // Which credit-card bill (by due date) this tx is placed on, ahead of the
+  // automatic cycle (Pluggy bill_id when available, cycle math otherwise).
+  // Null = automatic. The source says who placed it: the user (issue #92)
+  // or the bank's forecast for a charge it has not billed yet.
   effective_bill_date: string | null
+  effective_bill_date_source?: 'manual' | 'provider' | null
   // The recurring bill this transaction fulfills, if any (issue #116).
   recurring_transaction_id?: string | null
   splits: TransactionSplit[]

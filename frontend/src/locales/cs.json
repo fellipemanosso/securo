@@ -1134,6 +1134,7 @@
     "billOverrideTooltip": "Přesunuto do výpisu se splatností {{date}}",
     "effectiveBillDate": "Platné datum výpisu",
     "effectiveBillDateHint": "ručně, přepíše automatický cyklus",
+    "effectiveBillDateForecastHint": "předpověď banky, změňte ji pro ruční přepsání",
     "effectiveBillDatePlaceholder": "Datum splatnosti výpisu (volitelné)",
     "clearOverride": "Zrušit přepsání",
     "linkAsTransfer": "Propojit jako převod",

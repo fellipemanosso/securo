@@ -1105,6 +1105,7 @@
     "billOverrideTooltip": "Przeniesiono na rachunek z terminem {{date}}",
     "effectiveBillDate": "Faktyczny termin rachunku",
     "effectiveBillDateHint": "ręcznie, zastępuje automatyczny cykl",
+    "effectiveBillDateForecastHint": "prognoza banku, zmień ją, aby zastąpić ręcznie",
     "effectiveBillDatePlaceholder": "Termin płatności rachunku (opcjonalnie)",
     "linkAsTransfer": "Powiąż jako transfer",
     "linkTransferTitle": "Powiąż jako transfer",

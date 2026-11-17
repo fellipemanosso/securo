@@ -1070,6 +1070,7 @@
     "billOverrideTooltip": "Áthelyezve a(z) {{date}} esedékességű számlára",
     "effectiveBillDate": "Tényleges számladátum",
     "effectiveBillDateHint": "kézi, felülírja az automatikus ciklust",
+    "effectiveBillDateForecastHint": "a bank előrejelzése, módosítsa a kézi felülíráshoz",
     "effectiveBillDatePlaceholder": "Számla esedékessége (nem kötelező)",
     "clearOverride": "Felülírás törlése",
     "linkAsTransfer": "Összekapcsolás átvezetésként",

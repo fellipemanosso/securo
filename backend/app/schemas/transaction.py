@@ -216,6 +216,9 @@ class TransactionRead(TransactionBase):
     installment_series_id: Optional[uuid.UUID] = None
     bill_id: Optional[uuid.UUID] = None
     effective_bill_date: Optional[_Date] = None
+    # "manual" (the user's override) or "provider" (the bank's forecast for a
+    # charge it has not billed yet). Null when `effective_bill_date` is null.
+    effective_bill_date_source: Optional[Literal["manual", "provider"]] = None
     recurring_transaction_id: Optional[uuid.UUID] = None
     splits: list[TransactionSplitRead] = []
     # Set when the amount is split across several categories; `category_id`

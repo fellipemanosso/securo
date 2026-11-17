@@ -1070,6 +1070,7 @@
     "billOverrideTooltip": "支払期日{{date}}の請求に移動しました",
     "effectiveBillDate": "実効請求日",
     "effectiveBillDateHint": "手動指定。自動サイクルを上書きします",
+    "effectiveBillDateForecastHint": "銀行の予測。変更すると手動指定になります",
     "effectiveBillDatePlaceholder": "請求の支払期日(任意)",
     "clearOverride": "上書きをクリア",
     "linkAsTransfer": "振替として紐付け",

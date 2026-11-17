@@ -1084,6 +1084,7 @@
     "billOverrideTooltip": "Перенесено на оплату {{date}}",
     "effectiveBillDate": "Фактическая дата платежа",
     "effectiveBillDateHint": "вручную, переопределяет автоматический цикл",
+    "effectiveBillDateForecastHint": "прогноз банка, измените, чтобы переопределить вручную",
     "effectiveBillDatePlaceholder": "Дата оплаты счёта (необязательно)",
     "clearOverride": "Сбросить ручную дату",
     "linkAsTransfer": "Связать как перевод",
