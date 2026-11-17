@@ -1201,8 +1201,10 @@ def _apply_bank_bill_placement(
 
     The bank's billId beats its billForecastDate, which only covers charges
     not billed yet, and replaces an earlier forecast once the charge is
-    billed. A user's own placement beats both. Returns False, leaving the
-    row untouched, when the bank names no bill or the user placed it.
+    billed. A forecast counts only when it defers the charge past the bill
+    cycle math gives it (see `forecast_bill_due_date`). A user's own
+    placement beats both. Returns False, leaving the row untouched, when the
+    bank names no bill or the user placed it.
     """
     if tx.effective_bill_date is not None and tx.effective_bill_date_source != "provider":
         return False
@@ -1217,15 +1219,23 @@ def _apply_bank_bill_placement(
         tx.effective_bill_date_source = None
         apply_effective_date(tx, account, bill_due_date=bill.due_date)
         return True
-    forecast = forecast_bill_due_date(txn_data.bill_forecast_month, account)
     # A charge already on a bank bill keeps it: a forecast only places what
     # the bank has not billed yet.
-    if forecast is None or tx.bill_id is not None:
+    if tx.bill_id is not None:
         return False
-    tx.effective_bill_date = forecast
-    tx.effective_bill_date_source = "provider"
-    apply_effective_date(tx, account)
-    return True
+    forecast = forecast_bill_due_date(txn_data.bill_forecast_month, account, tx.date)
+    if forecast is not None:
+        tx.effective_bill_date = forecast
+        tx.effective_bill_date_source = "provider"
+        apply_effective_date(tx, account)
+        return True
+    if txn_data.bill_forecast_month is not None and tx.effective_bill_date_source == "provider":
+        # The bank's forecast no longer defers this charge: cycle math again.
+        tx.effective_bill_date = None
+        tx.effective_bill_date_source = None
+        apply_effective_date(tx, account)
+        return True
+    return False
 
 
 async def get_connections(session: AsyncSession, workspace_id: uuid.UUID) -> list[BankConnection]:

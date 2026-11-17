@@ -129,6 +129,42 @@ async def test_sync_places_an_unbilled_charge_on_the_forecast_bill_until_it_is_b
 
 
 @pytest.mark.asyncio
+async def test_sync_ignores_a_forecast_naming_a_bill_closed_before_the_purchase(
+    session: AsyncSession, test_user, test_workspace
+):
+    """C6 forecasts an open charge of 2026-10-27 on "2026-10", whose bill
+    closed on 2026-10-02 here. Cycle math puts it on the November bill."""
+    conn = BankConnection(
+        id=uuid.uuid4(), user_id=test_user.id, provider="test",
+        external_id="item", institution_name="Bank", credentials={"token": "t"},
+        status="active", created_at=datetime.now(timezone.utc),
+    )
+    session.add(conn)
+    await session.commit()
+    charge = TransactionData(
+        external_id="open", description="Mercado", amount=Decimal("50"),
+        date=date(2026, 10, 27), type="debit", currency="BRL", status="pending",
+        bill_forecast_month=date(2026, 10, 1),
+    )
+
+    row = await _sync(session, test_user, test_workspace, conn, charge)
+
+    assert row.effective_bill_date is None
+    assert row.effective_date == date(2026, 11, 9)
+
+    # A placement left by an earlier, laxer sync goes back to cycle math.
+    row.effective_bill_date = date(2026, 10, 9)
+    row.effective_bill_date_source = "provider"
+    await session.commit()
+
+    row = await _sync(session, test_user, test_workspace, conn, charge)
+
+    assert row.effective_bill_date is None
+    assert row.effective_bill_date_source is None
+    assert row.effective_date == date(2026, 11, 9)
+
+
+@pytest.mark.asyncio
 async def test_sync_keeps_a_users_own_placement_over_the_forecast(
     session: AsyncSession, test_user, test_workspace
 ):

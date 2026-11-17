@@ -102,12 +102,20 @@ def apply_effective_date(transaction, account, *, bill_due_date: Optional[date] 
         transaction.effective_date = transaction.date
 
 
-def forecast_bill_due_date(forecast_month: Optional[date], account) -> Optional[date]:
-    """Due date of the bill the bank forecasts a charge on.
+def forecast_bill_due_date(
+    forecast_month: Optional[date], account, tx_date: date
+) -> Optional[date]:
+    """Due date of a later bill the bank forecasts a charge on.
 
     The forecast names a due month; the configured due day picks the date in
-    it, clamped to the month's length. None when there is no forecast, the
-    account is not a credit card, or it has no due day to place it with."""
+    it, clamped to the month's length. It only counts when it falls after the
+    bill cycle math gives the purchase: what it is for is a charge the bank
+    defers, such as a Pix no crédito. Connectors disagree on what the field
+    means (C6 sends a month whose bill had already closed when the purchase
+    was made), and no bill can carry a charge made after it closed.
+
+    None when there is no forecast, the account is not a credit card, it has
+    no due day to place it with, or the forecast defers nothing."""
     if forecast_month is None or account is None:
         return None
     if getattr(account, "type", None) != "credit_card":
@@ -115,7 +123,11 @@ def forecast_bill_due_date(forecast_month: Optional[date], account) -> Optional[
     due_day = getattr(account, "payment_due_day", None)
     if not due_day:
         return None
-    return _clamp_day(forecast_month.year, forecast_month.month, due_day)
+    forecast = _clamp_day(forecast_month.year, forecast_month.month, due_day)
+    cycle_due = compute_effective_date(
+        tx_date, getattr(account, "statement_close_day", None), due_day
+    )
+    return forecast if forecast > cycle_due else None
 
 
 def compute_effective_date(

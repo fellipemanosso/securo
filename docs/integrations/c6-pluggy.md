@@ -22,10 +22,13 @@ November 2026, right after connecting it.
 - Closed bills match the bank app to the cent (January–November 2026).
 - `billForecastDate` on bills was empty in the first sync.
 
-## Open questions
+## Charge forecasts
 
-- C6 closes in one month and is due in the next, the case where reading a
-  charge's `billForecastDate` as the due month or the closing month gives
-  different bills (ADR 0002). Check it with the forecast query in
-  [nubank-pluggy.md](nubank-pluggy.md#diagnostic-queries), restricted to this
-  account, once charges with a forecast are billed.
+- `billForecastDate` on charges is neither the due month nor reliably the
+  closing month. Of 1091 billed charges carrying it, none matched the bill's
+  due month and 886 matched its closing month; open charges made from
+  2026-10-24 on, which go on the bill closing 2026-11-24, carried `2026-10`.
+- Read as a due month, that names a bill that closed before the purchase.
+  Placing charges on it (migration 112) emptied the open December 2026 bill;
+  a forecast now only counts when it defers a charge past its cycle-math bill
+  (ADR 0002, migration 113), so C6 charges follow cycle math and `billId`.

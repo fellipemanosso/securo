@@ -18,14 +18,16 @@ how Securo reads it. Observed on the `ultraviolet-black` card in November 2026.
 - A billed charge carries `creditCardMetadata.billId`, linked to
   `credit_card_bills` at sync. That bill always wins.
 - A charge not billed yet carries no `billId` but does carry
-  `billForecastDate` (`YYYY-MM`). Securo reads it as the bill's due month and
-  places the charge on that month's due day (ADR 0002,
-  `effective_bill_date_source = 'provider'`).
+  `billForecastDate` (`YYYY-MM`). Securo reads it as the bill's due month and,
+  when that bill is later than the one cycle math gives the purchase, places
+  the charge on that month's due day (ADR 0002,
+  `effective_bill_date_source = 'provider'`). For ordinary charges the forecast
+  equals cycle math and changes nothing.
 - Of 1270 billed charges carrying both fields, 1264 had a forecast equal to the
   bill's due month. Because this card closes and is due in the same month, the
   same 1264 also matched the closing month: the data does not tell the two
-  readings apart. Recheck with the query below on any card that closes in one
-  month and is due in the next.
+  readings apart. C6, which closes in one month and is due in the next, sends
+  something else again ([c6-pluggy.md](c6-pluggy.md#charge-forecasts)).
 - The other 6 had a stale forecast: four May 2026 charges billed in June with a
   forecast of July, a refund billed in August with a forecast of September, and
   two identical iFood charges of R$ 116.07 billed in March and April with a
