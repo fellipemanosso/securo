@@ -19,15 +19,46 @@ echo "[1/5] Baixando imagens..."
 docker pull "$BACKEND_IMAGE"
 docker pull "$FRONTEND_IMAGE"
 
-echo "[2/5] Atualizando backend e workers..."
+echo "[2/5] Aplicando migrations antes dos serviços protegidos pelo schema head..."
+mapfile -t BACKEND_ENV < <(
+  docker service inspect "${STACK}_backend" \
+    --format '{{range .Spec.TaskTemplate.ContainerSpec.Env}}{{println .}}{{end}}'
+)
+mapfile -t BACKEND_NETWORKS < <(
+  docker service inspect "${STACK}_backend" \
+    --format '{{range .Spec.TaskTemplate.Networks}}{{println .Target}}{{end}}'
+)
+
+MIGRATION_ARGS=()
+for value in "${BACKEND_ENV[@]}"; do
+  [ -n "$value" ] && MIGRATION_ARGS+=(--env "$value")
+done
+for network in "${BACKEND_NETWORKS[@]}"; do
+  [ -n "$network" ] && MIGRATION_ARGS+=(--network "$network")
+done
+
+MIGRATION_SERVICE="${STACK}_migrate_$(date +%s)"
+cleanup_migration() {
+  docker service rm "$MIGRATION_SERVICE" >/dev/null 2>&1 || true
+}
+trap cleanup_migration EXIT
+docker service create \
+  --detach=false \
+  --name "$MIGRATION_SERVICE" \
+  --mode replicated-job \
+  --replicas 1 \
+  --restart-condition none \
+  --entrypoint alembic \
+  "${MIGRATION_ARGS[@]}" \
+  "$BACKEND_IMAGE" \
+  upgrade head
+cleanup_migration
+trap - EXIT
+
+echo "[3/5] Atualizando backend e workers..."
 for svc in "${BACKEND_SERVICES[@]}"; do
   docker service update --force --image "$BACKEND_IMAGE" "$svc"
 done
-
-echo "[3/5] Aplicando migrations (alembic upgrade head)..."
-CID=$(docker ps -q -f "name=${STACK}_backend\." | head -n1)
-[ -n "$CID" ] || { echo "container do backend não encontrado" >&2; exit 1; }
-docker exec "$CID" alembic upgrade head
 
 echo "[4/5] Atualizando frontend..."
 docker service update --force --image "$FRONTEND_IMAGE" "$FRONTEND_SERVICE"
