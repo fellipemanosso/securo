@@ -11,3 +11,5 @@ A separate forecast column would keep the user's override field purely manual, b
 ## Consequences
 
 A placed charge belongs to the statement whose (previous due date, due date] range holds the placement, in statement projections as well as closed cycles. A placement past the open cycle therefore shows on its own future projection instead of the open cycle. The forecast month is read as the due month, which matches the bank app for the observed Nubank Pix no crédito. Existing synced charges are placed from their stored provider payload by migration 112.
+
+What the Nubank connector actually sends, and the data behind the due-month reading, is recorded in [docs/integrations/nubank-pluggy.md](../integrations/nubank-pluggy.md).
