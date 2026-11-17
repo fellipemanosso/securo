@@ -56,6 +56,24 @@ export const navItems: NavItem[] = [
   { type: 'link', key: 'rules', path: '/rules', icon: SlidersHorizontal, module: 'rules' },
 ]
 
+type NavLink = Extract<NavItem, { type: 'link' }>
+
+/**
+ * Account and card details share `/accounts/:id`; the loaded account type
+ * decides which top-level destination owns that detail page.
+ */
+export function isNavItemActive(
+  item: NavLink,
+  pathname: string,
+  accountDetailType?: string,
+): boolean {
+  if (/^\/accounts\/[^/]+\/?$/.test(pathname)) {
+    if (item.key === 'cards') return accountDetailType === 'credit_card'
+    if (item.key === 'accounts') return accountDetailType !== 'credit_card'
+  }
+  return pathname === item.path || pathname.startsWith(`${item.path}/`)
+}
+
 /**
  * Drop links whose module is off, then drop any section header left
  * with nothing under it. Without the second pass, hiding a section's

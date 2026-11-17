@@ -13,10 +13,10 @@ import { shouldShowPendingBadge } from '@/lib/transaction-status'
 import { isTransferTransaction } from '@/lib/transaction-transfer'
 import { closeDateForBill, isOpenCycleWindow } from '@/lib/credit-card-cycle'
 import { toast } from 'sonner'
-import type { CreditCardBill, ProjectedTransaction, Transaction } from '@/types'
+import type { Account, CreditCardBill, ProjectedTransaction, Transaction } from '@/types'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, ArrowLeftRight, CalendarClock, ChevronLeft, ChevronRight, Clock, EyeClosed, HelpCircle, Paperclip, Pencil, Plus, X } from 'lucide-react'
+import { ArrowLeft, ArrowLeftRight, CalendarClock, Check, ChevronLeft, ChevronRight, Clock, EyeClosed, HelpCircle, Paperclip, Pencil, Plus, X } from 'lucide-react'
 import { MobileTransactionRow } from '@/components/mobile-transaction-row'
 import { AccountCardsControl } from '@/components/account-cards-control'
 import { transactionDescription } from '@/lib/transaction-description'
@@ -286,6 +286,8 @@ export default function AccountDetailPage() {
   const queryClient = useQueryClient()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingTx, setEditingTx] = useState<Transaction | null>(null)
+  const [renamingPrincipalCard, setRenamingPrincipalCard] = useState(false)
+  const [principalCardName, setPrincipalCardName] = useState('')
   const [transferDialogOpen, setTransferDialogOpen] = useState(false)
   const {
     mutation: createMutation,
@@ -715,6 +717,24 @@ export default function AccountDetailPage() {
     },
     onError: (error) => toast.error(extractApiError(error)),
   })
+  const principalCardNameMutation = useMutation({
+    mutationFn: (displayName: string) =>
+      accounts.update(id!, { display_name: displayName.trim() || null }),
+    onSuccess: (updated) => {
+      queryClient.setQueryData<Account>(['accounts', id], updated)
+      queryClient.setQueryData<Account[]>(['accounts'], (current) =>
+        current?.map((item) => item.id === updated.id ? updated : item),
+      )
+      setRenamingPrincipalCard(false)
+      toast.success(t('accounts.updated'))
+    },
+    onError: (error) => toast.error(extractApiError(error)),
+  })
+
+  const startPrincipalCardRename = () => {
+    setPrincipalCardName(account?.display_name ?? '')
+    setRenamingPrincipalCard(true)
+  }
 
   const transferMutation = useMutation({
     mutationFn: (data: {
@@ -983,10 +1003,68 @@ export default function AccountDetailPage() {
 
         {/* Title row */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <h1 className="text-2xl sm:text-3xl font-semibold text-foreground tracking-tight truncate">
-              {getAccountName(account)}
-            </h1>
+          <div className="min-w-0 flex-1">
+            {renamingPrincipalCard ? (
+              <form
+                className="flex max-w-md items-center gap-1.5"
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  principalCardNameMutation.mutate(principalCardName)
+                }}
+              >
+                <Input
+                  autoFocus
+                  aria-label={t('accounts.displayName')}
+                  value={principalCardName}
+                  onChange={(event) => setPrincipalCardName(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Escape') setRenamingPrincipalCard(false)
+                  }}
+                  placeholder={account.name}
+                  className="h-9 text-lg font-semibold sm:text-xl"
+                />
+                <Button
+                  type="submit"
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 shrink-0"
+                  aria-label={t('accountCards.save')}
+                  disabled={principalCardNameMutation.isPending}
+                >
+                  <Check size={16} />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 shrink-0"
+                  aria-label={t('accountCards.cancel')}
+                  onClick={() => setRenamingPrincipalCard(false)}
+                  disabled={principalCardNameMutation.isPending}
+                >
+                  <X size={16} />
+                </Button>
+              </form>
+            ) : (
+              <div className="flex min-w-0 items-center gap-2">
+                <h1 className="truncate text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+                  {getAccountName(account)}
+                </h1>
+                {isCreditCard && canWrite && (
+                  <Button
+                    type="button"
+                    aria-label={t('accounts.displayName')}
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 shrink-0 gap-1.5 text-muted-foreground"
+                    onClick={startPrincipalCardRename}
+                  >
+                    <Pencil size={14} />
+                    <span className="hidden sm:inline">{t('accounts.displayName')}</span>
+                  </Button>
+                )}
+              </div>
+            )}
             <div className="flex items-center gap-2 mt-1 overflow-hidden">
               <span className="text-xs font-medium text-muted-foreground">
                 {t(`accounts.type${account.type.split('_').map(s => s[0].toUpperCase() + s.slice(1)).join('')}`, account.type)}

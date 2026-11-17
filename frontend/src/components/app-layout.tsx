@@ -40,7 +40,7 @@ import { ShellLogo } from '@/components/shell-logo'
 import { UpdateAvailableBanner } from '@/components/update-available-banner'
 import { UpdateAvailableDialog } from '@/components/update-available-dialog'
 import { WorkspaceSwitcher } from '@/components/workspace-switcher'
-import { navItems, visibleNavItems, type NavItem } from '@/lib/nav-items'
+import { isNavItemActive, navItems, visibleNavItems, type NavItem } from '@/lib/nav-items'
 import {
   Menu,
   ChevronLeft,
@@ -296,6 +296,10 @@ export function AppLayout() {
     : allAccounts
   const visibleCards = visibleAccounts.filter((a) => a.type === 'credit_card')
   const visibleNonCards = visibleAccounts.filter((a) => a.type !== 'credit_card')
+  const accountDetailId = location.pathname.match(/^\/accounts\/([^/]+)\/?$/)?.[1]
+  const accountDetailType = accountDetailId
+    ? allAccounts.find((account) => account.id === accountDetailId)?.type
+    : undefined
   const versionA11yLabel = t('app.versionAriaLabel', { version: APP_VERSION })
 
   return (
@@ -523,10 +527,7 @@ export function AppLayout() {
                 )
               }
 
-              const isActive =
-                item.path === '/'
-                  ? location.pathname === '/'
-                  : location.pathname.startsWith(item.path)
+              const isActive = isNavItemActive(item, location.pathname, accountDetailType)
               const Icon = item.icon
               const showQuickAdd = item.key === 'transactions' && canWrite
               const link = (

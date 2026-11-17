@@ -53,6 +53,7 @@ vi.mock('@/contexts/workspace-context', () => ({
 const account = {
   id: 'acc-1',
   name: 'Card',
+  display_name: null,
   type: 'credit_card',
   currency: 'BRL',
   balance: -280,
@@ -74,6 +75,10 @@ beforeEach(() => {
   api.accounts.get.mockResolvedValue(account)
   api.accounts.bills.mockResolvedValue([])
   api.accounts.list.mockResolvedValue([account])
+  api.accounts.update.mockImplementation(async (_id: string, payload: Record<string, unknown>) => ({
+    ...account,
+    ...payload,
+  }))
   api.accounts.cards.mockImplementation(async () => cardState)
   api.accounts.updateCard.mockImplementation(async (_id: string, last4: string, payload: { alias?: string | null; is_hidden?: boolean }) => {
     cardState = cardState.map((c) => (c.last4 === last4 ? { ...c, ...payload } : c))
@@ -129,4 +134,18 @@ describe('credit card cards control', () => {
 
     await waitFor(() => expect(api.accounts.updateCard).toHaveBeenCalledWith('acc-1', '0339', { alias: 'Travel' }))
   })
+  it('renames the principal card from its detail header', async () => {
+    const user = userEvent.setup()
+    renderWithProviders(<AccountDetailPage />, { route: '/accounts/acc-1', path: '/accounts/:id' })
+
+    await user.click(await screen.findByRole('button', { name: 'Display name' }))
+    await user.type(screen.getByRole('textbox', { name: 'Display name' }), 'Travel')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => {
+      expect(api.accounts.update).toHaveBeenCalledExactlyOnceWith('acc-1', { display_name: 'Travel' })
+    })
+    expect(await screen.findByRole('heading', { name: 'Travel' })).toBeInTheDocument()
+  })
 })
+

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { navItems, visibleNavItems, type NavItem } from './nav-items'
+import { isNavItemActive, navItems, visibleNavItems, type NavItem } from './nav-items'
 import { MODULE_IDS, type ModuleId } from './modules'
 
 const all = () => true
@@ -55,6 +55,22 @@ describe('nav catalog', () => {
     )
     expect(byKey.accounts).toMatchObject({ path: '/accounts', module: 'accounts' })
     expect(byKey.cards).toMatchObject({ path: '/cards', module: 'accounts' })
+  })
+})
+
+describe('isNavItemActive', () => {
+  const links = Object.fromEntries(
+    navItems.filter((item) => item.type === 'link').map((item) => [item.key, item]),
+  )
+
+  it('assigns credit-card detail routes to Cards instead of Accounts', () => {
+    expect(isNavItemActive(links.cards, '/accounts/card-1', 'credit_card')).toBe(true)
+    expect(isNavItemActive(links.accounts, '/accounts/card-1', 'credit_card')).toBe(false)
+  })
+
+  it('keeps non-card account details under Accounts', () => {
+    expect(isNavItemActive(links.accounts, '/accounts/checking-1', 'checking')).toBe(true)
+    expect(isNavItemActive(links.cards, '/accounts/checking-1', 'checking')).toBe(false)
   })
 })
 
