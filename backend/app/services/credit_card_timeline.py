@@ -20,7 +20,7 @@ from app.models.account import Account
 from app.models.bank_connection import BankConnection
 from app.models.credit_card_bill import CreditCardBill
 from app.models.transaction import Transaction
-from app.services._query_filters import not_on_hidden_cards
+from app.services._query_filters import counts_on_bill, not_on_hidden_cards
 from app.services.credit_card_service import cc_cycle_bill_due_dates
 
 
@@ -302,9 +302,11 @@ class CreditCardTimeline:
                                 Transaction.effective_bill_date >= range_start,
                             ),
                             Transaction.bill_id.is_(None),
-                            Transaction.is_ignored.is_(False),
                             Transaction.source != "opening_balance",
-                            Transaction.transfer_pair_id.is_(None),
+                            # The same charges the cycle's bill total counts:
+                            # an unpaired card payment is a repayment of older
+                            # debt, not a refund on this bill.
+                            counts_on_bill(),
                             not_on_hidden_cards(),
                         )
                     )
