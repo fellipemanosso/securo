@@ -15,7 +15,7 @@ import { toast } from 'sonner'
 import type { Account, CreditCardTimelineItem, ProjectedTransaction, Transaction } from '@/types'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, ArrowLeftRight, CalendarClock, Check, ChevronLeft, ChevronRight, Clock, EyeClosed, HelpCircle, Paperclip, Pencil, Plus, X } from 'lucide-react'
+import { ArrowLeft, ArrowLeftRight, CalendarClock, Check, ChevronLeft, ChevronRight, Clock, EyeClosed, HelpCircle, Loader2, Paperclip, Pencil, Plus, X } from 'lucide-react'
 import { MobileTransactionRow } from '@/components/mobile-transaction-row'
 import { AccountCardsControl } from '@/components/account-cards-control'
 import { transactionDescription } from '@/lib/transaction-description'
@@ -243,7 +243,9 @@ export default function AccountDetailPage() {
     queryFn: () => accounts.list(),
   })
 
-  const { data: summary, isLoading: summaryLoading } = useQuery({
+  // Switching cycles keeps the current account's numbers on screen until the
+  // next cycle arrives, instead of collapsing the page into a skeleton.
+  const { data: summary, isLoading: summaryLoading, isPlaceholderData: summarySwitching } = useQuery({
     queryKey: activeCycleKey
       ? ['accounts', id, 'summary', { cycle_key: activeCycleKey }]
       : ['accounts', id, 'summary', filterFrom, filterTo],
@@ -254,6 +256,8 @@ export default function AccountDetailPage() {
       activeCycleKey ?? undefined,
     ),
     enabled: !!id,
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[1] === id ? previous : undefined,
   })
 
   const activeCycleIndex = activeCycle
@@ -275,7 +279,7 @@ export default function AccountDetailPage() {
 
   // A canonical cycle is fetched in full; manual date ranges keep using the
   // generic transaction filters and never acquire statement semantics.
-  const { data: cycleTxData, isLoading: cycleTxLoading } = useQuery({
+  const { data: cycleTxData, isLoading: cycleTxLoading, isPlaceholderData: cycleTxSwitching } = useQuery({
     queryKey: ['transactions', {
       account_id: id,
       cycle_key: activeCycleKey,
@@ -302,6 +306,10 @@ export default function AccountDetailPage() {
       return { ...first, items }
     },
     enabled: !!id && account?.type === 'credit_card',
+    placeholderData: (previous, previousQuery) =>
+      (previousQuery?.queryKey[1] as { account_id?: string } | undefined)?.account_id === id
+        ? previous
+        : undefined,
   })
 
   // Any other account pages through the period newest first. Each row
@@ -470,6 +478,8 @@ export default function AccountDetailPage() {
   const displayCurrency = (isForeignCurrency && !primaryShown) ? (account?.currency || userCurrency) : userCurrency
   const txLoading = isCreditCard ? cycleTxLoading : ledger.isLoading
   const chartLoading = isCreditCard ? cycleTxLoading : runningBalanceLoading
+  const cycleSwitching = isCreditCard && (summarySwitching || cycleTxSwitching)
+  const cycleSectionClass = `transition-opacity duration-200 ${cycleSwitching ? 'opacity-50' : ''}`
 
   // Pseudo-transaction rows for non-materialized recurring projections.
   // Virtual: rendered with a "Previsão" badge, non-clickable, and merged
@@ -844,8 +854,10 @@ export default function AccountDetailPage() {
                 <PopoverTrigger asChild>
                   <button
                     type="button"
+                    aria-busy={cycleSwitching}
                     className="inline-flex items-center justify-center gap-2 min-w-[140px] border border-border rounded-lg px-3 py-1.5 text-sm bg-card text-foreground hover:bg-muted/50 transition-all cursor-pointer capitalize"
                   >
+                    {cycleSwitching && <Loader2 size={14} className="animate-spin text-muted-foreground" aria-hidden="true" />}
                     {activeCycle?.due_date
                       ? format(parseISO(activeCycle.due_date + 'T00:00:00'), 'MMM yyyy', {
                           locale: resolveDateFnsLocale(i18n.resolvedLanguage ?? i18n.language),
@@ -1085,7 +1097,7 @@ export default function AccountDetailPage() {
             })
           : previousCycle?.due_month ?? null
         return (
-          <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-6">
+          <div className={`grid grid-cols-3 gap-2 sm:gap-4 mb-6 ${cycleSectionClass}`} aria-busy={cycleSwitching}>
             <div className="bg-card rounded-xl border border-border shadow-sm p-3 sm:p-4 overflow-hidden">
               <p className="text-[10px] sm:text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1 truncate">
                 <span className="truncate">{t('accounts.cycleBillTotal')}</span>
@@ -1212,7 +1224,7 @@ export default function AccountDetailPage() {
         const rawPct = limit != null && limit > 0 && utilized != null ? (utilized / limit) * 100 : null
         const pct = rawPct != null ? Math.min(100, rawPct) : null
         return (
-          <div className="bg-card rounded-xl border border-border shadow-sm p-4 sm:p-5 mb-6">
+          <div className={`bg-card rounded-xl border border-border shadow-sm p-4 sm:p-5 mb-6 ${cycleSectionClass}`} aria-busy={cycleSwitching}>
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 {account.card_brand && (
@@ -1325,7 +1337,7 @@ export default function AccountDetailPage() {
         const strokeSolid = dataMin >= 0 ? '#10B981' : '#F43F5E'
         const lastBalance = balances.length > 0 ? balances[balances.length - 1] : 0
         return (
-      <div className="bg-card rounded-xl border border-border shadow-sm mb-6">
+      <div className={`bg-card rounded-xl border border-border shadow-sm mb-6 ${cycleSectionClass}`} aria-busy={cycleSwitching}>
         <div className="px-5 pt-5 pb-3">
           <p className="text-base font-bold text-foreground">
             {isCreditCard ? t('accounts.cycleSpending') : t('dashboard.balanceFlow')}
@@ -1441,7 +1453,7 @@ export default function AccountDetailPage() {
       })()}
 
       {/* Transaction table */}
-      <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+      <div className={`bg-card rounded-xl border border-border shadow-sm overflow-hidden ${cycleSectionClass}`} aria-busy={cycleSwitching}>
         <div className="px-5 py-4 border-b border-border">
           <p className="font-semibold text-foreground">{t('transactions.title')}</p>
         </div>

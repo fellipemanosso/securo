@@ -189,4 +189,25 @@ describe('credit card cycle window', () => {
     // has no claim to.
     await waitFor(() => expect(cycleHeader().textContent).toMatch(/30 Mar - 15 May/i))
   })
+
+  it('keeps the page on screen while the next cycle loads', async () => {
+    const { user } = await renderPage()
+    // Jumping two cycles back skips the prefetched previous summary, so both
+    // the summary and the transactions of the target cycle are still in flight.
+    // The frontend lib target predates Promise.withResolvers.
+    let resolveSummary!: (value: unknown) => void
+    let resolveTransactions!: (value: unknown) => void
+    api.accounts.summary.mockImplementationOnce(() => new Promise((resolve) => { resolveSummary = resolve }))
+    api.transactions.list.mockImplementationOnce(() => new Promise((resolve) => { resolveTransactions = resolve }))
+
+    await user.click(await screen.findByRole('button', { name: /Apr 2026/ }))
+
+    // Before the fix the whole page was swapped for a bare skeleton here.
+    await waitFor(() => expect(cycleHeader().getAttribute('aria-busy')).toBe('true'))
+    expect(screen.getByTitle('Next cycle')).toBeInTheDocument()
+
+    resolveSummary({ monthly_income: 0, monthly_expenses: 0, projected_income: 0, projected_expenses: 0 })
+    resolveTransactions({ items: [], total: 0 })
+    await waitFor(() => expect(cycleHeader().getAttribute('aria-busy')).toBe('false'))
+  })
 })
