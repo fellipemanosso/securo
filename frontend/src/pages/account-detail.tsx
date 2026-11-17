@@ -220,11 +220,23 @@ export default function AccountDetailPage() {
     }
   }
 
+  // The neighbouring statement in the canonical timeline. From a hand-picked
+  // range, that is the first statement starting after it (or the last one
+  // starting before it), so navigation never lands on a bare date window
+  // while the card has statements to show.
+  const neighbourCycle = (direction: -1 | 1) => {
+    if (activeCycle) {
+      const index = timelineItems.findIndex((item) => item.cycle_key === activeCycle.cycle_key)
+      return timelineItems[index + direction] ?? null
+    }
+    return direction === 1
+      ? timelineItems.find((item) => item.start > filterFrom) ?? null
+      : timelineItems.filter((item) => item.start < filterFrom).at(-1) ?? null
+  }
+  const hasTimeline = timelineItems.length > 0
+
   const shiftCycleBy = (direction: -1 | 1) => {
-    const currentIndex = activeCycle
-      ? timelineItems.findIndex((item) => item.cycle_key === activeCycle.cycle_key)
-      : -1
-    const next = timelineItems[currentIndex + direction]
+    const next = neighbourCycle(direction)
     if (next) {
       setFilterTouched(true)
       setActiveCycleKey(next.cycle_key)
@@ -232,6 +244,8 @@ export default function AccountDetailPage() {
       setFilterTo(next.end)
       return
     }
+    if (hasTimeline) return
+    // A card without a cycle has no statements: step the window by a month.
     setActiveCycleKey(null)
     setFilterTouched(true)
     setFilterFrom(format(addMonths(parseISO(filterFrom + 'T00:00:00'), direction), 'yyyy-MM-dd'))
@@ -844,8 +858,9 @@ export default function AccountDetailPage() {
             <div className="flex items-center gap-1">
               <button
                 type="button"
-                className="h-8 w-8 flex items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:border-border hover:text-foreground transition-all"
+                className="h-8 w-8 flex items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:border-border hover:text-foreground transition-all disabled:opacity-40 disabled:pointer-events-none"
                 onClick={() => shiftCycleBy(-1)}
+                disabled={hasTimeline && !neighbourCycle(-1)}
                 title={t('accounts.previousCycle')}
               >
                 <ChevronLeft size={16} />
@@ -886,8 +901,9 @@ export default function AccountDetailPage() {
               </Popover>
               <button
                 type="button"
-                className="h-8 w-8 flex items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:border-border hover:text-foreground transition-all"
+                className="h-8 w-8 flex items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:border-border hover:text-foreground transition-all disabled:opacity-40 disabled:pointer-events-none"
                 onClick={() => shiftCycleBy(1)}
+                disabled={hasTimeline && !neighbourCycle(1)}
                 title={t('accounts.nextCycle')}
               >
                 <ChevronRight size={16} />

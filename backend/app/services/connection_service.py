@@ -2554,6 +2554,20 @@ async def _sync_credit_card_bills(
 
     await session.flush()
 
+    if _fill_cycle_days_from_bills(account, by_external_id.values()):
+        # Charges imported without a cycle sat on their purchase date; place
+        # them with the days just learned. Bank-billed and placed rows keep
+        # their bill.
+        unplaced = await session.execute(
+            select(Transaction).where(
+                Transaction.account_id == account.id,
+                Transaction.bill_id.is_(None),
+                Transaction.effective_bill_date.is_(None),
+            )
+        )
+        for tx in unplaced.scalars():
+            apply_effective_date(tx, account)
+
     # Materialize finance charges (IOF, juros, multa, etc.) as transactions
     # linked to each bill so the cycle sum reconciles to bill.total_amount.
     for bd in bills_data:
@@ -2567,6 +2581,32 @@ async def _sync_credit_card_bills(
             )
 
     return by_external_id
+
+
+def _fill_cycle_days_from_bills(account: Account, bills) -> bool:
+    """Take a missing close or due day from the latest bank bill.
+
+    Some connectors send no cycle days for the card (C6 through Pluggy has
+    no balanceCloseDate), which leaves it without an open cycle or statement
+    projections. Its bills carry the bank's own closing and due dates, so the
+    latest one stands in. Days the provider or the user set are never
+    replaced. Returns whether a day was filled.
+    """
+    latest = max(
+        (bill for bill in bills if bill.closing_date is not None),
+        key=lambda bill: bill.due_date,
+        default=None,
+    )
+    if latest is None:
+        return False
+    filled = False
+    if account.statement_close_day is None:
+        account.statement_close_day = latest.closing_date.day
+        filled = True
+    if account.payment_due_day is None:
+        account.payment_due_day = latest.due_date.day
+        filled = True
+    return filled
 
 
 # Outcome of a sync that completed without raising, reported to the caller

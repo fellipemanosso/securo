@@ -210,4 +210,19 @@ describe('credit card cycle window', () => {
     resolveTransactions({ items: [], total: 0 })
     await waitFor(() => expect(cycleHeader().getAttribute('aria-busy')).toBe('false'))
   })
+
+  it('stops at the oldest statement instead of leaving the timeline', async () => {
+    const { user } = await renderPage()
+    const previous = await screen.findByTitle('Previous cycle')
+
+    await user.click(previous)
+    await waitFor(() => expect(txCalls().at(-1)!.cycle_key).toBe('bill:bill-may'))
+    await user.click(previous)
+    await waitFor(() => expect(txCalls().at(-1)!.cycle_key).toBe('bill:bill-apr'))
+
+    // Before the fix a further click stepped onto a bare date window a month
+    // earlier, named by its dates instead of a statement month.
+    expect(previous).toBeDisabled()
+    expect(screen.getByTitle('Next cycle')).toBeEnabled()
+  })
 })
