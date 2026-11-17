@@ -771,7 +771,13 @@ class PluggyProvider(BankProvider):
                     inst_purchase_date: Optional[date] = None
                     if inst_purchase_date_raw:
                         try:
-                            inst_purchase_date = date.fromisoformat(str(inst_purchase_date_raw)[:10])
+                            # Same UTC timestamp as `date`: Bradesco sends one
+                            # purchase as 2026-06-16T00:43Z on some installments
+                            # and 2026-06-15T03:00Z on others, both 15/06 in
+                            # Brasília. The UTC day split it into two purchases.
+                            inst_purchase_date = _local_transaction_date(
+                                str(inst_purchase_date_raw)
+                            )
                         except ValueError:
                             inst_purchase_date = None
                     # Mercado Pago reports every installment not billed yet

@@ -219,6 +219,38 @@ async def test_pluggy_dates_a_late_purchase_on_the_brazilian_day():
 
 
 @pytest.mark.asyncio
+async def test_pluggy_keeps_one_purchase_across_installment_timestamps():
+    """Bradesco sends one purchase as 2026-06-16T00:43Z on some installments
+    and 2026-06-15T03:00Z on others; both are 15/06 in Brasília, so it stays
+    one purchase and its next installment is forecast once."""
+    def installment(number: int, purchase: str) -> dict:
+        return {
+            "id": f"nova-{number}", "description": "NOVA *NOVA", "amount": -153.62,
+            "date": "2026-07-15T03:00:00.000Z", "type": "DEBIT", "status": "POSTED",
+            "creditCardMetadata": {
+                "installmentNumber": number, "totalInstallments": 10,
+                "purchaseDate": purchase,
+            },
+        }
+
+    response = MagicMock()
+    response.raise_for_status = MagicMock()
+    response.json = MagicMock(return_value={"results": [
+        installment(1, "2026-06-16T00:43:54.067Z"),
+        installment(3, "2026-06-15T03:00:00.000Z"),
+    ]})
+    http = MagicMock()
+    http.get = AsyncMock(return_value=response)
+    http.__aenter__ = AsyncMock(return_value=http)
+    http.__aexit__ = AsyncMock(return_value=None)
+    with patch.object(PluggyProvider, "_ensure_api_key", new=AsyncMock(return_value="k")), \
+         patch("app.providers.pluggy.httpx.AsyncClient", return_value=http):
+        parsed = await PluggyProvider().get_transactions({"item_id": "i"}, "acc")
+
+    assert [tx.installment_purchase_date for tx in parsed] == [date(2026, 6, 15)] * 2
+
+
+@pytest.mark.asyncio
 async def test_hidden_card_installments_are_not_forecast(
     client, auth_headers, session, test_user, test_workspace
 ):
