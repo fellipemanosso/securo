@@ -42,22 +42,28 @@ def _effective_date(tx_date: date, close_day: int, due_day: int) -> date:
 
 def upgrade() -> None:
     connection = op.get_bind()
-    rows = connection.execution_options(stream_results=True).execute(
-        text(
-            """
-            SELECT t.id, t.date, a.statement_close_day, a.payment_due_day
-            FROM transactions AS t
-            JOIN accounts AS a ON a.id = t.account_id
-            WHERE a.type = 'credit_card'
-              AND a.statement_close_day IS NOT NULL
-              AND a.payment_due_day IS NOT NULL
-            ORDER BY t.id
-            """
-        )
+    # Keyset pages instead of a server-side cursor: asyncpg cannot run the
+    # batched UPDATE (executemany) while a streaming cursor is open.
+    select_page = text(
+        """
+        SELECT t.id, t.date, a.statement_close_day, a.payment_due_day
+        FROM transactions AS t
+        JOIN accounts AS a ON a.id = t.account_id
+        WHERE a.type = 'credit_card'
+          AND a.statement_close_day IS NOT NULL
+          AND a.payment_due_day IS NOT NULL
+          AND (CAST(:last_id AS UUID) IS NULL OR t.id > CAST(:last_id AS UUID))
+        ORDER BY t.id
+        LIMIT :limit
+        """
     )
-    while batch := rows.fetchmany(_BATCH_SIZE):
+    update = text("UPDATE transactions SET effective_date = :effective_date WHERE id = :id")
+    last_id = None
+    while batch := connection.execute(
+        select_page, {"last_id": last_id, "limit": _BATCH_SIZE}
+    ).all():
         connection.execute(
-            text("UPDATE transactions SET effective_date = :effective_date WHERE id = :id"),
+            update,
             [
                 {
                     "id": row.id,
@@ -68,6 +74,7 @@ def upgrade() -> None:
                 for row in batch
             ],
         )
+        last_id = str(batch[-1].id)
 
 
 def downgrade() -> None:

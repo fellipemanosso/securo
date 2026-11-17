@@ -43,7 +43,7 @@ cleanup_migration() {
 }
 trap cleanup_migration EXIT
 docker service create \
-  --detach=false \
+  --detach \
   --name "$MIGRATION_SERVICE" \
   --mode replicated-job \
   --replicas 1 \
@@ -51,7 +51,25 @@ docker service create \
   --entrypoint alembic \
   "${MIGRATION_ARGS[@]}" \
   "$BACKEND_IMAGE" \
-  upgrade head
+  upgrade head >/dev/null
+
+# `--detach=false` waits forever on a failed job, so poll the task state.
+MIGRATION_STATE=""
+for _ in $(seq 1 360); do
+  MIGRATION_STATE=$(docker service ps "$MIGRATION_SERVICE" --format '{{.CurrentState}}' | head -n1)
+  case "$MIGRATION_STATE" in
+    Complete*|Failed*|Rejected*) break ;;
+  esac
+  sleep 5
+done
+docker service logs --raw "$MIGRATION_SERVICE" 2>&1 | tail -n 40
+case "$MIGRATION_STATE" in
+  Complete*) ;;
+  *)
+    echo "migration não concluiu (estado: ${MIGRATION_STATE:-desconhecido}); serviços não foram atualizados" >&2
+    exit 1
+    ;;
+esac
 cleanup_migration
 trap - EXIT
 
