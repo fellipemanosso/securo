@@ -12,7 +12,7 @@ import { renderWithProviders } from '@/test/utils'
 const api = vi.hoisted(() => ({
   accounts: {
     get: vi.fn(),
-    bills: vi.fn(),
+    creditCardTimeline: vi.fn(),
     summary: vi.fn(),
     list: vi.fn(),
     update: vi.fn(),
@@ -73,7 +73,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   cardState = [card('1876', 'Wife'), card('0339', null)]
   api.accounts.get.mockResolvedValue(account)
-  api.accounts.bills.mockResolvedValue([])
+  api.accounts.creditCardTimeline.mockResolvedValue([])
   api.accounts.list.mockResolvedValue([account])
   api.accounts.update.mockImplementation(async (_id: string, payload: Record<string, unknown>) => ({
     ...account,

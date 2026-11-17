@@ -1,13 +1,9 @@
 /**
- * The cycle window a credit card's date fields produce, and what it makes the
- * page ask the API for.
+ * Canonical credit-card cycle wiring.
  *
- * `lib/credit-card-cycle.test.ts` covers the arithmetic. This covers the wiring,
- * which is where the bug actually lived: the page decided it was on the open
- * cycle whenever the window matched no bill, so touching a date field made it
- * request unbilled transactions only over a period that had already closed,
- * and the charges those bills carry disappeared from a window that had just
- * been made wider.
+ * Domain arithmetic belongs to the backend timeline interface. These tests
+ * verify that the page forwards an opaque cycle key and drops that key as soon
+ * as the user chooses a generic date range.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
@@ -18,10 +14,11 @@ import { renderWithProviders } from '@/test/utils'
 const api = vi.hoisted(() => ({
   accounts: {
     get: vi.fn(),
-    bills: vi.fn(),
+    creditCardTimeline: vi.fn(),
     summary: vi.fn(),
     list: vi.fn(),
     update: vi.fn(),
+    cards: vi.fn(),
   },
   transactions: { list: vi.fn(), update: vi.fn(), delete: vi.fn(), create: vi.fn() },
   dashboard: { projectedTransactions: vi.fn() },
@@ -68,10 +65,33 @@ const account = {
   payment_due_day: 10,
 }
 
-const bills = [
-  { id: 'bill-apr', account_id: 'acc-1', external_id: 'a', due_date: '2026-04-10', total_amount: 125, currency: 'BRL', minimum_payment: null },
-  { id: 'bill-may', account_id: 'acc-1', external_id: 'b', due_date: '2026-05-10', total_amount: 280, currency: 'BRL', minimum_payment: null },
-]
+const timeline = [{
+  account_id: 'acc-1',
+  default_key: 'cycle:2026-09-30',
+  items: [
+    {
+      account_id: 'acc-1', due_month: '2026-04', kind: 'statement',
+      cycle_key: 'bill:bill-apr', start: '2026-02-28', end: '2026-03-29',
+      closing_date: '2026-03-30', due_date: '2026-04-10', amount: 125,
+      primary_amount: null, source: 'bank', record_id: 'bill-apr', status: 'open',
+      editable: false, unavailable_reason: null,
+    },
+    {
+      account_id: 'acc-1', due_month: '2026-05', kind: 'statement',
+      cycle_key: 'bill:bill-may', start: '2026-03-30', end: '2026-04-29',
+      closing_date: '2026-04-30', due_date: '2026-05-10', amount: 280,
+      primary_amount: null, source: 'bank', record_id: 'bill-may', status: 'open',
+      editable: false, unavailable_reason: null,
+    },
+    {
+      account_id: 'acc-1', due_month: '2026-10', kind: 'projection',
+      cycle_key: 'cycle:2026-09-30', start: '2026-08-30', end: '2026-09-29',
+      closing_date: '2026-09-30', due_date: '2026-10-10', amount: 0,
+      primary_amount: null, source: null, record_id: null, status: null,
+      editable: false, unavailable_reason: null,
+    },
+  ],
+}]
 
 /** The cycle header. Matching on the month alone is ambiguous: the timeline
  *  bar for the same cycle carries the same text. */
@@ -90,8 +110,9 @@ beforeEach(() => {
   vi.clearAllMocks()
   vi.setSystemTime(new Date('2026-09-08T12:00:00'))
   api.accounts.get.mockResolvedValue(account)
-  api.accounts.bills.mockResolvedValue(bills)
+  api.accounts.creditCardTimeline.mockResolvedValue(timeline)
   api.accounts.list.mockResolvedValue([account])
+  api.accounts.cards.mockResolvedValue([])
   api.accounts.summary.mockResolvedValue({
     monthly_income: 0, monthly_expenses: 0, projected_income: 0, projected_expenses: 0,
   })
@@ -106,70 +127,66 @@ async function renderPage() {
     route: '/accounts/acc-1',
     path: '/accounts/:id',
   })
-  await waitFor(() => expect(api.transactions.list).toHaveBeenCalled())
+  await waitFor(() => {
+    expect(txCalls().at(-1)?.cycle_key).toBe('cycle:2026-09-30')
+  })
   return rendered
 }
 
 describe('credit card cycle window', () => {
-  it('asks for unbilled transactions only on the cycle that is still open', async () => {
+  it('uses the canonical key for the open cycle', async () => {
     await renderPage()
 
-    // No bill is due after today, so the page opens on the trailing cycle.
-    // Excluding already-billed rows there is the whole point of the flag:
-    // the window overlaps the newest closed bill's range.
     await waitFor(() => {
       const last = txCalls().at(-1)!
-      expect(last.unbilled_only).toBe(true)
-      expect(last.statement_view).toBe(true)
-      expect(String(last.from) >= '2026-04-30').toBe(true)
+      expect(last.cycle_key).toBe('cycle:2026-09-30')
+      expect(last.from).toBeUndefined()
+      expect(last.to).toBeUndefined()
     })
   })
 
-  it('does not ask for unbilled transactions only on a bill cycle', async () => {
+  it('uses the canonical key for a bank statement', async () => {
     const { user } = await renderPage()
 
     await user.click(await screen.findByTitle('Previous cycle'))
 
     await waitFor(() => {
       const last = txCalls().at(-1)!
-      expect(last.bill_id).toBe('bill-may')
-      expect(last.unbilled_only).toBeUndefined()
+      expect(last.cycle_key).toBe('bill:bill-may')
     })
   })
 
-  it('does not ask for unbilled transactions only on a hand-picked range', async () => {
+  it('drops canonical semantics on a hand-picked range', async () => {
     const { user } = await renderPage()
 
-    // Land on a real bill first, then move the end date off it. The window
-    // still covers everything the bill cycle did, so nothing about the edit
-    // may remove a transaction from the answer.
     await user.click(await screen.findByTitle('Previous cycle'))
-    await waitFor(() => expect(txCalls().at(-1)!.bill_id).toBe('bill-may'))
+    await waitFor(() => expect(txCalls().at(-1)!.cycle_key).toBe('bill:bill-may'))
 
     await user.click(cycleHeader())
-    await user.click(await screen.findByRole('button', { name: '5/10/2026' }))
+    await user.click(await screen.findByRole('button', { name: '4/29/2026' }))
+    await user.click(screen.getByRole('button', { name: 'April 2026' }))
+    await user.click(screen.getByRole('button', { name: 'May' }))
     await user.click(await screen.findByRole('button', { name: '15' }))
 
     await waitFor(() => {
       const last = txCalls().at(-1)!
       expect(last.to).toBe('2026-05-15')
-      expect(last.bill_id).toBeUndefined()
-      // The regression: this used to be `true`, and the R$280 bill's charges
-      // vanished from a window five days wider than the one that showed them.
-      expect(last.unbilled_only).toBeUndefined()
+      expect(last.cycle_key).toBeUndefined()
     })
-  })
+  }, 10_000)
 
   it('names a hand-picked range by its own dates instead of a statement month', async () => {
     const { user } = await renderPage()
 
     await user.click(await screen.findByTitle('Previous cycle'))
     await user.click(cycleHeader())
-    await user.click(await screen.findByRole('button', { name: '5/10/2026' }))
+    await user.click(await screen.findByRole('button', { name: '4/29/2026' }))
+    await user.click(screen.getByRole('button', { name: 'April 2026' }))
+    await user.click(screen.getByRole('button', { name: 'May' }))
     await user.click(await screen.findByRole('button', { name: '15' }))
 
     // Before the fix this read "Jun 2026", naming the window after a bill it
     // has no claim to.
-    await waitFor(() => expect(cycleHeader().textContent).toMatch(/11 Apr - 15 May/i))
+    await waitFor(() => expect(cycleHeader().textContent).toMatch(/30 Mar - 15 May/i))
   })
 })

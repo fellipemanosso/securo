@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
-import { addMonths, isBefore, isSameMonth, parseISO, startOfMonth } from 'date-fns'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { addMonths, endOfMonth, format, parseISO, startOfMonth } from 'date-fns'
 import { CalendarDays, Check, ChevronLeft, ChevronRight, CreditCard, Pencil, Plus, ReceiptText, Repeat2, Trash2, X } from 'lucide-react'
 import { accounts as accountsApi, categories as categoriesApi, categoryGroups as categoryGroupsApi, recurring as recurringApi, transactions as transactionsApi } from '@/lib/api'
 import { getAccountName } from '@/lib/account-utils'
@@ -24,10 +24,9 @@ import { DeleteConfirmationDialog } from '@/components/delete-confirmation-dialo
 import { useCreateTransaction } from '@/hooks/use-create-transaction'
 import { invalidateFinancialQueries } from '@/lib/invalidate-queries'
 import { extractApiError } from '@/lib/api-errors'
-import { billCycleForMonth, billCycleFromKnownDates } from '@/lib/credit-card-cycle'
 import { AccountDialog } from '@/pages/accounts'
 import { toast } from 'sonner'
-import type { Account, AccountSummary, CreditCardBill, RecurringTransaction } from '@/types'
+import type { Account, CreditCardBill, CreditCardTimelineItem, RecurringTransaction } from '@/types'
 
 type CardSnapshot = {
   account: Account
@@ -38,10 +37,6 @@ type CardSnapshot = {
   source: 'bank' | 'manual' | 'estimate' | 'unavailable'
 }
 
-type CycleEstimate = {
-  summary?: AccountSummary
-  dueDate?: string
-}
 
 const MONTHLY_FACTOR: Record<RecurringTransaction['frequency'], number> = {
   weekly: 52 / 12,
@@ -61,57 +56,49 @@ function amountInPrimary(account: Account, amount: number | null, primaryCurrenc
   return null
 }
 
-function snapshotForMonth(
+function snapshotFromTimeline(
   account: Account,
-  bills: CreditCardBill[],
-  month: Date,
-  currentMonth: Date,
+  item: CreditCardTimelineItem | undefined,
   primaryCurrency: string,
-  estimate?: CycleEstimate,
 ): CardSnapshot {
-  const matchingBills = bills
-    .filter((bill) => isSameMonth(parseISO(bill.due_date), month))
-    .sort((a, b) => Number(b.source === 'bank') - Number(a.source === 'bank') || b.due_date.localeCompare(a.due_date))
-  const bill = matchingBills[0] ?? null
-
-  if (bill) {
+  if (!item) {
     return {
       account,
-      amount: Number(bill.total_amount),
-      amountPrimary: amountInPrimary(account, Number(bill.total_amount), primaryCurrency),
-      bill,
-      dueDate: bill.due_date,
-      source: bill.source,
-    }
-  }
-
-  if (!isBefore(month, currentMonth) && estimate?.summary) {
-    const amount = Number(estimate.summary.projected_expenses ?? estimate.summary.monthly_expenses ?? 0)
-    return {
-      account,
-      amount,
-      amountPrimary: estimate.summary.projected_expenses_primary ?? estimate.summary.monthly_expenses_primary ?? amountInPrimary(account, amount, primaryCurrency),
+      amount: null,
+      amountPrimary: null,
       bill: null,
-      dueDate: estimate.dueDate ?? account.next_due_date,
-      source: 'estimate',
+      dueDate: null,
+      source: 'unavailable',
     }
   }
-
-  if (isSameMonth(month, currentMonth)) {
-    const amount = account.open_bill_total != null
-      ? Number(account.open_bill_total)
-      : Number(account.current_balance || 0)
-    return {
-      account,
-      amount,
-      amountPrimary: account.open_bill_total_primary ?? account.balance_primary ?? null,
-      bill: null,
-      dueDate: account.next_due_date,
-      source: 'estimate',
-    }
+  const amount = item.amount == null ? null : Number(item.amount)
+  const bill: CreditCardBill | null = item.kind === 'statement' && item.record_id && item.due_date
+    ? {
+        id: item.record_id,
+        account_id: account.id,
+        external_id: item.record_id,
+        due_date: item.due_date,
+        total_amount: amount ?? 0,
+        currency: account.currency,
+        minimum_payment: null,
+        closing_date: item.closing_date,
+        forecast_date: null,
+        source: item.source ?? 'bank',
+        status: item.status ?? 'open',
+      }
+    : null
+  return {
+    account,
+    amount,
+    amountPrimary: item.primary_amount ?? amountInPrimary(account, amount, primaryCurrency),
+    bill,
+    dueDate: item.due_date,
+    source: item.kind === 'statement'
+      ? (item.source ?? 'bank')
+      : item.kind === 'projection'
+        ? 'estimate'
+        : 'unavailable',
   }
-
-  return { account, amount: null, amountPrimary: null, bill: null, dueDate: account.next_due_date, source: 'unavailable' }
 }
 
 function dueLabel(snapshot: CardSnapshot, locale: string) {
@@ -217,41 +204,25 @@ export default function CardsOverviewPage() {
     && (!activeAccountIds || activeAccountIds.includes(account.id)),
   ), [accountList, activeAccountIds])
 
-  const billQueries = useQueries({
-    queries: cards.map((card) => ({
-      queryKey: ['accounts', card.id, 'bills'],
-      queryFn: () => accountsApi.bills(card.id),
-      staleTime: 1000 * 60 * 5,
-    })),
+  const monthFrom = format(startOfMonth(month), 'yyyy-MM-dd')
+  const monthTo = format(endOfMonth(month), 'yyyy-MM-dd')
+  const { data: timelines = [], isLoading: timelinesLoading } = useQuery({
+    queryKey: ['credit-card-timeline', cards.map((card) => card.id), monthFrom, monthTo],
+    queryFn: () => accountsApi.creditCardTimeline(cards.map((card) => card.id), monthFrom, monthTo),
+    enabled: cards.length > 0,
+    staleTime: 1000 * 60 * 5,
   })
-
-  const estimateCycles = useMemo(() => cards.map((card, index) => {
-    const bills = billQueries[index]?.data ?? []
-    const hasOfficialValue = bills.some((bill) => isSameMonth(parseISO(bill.due_date), month))
-    if (hasOfficialValue || isBefore(month, currentMonth)) return null
-    return billCycleForMonth(month, card.statement_close_day, card.payment_due_day)
-      ?? billCycleFromKnownDates(month, bills, card.next_close_date, card.next_due_date)
-  }), [cards, billQueries, month, currentMonth])
-
-  const estimateQueries = useQueries({
-    queries: cards.map((card, index) => {
-      const cycle = estimateCycles[index]
-      const hasPreviousBills = (billQueries[index]?.data?.length ?? 0) > 0
-      return {
-        queryKey: ['accounts', card.id, 'summary', cycle?.start, cycle?.end, { unbilled_only: hasPreviousBills, card_overview_estimate: true }],
-        queryFn: () => accountsApi.summary(card.id, cycle!.start, cycle!.end, undefined, hasPreviousBills || undefined),
-        enabled: !!cycle,
-        staleTime: 1000 * 60 * 5,
-      }
-    }),
-  })
-
-  const snapshots = useMemo(() => cards.map((card, index) =>
-    snapshotForMonth(card, billQueries[index]?.data ?? [], month, currentMonth, primaryCurrency, {
-      summary: estimateQueries[index]?.data,
-      dueDate: estimateCycles[index]?.dueDate,
-    }),
-  ), [cards, billQueries, estimateCycles, estimateQueries, month, currentMonth, primaryCurrency])
+  const timelineByAccount = useMemo(
+    () => new Map(timelines.map((timeline) => [timeline.account_id, timeline])),
+    [timelines],
+  )
+  const snapshots = useMemo(() => cards.map((card) =>
+    snapshotFromTimeline(
+      card,
+      timelineByAccount.get(card.id)?.items.find((item) => item.due_month === format(month, 'yyyy-MM')),
+      primaryCurrency,
+    ),
+  ), [cards, timelineByAccount, month, primaryCurrency])
 
   const cardIds = useMemo(() => new Set(cards.map((card) => card.id)), [cards])
   const cardRecurring = useMemo(() => (recurringList ?? [])
@@ -277,7 +248,7 @@ export default function CardsOverviewPage() {
     return total
   }, 0)
   const missingConversions = snapshots.some((item) => item.amount != null && item.account.currency !== primaryCurrency && item.amountPrimary == null)
-  const isLoading = accountsLoading || recurringLoading || billQueries.some((query) => query.isLoading) || estimateQueries.some((query) => query.isLoading)
+  const isLoading = accountsLoading || recurringLoading || timelinesLoading
   const [addCardOpen, setAddCardOpen] = useState(false)
   const createCardMutation = useMutation({
     mutationFn: (data: Parameters<typeof accountsApi.create>[0]) => accountsApi.create(data),

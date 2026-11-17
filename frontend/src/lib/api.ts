@@ -23,6 +23,7 @@ import type {
   AccountRunningBalancePoint,
   Collection,
   CreditCardBill,
+  CreditCardTimeline,
   LoanBalanceAdjustment,
   LoanBalanceUpdate,
   LoanSchedule,
@@ -525,9 +526,20 @@ export const accounts = {
   delete: async (id: string): Promise<void> => {
     await api.delete(`/accounts/${id}`)
   },
-  summary: async (id: string, from?: string, to?: string, billId?: string, unbilledOnly?: boolean): Promise<AccountSummary> => {
+  summary: async (id: string, from?: string, to?: string, cycleKey?: string): Promise<AccountSummary> => {
     const { data } = await api.get(`/accounts/${id}/summary`, {
-      params: { from, to, bill_id: billId, unbilled_only: unbilledOnly || undefined },
+      params: { from, to, cycle_key: cycleKey },
+      paramsSerializer: { indexes: null },
+    })
+    return data
+  },
+  creditCardTimeline: async (
+    accountIds: string[],
+    from: string,
+    to: string,
+  ): Promise<CreditCardTimeline[]> => {
+    const { data } = await api.get('/accounts/credit-card-timeline', {
+      params: { account_ids: accountIds, from, to },
       paramsSerializer: { indexes: null },
     })
     return data
@@ -554,10 +566,6 @@ export const accounts = {
   },
   adjustLoanBalance: async (id: string, body: LoanBalanceUpdate): Promise<LoanBalanceAdjustment> => {
     const { data } = await api.post(`/accounts/${id}/loan-balance`, body)
-    return data
-  },
-  bills: async (id: string, limit = 24): Promise<CreditCardBill[]> => {
-    const { data } = await api.get(`/accounts/${id}/bills`, { params: { limit } })
     return data
   },
   saveBill: async (id: string, body: import('@/types').CreditCardBillWrite): Promise<CreditCardBill> => {
@@ -633,10 +641,8 @@ export const transactions = {
     status?: string
     from?: string
     to?: string
-    bill_id?: string
+    cycle_key?: string
     group_id?: string
-    unbilled_only?: boolean
-    statement_view?: boolean
     q?: string
     page?: number
     limit?: number

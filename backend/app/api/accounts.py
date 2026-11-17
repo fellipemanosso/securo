@@ -20,16 +20,21 @@ from app.schemas.account import (
     AccountCreate,
     AccountRead,
     AccountRunningBalancePoint,
-    LoanBalanceAdjustment,
-    LoanBalanceUpdate,
-    LoanScheduleRead,
     AccountSummary,
     AccountUpdate,
     CreditCardBillRead,
     CreditCardBillWrite,
+    CreditCardTimelineRead,
+    LoanBalanceAdjustment,
+    LoanBalanceUpdate,
+    LoanScheduleRead,
 )
 from app.services import account_service
 from app.services.admin_service import get_credit_card_accounting_mode
+from app.services.credit_card_timeline import (
+    CreditCardTimeline,
+    StaleCycleKeyError,
+)
 from app.services.fx_rate_service import _resolve_rate
 
 router = APIRouter(prefix="/api/accounts", tags=["accounts"])
@@ -38,6 +43,34 @@ router = APIRouter(prefix="/api/accounts", tags=["accounts"])
 # the same way: the series has one point per day. The account page charts the
 # latest part of a longer range (#1202).
 _MAX_RUNNING_BALANCE_YEARS = 10
+
+
+@router.get("/credit-card-timeline", response_model=list[CreditCardTimelineRead])
+async def get_credit_card_timeline(
+    account_ids: list[uuid.UUID] = Query(...),
+    due_from: date = Query(..., alias="from"),
+    due_to: date = Query(..., alias="to"),
+    as_of: Optional[date] = Query(None),
+    ctx: WorkspaceContext = Depends(current_workspace),
+    session: AsyncSession = Depends(get_async_session),
+):
+    timelines = await CreditCardTimeline.index(
+        session,
+        ctx.workspace.id,
+        account_ids,
+        due_from=due_from,
+        due_to=due_to,
+        as_of=as_of or app_today(),
+        user_id=ctx.user_id,
+    )
+    return [
+        CreditCardTimelineRead(
+            account_id=account_id,
+            items=list(timeline.items),
+            default_key=timeline.default_key,
+        )
+        for account_id, timeline in timelines.items()
+    ]
 
 
 @router.get("", response_model=list[AccountRead])
@@ -75,16 +108,32 @@ async def get_account_summary(
     account_id: uuid.UUID,
     date_from: Optional[str] = Query(None, alias="from", description="YYYY-MM-DD"),
     date_to: Optional[str] = Query(None, alias="to", description="YYYY-MM-DD"),
-    bill_id: Optional[uuid.UUID] = Query(None, description="Aggregate by bill_id (issue #92); takes precedence over from/to"),
-    unbilled_only: bool = Query(False, description="Cycle-math fallback only: exclude txs already linked to any bill"),
+    cycle_key: Optional[str] = Query(None),
     ctx: WorkspaceContext = Depends(current_workspace),
     session: AsyncSession = Depends(get_async_session),
 ):
     from_date = date.fromisoformat(date_from) if date_from else None
     to_date = date.fromisoformat(date_to) if date_to else None
+    bill_id = None
+    unbilled_only = False
+    if cycle_key is not None:
+        try:
+            scope = await CreditCardTimeline.resolve(
+                session, ctx.workspace.id, account_id, cycle_key
+            )
+        except StaleCycleKeyError as error:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
+        from_date, to_date = scope.start, scope.end
+        bill_id = scope.bill_id
+        unbilled_only = scope.projection
     summary = await account_service.get_account_summary(
-        session, account_id, ctx.workspace.id, date_from=from_date, date_to=to_date,
-        bill_id=bill_id, unbilled_only=unbilled_only,
+        session,
+        account_id,
+        ctx.workspace.id,
+        date_from=from_date,
+        date_to=to_date,
+        bill_id=bill_id,
+        unbilled_only=unbilled_only,
     )
     if not summary:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
@@ -175,25 +224,6 @@ async def get_account_running_balance(
     return series
 
 
-@router.get("/{account_id}/bills", response_model=list[CreditCardBillRead])
-async def get_account_bills(
-    account_id: uuid.UUID,
-    limit: int = Query(24, ge=1, le=200, description="Max bills to return, newest due_date first"),
-    ctx: WorkspaceContext = Depends(current_workspace),
-    session: AsyncSession = Depends(get_async_session),
-):
-    """List credit-card bills for an account, newest due_date first.
-
-    Returns an empty list for non-CC accounts and for CC accounts that have
-    no synced bills (provider doesn't expose them, or first sync hasn't
-    happened). Issue #92.
-    """
-    bills = await account_service.get_credit_card_bills(
-        session, account_id, ctx.workspace.id, limit=limit,
-    )
-    if bills is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
-    return bills
 
 
 @router.get("/{account_id}/cards", response_model=list[AccountCardRead])

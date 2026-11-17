@@ -393,32 +393,6 @@ def serialize_account(
     return payload
 
 
-async def get_credit_card_bills(
-    session: AsyncSession,
-    account_id: uuid.UUID,
-    workspace_id: uuid.UUID,
-    *,
-    limit: int = 24,
-) -> Optional[list[CreditCardBill]]:
-    """Return bills for a CC account, newest due_date first.
-
-    Returns None when the account doesn't exist or isn't owned by the user
-    (the caller maps that to a 404). Returns [] for non-CC accounts and CC
-    accounts with no synced bills — the read path then keeps using the
-    cycle-math fallback.
-    """
-    account = await get_account(session, account_id, workspace_id)
-    if account is None:
-        return None
-    if account.type != "credit_card":
-        return []
-    result = await session.execute(
-        select(CreditCardBill)
-        .where(CreditCardBill.account_id == account_id)
-        .order_by(CreditCardBill.due_date.desc())
-        .limit(limit)
-    )
-    return list(result.scalars().all())
 
 
 async def upsert_manual_credit_card_bill(

@@ -7,8 +7,7 @@ import type { Account } from '@/types'
 
 const api = vi.hoisted(() => ({
   accountsList: vi.fn(),
-  accountsBills: vi.fn(),
-  accountsSummary: vi.fn(),
+  accountsTimeline: vi.fn(),
   accountsUpdate: vi.fn(),
   recurringList: vi.fn(),
 }))
@@ -16,8 +15,7 @@ const api = vi.hoisted(() => ({
 vi.mock('@/lib/api', () => ({
   accounts: {
     list: api.accountsList,
-    bills: api.accountsBills,
-    summary: api.accountsSummary,
+    creditCardTimeline: api.accountsTimeline,
     update: api.accountsUpdate,
     create: vi.fn(),
     saveBill: vi.fn(),
@@ -99,8 +97,7 @@ const card = {
 describe('CardsOverviewPage', () => {
   beforeEach(() => {
     api.accountsList.mockResolvedValue([card])
-    api.accountsBills.mockResolvedValue([])
-    api.accountsSummary.mockResolvedValue({})
+    api.accountsTimeline.mockResolvedValue([])
     api.recurringList.mockResolvedValue([])
     api.accountsUpdate.mockImplementation(async (_id: string, payload: Partial<Account>) => ({
       ...card,

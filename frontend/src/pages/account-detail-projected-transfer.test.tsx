@@ -89,7 +89,6 @@ beforeEach(() => {
   vi.setSystemTime(new Date('2026-09-15T12:00:00'))
   api.accounts.get.mockResolvedValue(checking)
   api.accounts.list.mockResolvedValue([])
-  api.accounts.bills.mockResolvedValue([])
   api.accounts.summary.mockResolvedValue({
     opening_balance: 0, current_balance: 9000, monthly_income: 0, monthly_expenses: 0,
     projected_income: 0, projected_expenses: 0,

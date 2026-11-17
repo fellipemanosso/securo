@@ -382,25 +382,6 @@ async def test_balance_history_foreign_currency_without_rate(
         assert point["fx_fallback"] is True
 
 
-# ---------------------------------------------------------------------------
-# bills
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_account_bills_empty_for_checking(
-    client: AsyncClient, auth_headers, test_account: Account
-):
-    """Non-CC accounts return an empty bills list (not a 404)."""
-    resp = await client.get(f"/api/accounts/{test_account.id}/bills", headers=auth_headers)
-    assert resp.status_code == 200
-    assert resp.json() == []
-
-
-@pytest.mark.asyncio
-async def test_account_bills_not_found(client: AsyncClient, auth_headers, test_account):
-    resp = await client.get(f"/api/accounts/{NONEXISTENT}/bills", headers=auth_headers)
-    assert resp.status_code == 404
 
 
 # ---------------------------------------------------------------------------

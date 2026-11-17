@@ -24,6 +24,10 @@ from app.schemas.transaction_calendar import TransactionCalendarResponse
 from app.services import transaction_service
 from app.services.category_line_service import csv_export_parts
 from app.services.admin_service import get_credit_card_accounting_mode
+from app.services.credit_card_timeline import (
+    CreditCardTimeline,
+    StaleCycleKeyError,
+)
 from app.services.transaction_calendar_service import get_transaction_calendar
 
 router = APIRouter(prefix="/api/transactions", tags=["transactions"])
@@ -166,10 +170,8 @@ async def list_transactions(
     payee_id: Optional[uuid.UUID] = Query(None),
     from_date: Optional[date] = Query(None, alias="from"),
     to_date: Optional[date] = Query(None, alias="to"),
-    bill_id: Optional[uuid.UUID] = Query(None, description="Filter by credit-card bill (issue #92); takes precedence over from/to"),
+    cycle_key: Optional[str] = Query(None),
     group_id: Optional[uuid.UUID] = Query(None, description="Filter to transactions split through this group; widens visibility for linked members"),
-    unbilled_only: bool = Query(False, description="Cycle-math fallback only: exclude txs already linked to any bill (used for in-progress CC cycles)"),
-    statement_view: bool = Query(False, description="Filter credit-card statement-cycle transactions by purchase date, independent of accounting mode"),
     q: Optional[str] = Query(None),
     uncategorized: bool = Query(False),
     type: Optional[str] = Query(None),
@@ -190,9 +192,29 @@ async def list_transactions(
     session: AsyncSession = Depends(get_async_session),
 ):
     accounting_mode = await get_credit_card_accounting_mode(session)
+    merged_account_ids = _merge_id_filters(account_id, account_ids)
+    bill_id = None
+    unbilled_only = False
+    statement_view = False
+    if cycle_key is not None:
+        if merged_account_ids is None or len(merged_account_ids) != 1:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="cycle_key requires exactly one account",
+            )
+        try:
+            scope = await CreditCardTimeline.resolve(
+                session, ctx.workspace.id, merged_account_ids[0], cycle_key
+            )
+        except StaleCycleKeyError as error:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
+        from_date, to_date = scope.start, scope.end
+        bill_id = scope.bill_id
+        unbilled_only = scope.projection
+        statement_view = True
     transactions, total, summary = await transaction_service.get_transactions(
         session, ctx.workspace.id, ctx.user_id,
-        account_ids=_merge_id_filters(account_id, account_ids),
+        account_ids=merged_account_ids,
         category_ids=_merge_id_filters(category_id, category_ids),
         payee_id=payee_id, from_date=from_date, to_date=to_date, page=page, limit=limit,
         include_opening_balance=include_opening_balance, search=q, uncategorized=uncategorized,

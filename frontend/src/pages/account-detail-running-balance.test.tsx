@@ -18,11 +18,12 @@ import type { Transaction } from '@/types'
 const api = vi.hoisted(() => ({
   accounts: {
     get: vi.fn(),
-    bills: vi.fn(),
+    creditCardTimeline: vi.fn(),
     summary: vi.fn(),
     list: vi.fn(),
     update: vi.fn(),
     runningBalance: vi.fn(),
+    cards: vi.fn(),
   },
   transactions: { list: vi.fn(), update: vi.fn(), delete: vi.fn(), create: vi.fn() },
   dashboard: { projectedTransactions: vi.fn() },
@@ -108,7 +109,18 @@ beforeEach(() => {
   vi.clearAllMocks()
   vi.setSystemTime(new Date('2026-09-15T12:00:00'))
   api.accounts.list.mockResolvedValue([])
-  api.accounts.bills.mockResolvedValue([])
+  api.accounts.creditCardTimeline.mockResolvedValue([{
+    account_id: 'acc-1',
+    default_key: 'cycle:2026-09-30',
+    items: [{
+      account_id: 'acc-1', due_month: '2026-10', kind: 'projection',
+      cycle_key: 'cycle:2026-09-30', start: '2026-08-30', end: '2026-09-29',
+      closing_date: '2026-09-30', due_date: '2026-10-10', amount: 501,
+      primary_amount: null, source: null, record_id: null, status: null,
+      editable: false, unavailable_reason: null,
+    }],
+  }])
+  api.accounts.cards.mockResolvedValue([])
   api.accounts.summary.mockResolvedValue({
     opening_balance: 0, current_balance: 9000, monthly_income: 0, monthly_expenses: 0,
     projected_income: 0, projected_expenses: 0,
@@ -177,8 +189,8 @@ describe('a non-credit-card account with more rows than one page', () => {
 
     await renderPage()
 
-    // The axis ticks are compact, so the series shows up as "R$20.0K".
-    expect(await screen.findByText('R$20.0K')).toBeInTheDocument()
+    // The axis ticks use the runtime's compact-currency notation.
+    expect(await screen.findByText('R$20K')).toBeInTheDocument()
     expect(api.accounts.runningBalance).toHaveBeenCalledWith('acc-1', '2026-09-01', '2026-09-30')
   })
 })

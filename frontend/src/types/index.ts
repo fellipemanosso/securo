@@ -7,6 +7,30 @@ export interface User {
   is_2fa_enabled: boolean
   preferences: UserPreferences
 }
+export interface CreditCardTimelineItem {
+  account_id: string
+  due_month: string
+  kind: 'statement' | 'projection' | 'unavailable'
+  cycle_key: string | null
+  start: string | null
+  end: string | null
+  closing_date: string | null
+  due_date: string | null
+  amount: number | null
+  primary_amount: number | null
+  source: 'bank' | 'manual' | null
+  record_id: string | null
+  status: 'open' | 'paid' | null
+  editable: boolean
+  unavailable_reason: 'past_statement_missing' | 'missing_close_config' | 'missing_due_config' | null
+}
+
+export interface CreditCardTimeline {
+  account_id: string
+  items: CreditCardTimelineItem[]
+  default_key: string | null
+}
+
 
 export interface AdminUser {
   id: string
