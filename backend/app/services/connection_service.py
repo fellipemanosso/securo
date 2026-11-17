@@ -2412,8 +2412,11 @@ async def _sync_bill_finance_charges(
     """
     # date = close (when the bank applied the charge); effective_date stays
     # at bill.due_date so accrual-mode aggregations bucket the same as
-    # regular CC purchases for this bill.
-    charge_date = _compute_bill_close_date(bill.due_date, account.statement_close_day)
+    # regular CC purchases for this bill. The bank's own closing date wins
+    # over one derived from the configured close day.
+    charge_date = bill.closing_date or _compute_bill_close_date(
+        bill.due_date, account.statement_close_day
+    )
 
     desired_external_ids: set[str] = set()
     for raw in raw_charges:

@@ -94,3 +94,37 @@ async def test_a_closing_day_the_bank_sends_is_kept(session, test_user, test_wor
 
     card = (await session.execute(select(Account).where(Account.external_id == "c6"))).scalar_one()
     assert card.statement_close_day == 20
+
+
+@pytest.mark.asyncio
+async def test_a_statement_opens_on_the_previous_bank_close(session, test_user, test_workspace):
+    from app.models.credit_card_bill import CreditCardBill
+    from app.services.credit_card_timeline import CreditCardTimeline
+
+    card = Account(
+        user_id=test_user.id, workspace_id=test_workspace.id, name="BANDEIRADO",
+        type="credit_card", balance=Decimal("0"), currency="BRL",
+        statement_close_day=24, payment_due_day=1,
+    )
+    session.add(card)
+    await session.flush()
+    for external_id, closing, due in (
+        ("bill-mar", date(2026, 2, 21), date(2026, 3, 1)),
+        ("bill-apr", date(2026, 3, 25), date(2026, 4, 1)),
+    ):
+        session.add(CreditCardBill(
+            user_id=test_user.id, workspace_id=test_workspace.id, account_id=card.id,
+            external_id=external_id, due_date=due, closing_date=closing,
+            total_amount=Decimal("100"), currency="BRL",
+        ))
+    await session.commit()
+
+    timelines = await CreditCardTimeline.index(
+        session, test_workspace.id, [card.id],
+        due_from=date(2026, 4, 1), due_to=date(2026, 4, 1), as_of=date(2026, 4, 1),
+    )
+
+    april = timelines[card.id].items[0]
+    # Purchases from the March close on belong to April; the configured
+    # close day (24) would have left 21–23 February on no statement.
+    assert (april.start, april.end) == (date(2026, 2, 21), date(2026, 3, 24))

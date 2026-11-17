@@ -97,10 +97,19 @@ def _closing_for_due(due: date, close_day: int) -> date:
     return _clamped(year, month, close_day)
 
 
-def _cycle_for_due(due: date, close_day: Optional[int], closing: Optional[date]) -> tuple[date, date, date] | None:
+def _cycle_for_due(
+    due: date,
+    close_day: Optional[int],
+    closing: Optional[date],
+    previous_closing: Optional[date] = None,
+) -> tuple[date, date, date] | None:
     close = closing or (_closing_for_due(due, close_day) if close_day else None)
     if close is None:
         return None
+    if previous_closing is not None and previous_closing < close:
+        # The bank's own previous close opens this cycle, so consecutive
+        # statements tile without gaps or overlaps when the close day moves.
+        return previous_closing, close - timedelta(days=1), close
     previous_year, previous_month = _previous_month(close.year, close.month)
     previous_close = _clamped(previous_year, previous_month, close_day or close.day)
     return previous_close, close - timedelta(days=1), close
@@ -177,8 +186,15 @@ class CreditCardTimeline:
                 matching = by_account_month.get((account.id, month_key), ())
                 if matching:
                     bill = _canonical_bill(matching)
+                    previous_year, previous_month = _previous_month(month.year, month.month)
+                    previous_bills = by_account_month.get(
+                        (account.id, f"{previous_year:04d}-{previous_month:02d}"), ()
+                    )
                     cycle = _cycle_for_due(
-                        bill.due_date, account.statement_close_day, bill.closing_date
+                        bill.due_date,
+                        account.statement_close_day,
+                        bill.closing_date,
+                        _canonical_bill(previous_bills).closing_date if previous_bills else None,
                     )
                     items.append(
                         TimelineItem(
