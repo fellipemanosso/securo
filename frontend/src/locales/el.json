@@ -975,11 +975,20 @@
       "manual": "Χειροκίνητο",
       "estimated": "Εκτίμηση Securo"
     },
-    "billClosing": {
-      "upcoming": "Κλείνει στις",
-      "past": "Έκλεισε στις",
-      "upcomingDate": "Κλείνει στις {{date}}",
-      "pastDate": "Έκλεισε στις {{date}}"
+    "billNav": "Λογαριασμοί",
+    "billHeader": {
+      "title": "Λογαριασμός: {{month}}",
+      "state": {
+        "open": "Ανοιχτός",
+        "closed": "Κλειστός",
+        "paid": "Εξοφλημένος"
+      },
+      "closes": "Κλείνει στις {{date}}",
+      "closed": "Έκλεισε στις {{date}}",
+      "due": "Λήγει στις {{date}}",
+      "wasDue": "Έληξε στις {{date}}",
+      "pay": "Εξόφληση λογαριασμού",
+      "paymentDescription": "Εξόφληση λογαριασμού - {{name}}"
     },
     "billBreakdown": {
       "toggle": "Τι περιλαμβάνει;",
@@ -1006,7 +1015,6 @@
     "vsPreviousBill": "έναντι {{label}}",
     "syncedAgo": "Συγχρονίστηκε {{time}}",
     "neverSynced": "Δεν έχει συγχρονιστεί ακόμη",
-    "dueDate": "Ημερομηνία λήξης",
     "minimumPayment": "Ελάχιστη καταβολή",
     "noChargesYet": "Δεν υπάρχουν χρεώσεις ακόμα σε αυτόν τον κύκλο",
     "currentTag": "τώρα",

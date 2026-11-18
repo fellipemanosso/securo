@@ -1307,11 +1307,20 @@
       "manual": "Ręczny",
       "estimated": "Szacunek Securo"
     },
-    "billClosing": {
-      "upcoming": "Zamknięcie",
-      "past": "Zamknięty",
-      "upcomingDate": "Zamknięcie {{date}}",
-      "pastDate": "Zamknięty {{date}}"
+    "billNav": "Rachunki",
+    "billHeader": {
+      "title": "Rachunek za {{month}}",
+      "state": {
+        "open": "Otwarty",
+        "closed": "Zamknięty",
+        "paid": "Opłacony"
+      },
+      "closes": "Zamknięcie {{date}}",
+      "closed": "Zamknięty {{date}}",
+      "due": "Termin płatności {{date}}",
+      "wasDue": "Termin płatności minął {{date}}",
+      "pay": "Zapłać rachunek",
+      "paymentDescription": "Spłata rachunku - {{name}}"
     },
     "billBreakdown": {
       "toggle": "Co obejmuje?",
@@ -1340,7 +1349,6 @@
     "vsPreviousBill": "wobec {{label}}",
     "syncedAgo": "Zsynchronizowano {{time}}",
     "neverSynced": "Jeszcze nie zsynchronizowano",
-    "dueDate": "Termin płatności",
     "minimumPayment": "Minimalna",
     "noChargesYet": "Brak obciążeń w tym cyklu",
     "currentTag": "teraz",

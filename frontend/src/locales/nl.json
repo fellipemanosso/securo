@@ -1264,11 +1264,20 @@
       "manual": "Handmatig",
       "estimated": "Schatting Securo"
     },
-    "billClosing": {
-      "upcoming": "Sluit op",
-      "past": "Gesloten op",
-      "upcomingDate": "Sluit op {{date}}",
-      "pastDate": "Gesloten op {{date}}"
+    "billNav": "Facturen",
+    "billHeader": {
+      "title": "Factuur {{month}}",
+      "state": {
+        "open": "Open",
+        "closed": "Gesloten",
+        "paid": "Betaald"
+      },
+      "closes": "Sluit op {{date}}",
+      "closed": "Gesloten op {{date}}",
+      "due": "Vervalt op {{date}}",
+      "wasDue": "Verviel op {{date}}",
+      "pay": "Factuur betalen",
+      "paymentDescription": "Betaling factuur - {{name}}"
     },
     "billBreakdown": {
       "toggle": "Wat zit erin?",
@@ -1295,7 +1304,6 @@
     "vsPreviousBill": "t.o.v. {{label}}",
     "syncedAgo": "Gesynchroniseerd {{time}}",
     "neverSynced": "Nog niet gesynchroniseerd",
-    "dueDate": "Vervaldatum",
     "minimumPayment": "Minimaal",
     "noChargesYet": "Nog geen kosten deze cyclus",
     "currentTag": "nu",

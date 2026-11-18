@@ -4,7 +4,7 @@ import { useParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useDisplayLocale, useDateLocale } from '@/hooks/use-display-locale'
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { format, addDays, addMonths, endOfMonth, formatDistanceToNow, parseISO, startOfMonth, subMonths } from 'date-fns'
+import { format, addMonths, endOfMonth, formatDistanceToNow, parseISO, startOfMonth, subMonths } from 'date-fns'
 import { accounts, connections, dashboard, transactions, categories as categoriesApi, categoryGroups as categoryGroupsApi } from '@/lib/api'
 import { localDateString } from '@/lib/date-utils'
 import { applyTransactionToBalance, billContribution, excludeMaterializedProjections, mergeRunningBalances, runningBalanceChartFrom } from '@/lib/account-detail-utils'
@@ -15,7 +15,7 @@ import { toast } from 'sonner'
 import type { Account, CreditCardTimelineItem, ProjectedTransaction, Transaction } from '@/types'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, ArrowLeftRight, CalendarClock, Check, ChevronLeft, ChevronRight, Clock, EyeClosed, HelpCircle, Loader2, Paperclip, Pencil, Plus, X } from 'lucide-react'
+import { ArrowLeft, ArrowLeftRight, CalendarClock, Check, ChevronLeft, ChevronRight, Clock, EyeClosed, HelpCircle, Loader2, Paperclip, Pencil, Plus, ReceiptText, X } from 'lucide-react'
 import { MobileTransactionRow } from '@/components/mobile-transaction-row'
 import { AccountCardsControl } from '@/components/account-cards-control'
 import { transactionDescription } from '@/lib/transaction-description'
@@ -71,12 +71,12 @@ function formatDateStr(dateStr: string, locale = 'pt-BR') {
 }
 
 function formatFriendlyDate(dateStr: string, dateLocale: string) {
-  // Compact friendly weekday+day+month — words follow the UI language, field
-  // order follows the regional date setting (e.g. "Thu, Apr 16" vs "Thu, 16 Apr").
+  // Weekday plus day and month ("sáb., 24/11" or "Sat, 11/24"): words follow
+  // the UI language, field order follows the regional date setting.
   return new Date(dateStr + 'T00:00:00').toLocaleDateString(dateLocale, {
     weekday: 'short',
     day: 'numeric',
-    month: 'short',
+    month: 'numeric',
   })
 }
 
@@ -131,7 +131,8 @@ export default function AccountDetailPage() {
   const [editingTx, setEditingTx] = useState<Transaction | null>(null)
   const [renamingPrincipalCard, setRenamingPrincipalCard] = useState(false)
   const [principalCardName, setPrincipalCardName] = useState('')
-  const [transferDialogOpen, setTransferDialogOpen] = useState(false)
+  // A plain transfer from this account, or a bill payment into this card.
+  const [transferPurpose, setTransferPurpose] = useState<'transfer' | 'billPayment' | null>(null)
   const {
     mutation: createMutation,
     create: createTransaction,
@@ -299,17 +300,21 @@ export default function AccountDetailPage() {
     enabled: !!id && !!previousCycle,
   })
 
-  // The strip shows every month of the history, including the ones without
-  // a statement: a missing bill is a normal state to see, not a gap to hide.
+  // The strip is the way between statements: the selected one, the bills
+  // before it and the next ones installments already commit. It shows every
+  // month of the history, including the ones without a statement: a missing
+  // bill is a normal state to see, not a gap to hide.
   const timelineCount = isMobile ? 4 : 6
-  const stripActiveIndex = activeCycleKey
-    ? timelineHistory.findIndex((item) => item.cycle_key === activeCycleKey)
+  const timelineLookahead = isMobile ? 2 : 3
+  const stripAnchorKey = activeCycleKey ?? timelineData?.[0]?.default_key ?? null
+  const stripAnchor = stripAnchorKey
+    ? timelineHistory.findIndex((item) => item.cycle_key === stripAnchorKey)
     : -1
-  const timelineEnd = stripActiveIndex >= 0 ? stripActiveIndex + 1 : timelineHistory.length
-  const timelineCycles = timelineHistory.slice(
-    Math.max(0, timelineEnd - timelineCount),
-    timelineEnd,
-  )
+  const timelineEnd = stripAnchor >= 0
+    ? Math.min(timelineHistory.length, stripAnchor + 1 + timelineLookahead)
+    : timelineHistory.length
+  const timelineStart = Math.max(0, timelineEnd - timelineCount)
+  const timelineCycles = timelineHistory.slice(timelineStart, timelineStart + timelineCount)
 
   // A canonical cycle is fetched in full; manual date ranges keep using the
   // generic transaction filters and never acquire statement semantics.
@@ -511,7 +516,7 @@ export default function AccountDetailPage() {
     }) => transactions.createTransfer(data),
     onSuccess: () => {
       invalidateFinancialQueries(queryClient)
-      setTransferDialogOpen(false)
+      setTransferPurpose(null)
       toast.success(t('transactions.transferCreated'))
     },
     onError: (error) => {
@@ -812,6 +817,25 @@ export default function AccountDetailPage() {
     ? billTotal - billParts.net
     : 0
 
+  // Where the selected statement stands: paid when the bank or the user says
+  // so, closed once its closing date has passed, open until then.
+  const billState: 'open' | 'closed' | 'paid' | null = !activeCycle
+    ? null
+    : activeCycle.status === 'paid'
+      ? 'paid'
+      : activeCycle.closing_date && activeCycle.closing_date < format(new Date(), 'yyyy-MM-dd')
+        ? 'closed'
+        : 'open'
+
+  // Paying the bill is a transfer from a cash account into this card, as on
+  // the cards overview. The amount starts at the bill total when it is in the
+  // card's own currency; a converted total would be the wrong number to send.
+  const billPaymentAccounts = (accountsList ?? []).filter((item) =>
+    !item.is_closed && (item.type !== 'credit_card' || item.id === id))
+  const billPaymentAmount = billTotalSettled && billTotal > 0.005 && displayCurrency === account?.currency
+    ? Math.round(billTotal * 100) / 100
+    : undefined
+
   // The mobile transaction view is intentionally grouped by day so the date
   // remains visible without spending a full column on every row.
   const groupedByDate = useMemo(() => {
@@ -851,6 +875,129 @@ export default function AccountDetailPage() {
   if (!account) {
     return <p className="text-muted-foreground">{t('accounts.notFound')}</p>
   }
+
+  // Choosing the period. A card steps between statements and keeps these
+  // controls with the strip, under the bill they select; any other account
+  // keeps a plain date range in the page header.
+  const periodControls = (
+    <div className="flex items-center gap-2 sm:gap-3">
+      {isCreditCard ? (
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            className="h-8 w-8 flex items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:border-border hover:text-foreground transition-all disabled:opacity-40 disabled:pointer-events-none"
+            onClick={() => shiftCycleBy(-1)}
+            disabled={hasTimeline && !neighbourCycle(-1)}
+            title={t('accounts.previousCycle')}
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                aria-busy={cycleSwitching}
+                className="inline-flex items-center justify-center gap-2 min-w-[140px] border border-border rounded-lg px-3 py-1.5 text-sm bg-card text-foreground hover:bg-muted/50 transition-all cursor-pointer capitalize"
+              >
+                {cycleSwitching && <Loader2 size={14} className="animate-spin text-muted-foreground" aria-hidden="true" />}
+                {activeCycle?.due_date
+                  ? format(parseISO(activeCycle.due_date + 'T00:00:00'), 'MMM yyyy', {
+                      locale: resolveDateFnsLocale(i18n.resolvedLanguage ?? i18n.language),
+                    })
+                  : cycleRangeLabel(filterFrom, filterTo, i18n.resolvedLanguage ?? i18n.language)}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="center" className="w-auto p-3 space-y-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">{t('transactions.from')}</Label>
+                <DatePickerInput
+                  value={filterFrom}
+                  onChange={handleFilterFromChange}
+                  placeholder={t('transactions.from')}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">{t('transactions.to')}</Label>
+                <DatePickerInput
+                  value={filterTo}
+                  onChange={handleFilterToChange}
+                  placeholder={t('transactions.to')}
+                />
+              </div>
+            </PopoverContent>
+          </Popover>
+          <button
+            type="button"
+            className="h-8 w-8 flex items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:border-border hover:text-foreground transition-all disabled:opacity-40 disabled:pointer-events-none"
+            onClick={() => shiftCycleBy(1)}
+            disabled={hasTimeline && !neighbourCycle(1)}
+            title={t('accounts.nextCycle')}
+          >
+            <ChevronRight size={16} />
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-muted-foreground hidden md:inline">{t('transactions.from')}</label>
+            <DatePickerInput
+              value={filterFrom}
+              onChange={handleFilterFromChange}
+              placeholder={t('transactions.from')}
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-muted-foreground hidden md:inline">{t('transactions.to')}</label>
+            <DatePickerInput
+              value={filterTo}
+              onChange={handleFilterToChange}
+              placeholder={t('transactions.to')}
+            />
+          </div>
+        </>
+      )}
+      {hasFilters && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-muted-foreground hover:text-foreground min-h-[44px] min-w-[44px] px-3 shrink-0"
+          onClick={() => {
+            setFilterTouched(false)
+            if (account.type === 'credit_card' && defaultCycle) {
+              setActiveCycleKey(defaultCycle.cycle_key)
+              setFilterFrom(defaultCycle.start)
+              setFilterTo(defaultCycle.end)
+            } else {
+              setActiveCycleKey(null)
+              setFilterFrom(defaultFrom())
+              setFilterTo(defaultTo())
+            }
+          }}
+        >
+          <X className="h-3.5 w-3.5 sm:mr-1" />
+          <span className="hidden sm:inline">{t('transactions.clearFilters')}</span>
+        </Button>
+      )}
+      {isForeignCurrency && (
+        <div className="ml-auto inline-flex rounded-lg border border-border bg-muted p-0.5 text-xs font-medium">
+          <button
+            onClick={() => setShowPrimary(false)}
+            className={`px-3 py-1.5 rounded-md transition-colors ${!primaryShown ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            {account.currency}
+          </button>
+          <button
+            onClick={() => setShowPrimary(true)}
+            disabled={fxFallback}
+            title={fxFallback ? t('transactions.fxFallbackBanner') : undefined}
+            className={`px-3 py-1.5 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${primaryShown ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            {userCurrency}
+          </button>
+        </div>
+      )}
+    </div>
+  )
 
   return (
     <div>
@@ -933,7 +1080,9 @@ export default function AccountDetailPage() {
               <span className="text-xs font-medium text-muted-foreground">
                 {t(`accounts.type${account.type.split('_').map(s => s[0].toUpperCase() + s.slice(1)).join('')}`, account.type)}
               </span>
-              {isCreditCard && account.next_due_date && (() => {
+              {/* The bill header counts down to the selected bill; this keeps
+                  the next due date in sight while another bill is open. */}
+              {isCreditCard && account.next_due_date && account.next_due_date !== activeCycle?.due_date && (() => {
                 const d = daysUntil(account.next_due_date)
                 if (d > 7) return null
                 const cfg = d < 0
@@ -973,7 +1122,7 @@ export default function AccountDetailPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setTransferDialogOpen(true)}
+                onClick={() => setTransferPurpose('transfer')}
               >
                 <ArrowLeftRight className="h-4 w-4 mr-1" />
                 {t('transactions.transfer')}
@@ -986,133 +1135,7 @@ export default function AccountDetailPage() {
             </div>
           )}
         </div>
-        <div className="flex items-center gap-2 sm:gap-3">
-          {isCreditCard ? (
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                className="h-8 w-8 flex items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:border-border hover:text-foreground transition-all disabled:opacity-40 disabled:pointer-events-none"
-                onClick={() => shiftCycleBy(-1)}
-                disabled={hasTimeline && !neighbourCycle(-1)}
-                title={t('accounts.previousCycle')}
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button
-                    type="button"
-                    aria-busy={cycleSwitching}
-                    className="inline-flex items-center justify-center gap-2 min-w-[140px] border border-border rounded-lg px-3 py-1.5 text-sm bg-card text-foreground hover:bg-muted/50 transition-all cursor-pointer capitalize"
-                  >
-                    {cycleSwitching && <Loader2 size={14} className="animate-spin text-muted-foreground" aria-hidden="true" />}
-                    {activeCycle?.due_date
-                      ? format(parseISO(activeCycle.due_date + 'T00:00:00'), 'MMM yyyy', {
-                          locale: resolveDateFnsLocale(i18n.resolvedLanguage ?? i18n.language),
-                        })
-                      : cycleRangeLabel(filterFrom, filterTo, i18n.resolvedLanguage ?? i18n.language)}
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent align="center" className="w-auto p-3 space-y-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">{t('transactions.from')}</Label>
-                    <DatePickerInput
-                      value={filterFrom}
-                      onChange={handleFilterFromChange}
-                      placeholder={t('transactions.from')}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">{t('transactions.to')}</Label>
-                    <DatePickerInput
-                      value={filterTo}
-                      onChange={handleFilterToChange}
-                      placeholder={t('transactions.to')}
-                    />
-                  </div>
-                </PopoverContent>
-              </Popover>
-              <button
-                type="button"
-                className="h-8 w-8 flex items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:border-border hover:text-foreground transition-all disabled:opacity-40 disabled:pointer-events-none"
-                onClick={() => shiftCycleBy(1)}
-                disabled={hasTimeline && !neighbourCycle(1)}
-                title={t('accounts.nextCycle')}
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
-          ) : (
-            <>
-              <div className="flex items-center gap-2">
-                <label className="text-sm text-muted-foreground hidden md:inline">{t('transactions.from')}</label>
-                <DatePickerInput
-                  value={filterFrom}
-                  onChange={handleFilterFromChange}
-                  placeholder={t('transactions.from')}
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <label className="text-sm text-muted-foreground hidden md:inline">{t('transactions.to')}</label>
-                <DatePickerInput
-                  value={filterTo}
-                  onChange={handleFilterToChange}
-                  placeholder={t('transactions.to')}
-                />
-              </div>
-            </>
-          )}
-          {hasFilters && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground hover:text-foreground min-h-[44px] min-w-[44px] px-3 shrink-0"
-              onClick={() => {
-                setFilterTouched(false)
-                if (account?.type === 'credit_card' && defaultCycle) {
-                  setActiveCycleKey(defaultCycle.cycle_key)
-                  setFilterFrom(defaultCycle.start)
-                  setFilterTo(defaultCycle.end)
-                } else {
-                  setActiveCycleKey(null)
-                  setFilterFrom(defaultFrom())
-                  setFilterTo(defaultTo())
-                }
-              }}
-            >
-              <X className="h-3.5 w-3.5 sm:mr-1" />
-              <span className="hidden sm:inline">{t('transactions.clearFilters')}</span>
-            </Button>
-          )}
-          {isForeignCurrency && (
-            <div className="ml-auto inline-flex rounded-lg border border-border bg-muted p-0.5 text-xs font-medium">
-              <button
-                onClick={() => setShowPrimary(false)}
-                className={`px-3 py-1.5 rounded-md transition-colors ${!primaryShown ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              >
-                {account.currency}
-              </button>
-              <button
-                onClick={() => setShowPrimary(true)}
-                disabled={fxFallback}
-                title={fxFallback ? t('transactions.fxFallbackBanner') : undefined}
-                className={`px-3 py-1.5 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${primaryShown ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              >
-                {userCurrency}
-              </button>
-            </div>
-          )}
-        </div>
-        {isCreditCard && cards.length > 0 && (
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-            <AccountCardsControl
-              cards={cards}
-              canWrite={canWrite}
-              onToggleHidden={(card) => cardUpdateMutation.mutate({ last4: card.last4, payload: { is_hidden: !card.is_hidden } })}
-              onRename={(card, alias) => cardUpdateMutation.mutate({ last4: card.last4, payload: { alias } })}
-            />
-          </div>
-        )}
+        {!isCreditCard && periodControls}
       </div>
 
       {account.is_closed && (
@@ -1131,8 +1154,268 @@ export default function AccountDetailPage() {
         </div>
       )}
 
-      {/* Bill timeline (last 6 cycles) — only for CC with cycle metadata */}
-      {isCreditCard && timelineCycles.length > 0 && (() => {
+      {/* The selected bill leads the page: which bill, where it stands, when
+          it closes and falls due, how much and how sure that number is, and
+          how to pay it. Everything below it is navigation and support. */}
+      {isCreditCard && (() => {
+        const dfLocale = resolveDateFnsLocale(i18n.resolvedLanguage ?? i18n.language)
+        const uiLanguage = i18n.resolvedLanguage ?? i18n.language
+        const today = format(new Date(), 'yyyy-MM-dd')
+        const isDefaultCycle = activeCycleKey === timelineData?.[0]?.default_key
+        const closingDate = activeCycle?.closing_date ?? null
+        const cycleDueDate = activeCycle?.due_date ?? null
+        const dueIn = cycleDueDate ? daysUntil(cycleDueDate) : null
+        // Count down to an upcoming due date, or to the default bill when it
+        // is overdue (it still needs paying). A paid bill, and past bills the
+        // user can no longer act on, need no countdown.
+        const dueSubtitle = (() => {
+          if (dueIn == null || billState === 'paid') return null
+          if (dueIn > 0) return t('accounts.dueIn', { count: dueIn })
+          if (dueIn === 0) return t('accounts.dueToday')
+          if (isDefaultCycle) return t('accounts.overdueDays', { count: Math.abs(dueIn) })
+          return null
+        })()
+        const dueSubtitleClass =
+          dueIn != null && dueIn < 0 ? 'text-rose-500'
+          : dueIn != null && dueIn <= 3 ? 'text-rose-500'
+          : dueIn != null && dueIn <= 7 ? 'text-amber-600'
+          : 'text-muted-foreground'
+        // A statement is named after the month it falls due, with the year
+        // only when it is not this one. A hand-picked range is no statement,
+        // so it is named by its dates.
+        const billDue = activeCycle ? new Date((activeCycle.due_date ?? `${activeCycle.due_month}-01`) + 'T00:00:00') : null
+        const billTitle = billDue
+          ? t('accounts.billHeader.title', {
+              month: billDue.toLocaleDateString(uiLanguage, billDue.getFullYear() === new Date().getFullYear()
+                ? { month: 'long' }
+                : { month: 'long', year: 'numeric' }),
+            })
+          : cycleRangeLabel(filterFrom, filterTo, uiLanguage)
+        const stateChip = billState
+          ? {
+              label: t(`accounts.billHeader.state.${billState}`),
+              className: billState === 'paid'
+                ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                : 'bg-foreground/5 text-foreground',
+            }
+          : null
+        // Compare against the previous canonical timeline item. Its amount is
+        // stable for a Statement; unavailable periods fall back to the scoped
+        // summary's bill total when one exists. A credit balance has no
+        // meaningful percentage against a bill.
+        const prevTotal = Number(
+          previousCycle?.amount
+          ?? previousCycleSummary?.projected_expenses
+          ?? previousCycleSummary?.monthly_expenses
+          ?? 0,
+        )
+        const creditBalance = billTotal < -0.005
+        const showComparison = !!previousCycle && prevTotal > 0 && !creditBalance
+        const deltaPct = showComparison ? ((billTotal - prevTotal) / prevTotal) * 100 : null
+        const prevCycleMonth = previousCycle?.due_date
+          ? format(parseISO(previousCycle.due_date + 'T00:00:00'), 'MMM yyyy', { locale: dfLocale })
+          : previousCycle?.due_month ?? null
+        const prevCycleLabel = prevCycleMonth
+          ? prevCycleMonth.charAt(0).toUpperCase() + prevCycleMonth.slice(1)
+          : null
+        const provenance = billSource === 'bank' && closingDate
+          ? {
+              label: t('accounts.billConfidence.bank', { date: formatDayMonth(closingDate, dateLocale) }),
+              className: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
+            }
+          : billSource === 'manual'
+            ? { label: t('accounts.billConfidence.manual'), className: 'bg-foreground/5 text-foreground' }
+            : { label: t('accounts.billConfidence.estimated'), className: 'bg-amber-500/10 text-amber-700 dark:text-amber-400' }
+        const money = (value: number) => mask(formatCurrency(value, displayCurrency, locale))
+        // Purchases and credits side by side once both exist, so a refund
+        // that shrinks the bill is visible next to the number it shrank.
+        const billCharges = billParts ? billParts.net + billParts.credits : 0
+        const showComposition = billTotalSettled && !!billParts && billParts.credits > 0.005 && billCharges > 0.005
+        const canPay = canWrite && !account.is_closed && !!activeCycle && billState !== 'paid'
+          && billTotalSettled && billTotal > 0.005
+        return (
+          <section
+            aria-labelledby="bill-header-title"
+            aria-busy={cycleSwitching}
+            className={`mb-3 flex flex-col gap-4 rounded-xl border border-border bg-card p-4 shadow-sm sm:flex-row sm:items-start sm:justify-between sm:p-6 ${cycleSectionClass}`}
+          >
+            <div className="min-w-0 space-y-3">
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <h2 id="bill-header-title" className="text-base font-semibold text-foreground sm:text-lg">
+                    {billTitle}
+                  </h2>
+                  {stateChip && (
+                    <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-semibold leading-tight sm:text-xs ${stateChip.className}`}>
+                      {stateChip.label}
+                    </span>
+                  )}
+                </div>
+                {(closingDate || cycleDueDate) && (
+                  <p className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground sm:text-sm">
+                    {closingDate && (
+                      <span>
+                        {closingDate < today
+                          ? t('accounts.billHeader.closed', { date: formatFriendlyDate(closingDate, dateLocale) })
+                          : t('accounts.billHeader.closes', { date: formatFriendlyDate(closingDate, dateLocale) })}
+                      </span>
+                    )}
+                    {closingDate && cycleDueDate && <span aria-hidden="true">·</span>}
+                    {cycleDueDate && (
+                      <span>
+                        {cycleDueDate < today
+                          ? t('accounts.billHeader.wasDue', { date: formatFriendlyDate(cycleDueDate, dateLocale) })
+                          : t('accounts.billHeader.due', { date: formatFriendlyDate(cycleDueDate, dateLocale) })}
+                      </span>
+                    )}
+                    {dueSubtitle && (
+                      <>
+                        <span aria-hidden="true">·</span>
+                        <span className={`font-medium ${dueSubtitleClass}`}>{dueSubtitle}</span>
+                      </>
+                    )}
+                  </p>
+                )}
+              </div>
+              <div>
+                {/* The heading already names the bill; a credit balance needs
+                    saying, since the amount is shown without its sign. */}
+                <p className={creditBalance ? 'text-xs font-medium text-emerald-700 dark:text-emerald-400' : 'sr-only'}>
+                  {creditBalance ? t('accounts.creditBalance') : t('accounts.cycleBillTotal')}
+                </p>
+                <p className={`text-3xl font-bold tracking-tight tabular-nums sm:text-4xl ${creditBalance ? 'text-emerald-600 dark:text-emerald-400' : 'text-foreground'}`}>
+                  {money(Math.abs(billTotal))}
+                </p>
+                {showComposition && billParts && (
+                  <dl className="mt-1 flex flex-wrap gap-x-1.5 text-xs text-muted-foreground tabular-nums">
+                    <div className="flex gap-1">
+                      <dt>{t('accounts.billBreakdown.purchases')}</dt>
+                      <dd className="text-foreground">{money(billCharges)}</dd>
+                    </div>
+                    <div className="flex gap-1">
+                      <dt><span aria-hidden="true">· </span>{t('accounts.billBreakdown.creditsShort')}</dt>
+                      <dd className="text-foreground">{money(-billParts.credits)}</dd>
+                    </div>
+                    {billResidual !== 0 && (
+                      <div className="flex gap-1">
+                        <dt><span aria-hidden="true">· </span>{t('accounts.billBreakdown.adjustmentsShort')}</dt>
+                        <dd className="text-foreground">{money(billResidual)}</dd>
+                      </div>
+                    )}
+                  </dl>
+                )}
+                <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-semibold leading-tight sm:text-xs ${provenance.className}`}>
+                    {provenance.label}
+                  </span>
+                  {billSource === 'estimate' && billParts && (
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          className="rounded-sm text-xs font-medium text-muted-foreground underline decoration-dotted underline-offset-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          {t('accounts.billBreakdown.toggle')}
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent align="start" className="w-72 p-3">
+                        <p className="text-sm font-semibold text-foreground">{t('accounts.billBreakdown.title')}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">{t('accounts.billBreakdown.hint')}</p>
+                        <dl className="mt-3 space-y-1.5 text-xs">
+                          <div className="flex items-baseline justify-between gap-3">
+                            <dt className="text-muted-foreground">{t('accounts.billBreakdown.purchases')}</dt>
+                            <dd className="tabular-nums text-foreground">{money(billParts.purchases)}</dd>
+                          </div>
+                          {billParts.credits > 0.005 && (
+                            <div className="flex items-baseline justify-between gap-3">
+                              <dt className="text-muted-foreground">{t('accounts.billBreakdown.credits')}</dt>
+                              <dd className="tabular-nums text-foreground">{money(-billParts.credits)}</dd>
+                            </div>
+                          )}
+                          {billParts.pending > 0.005 && (
+                            <div className="flex items-baseline justify-between gap-3">
+                              <dt className="text-muted-foreground">{t('accounts.billBreakdown.pending')}</dt>
+                              <dd className="tabular-nums text-foreground">{money(billParts.pending)}</dd>
+                            </div>
+                          )}
+                          {billParts.installmentCount > 0 && (
+                            <div className="flex items-baseline justify-between gap-3">
+                              <dt className="text-muted-foreground">{t('accounts.billBreakdown.installments', { count: billParts.installmentCount })}</dt>
+                              <dd className="tabular-nums text-foreground">{money(billParts.installments)}</dd>
+                            </div>
+                          )}
+                          {billResidual !== 0 && (
+                            <div className="flex items-baseline justify-between gap-3">
+                              <dt className="text-muted-foreground">{t('accounts.billBreakdown.adjustments')}</dt>
+                              <dd className="tabular-nums text-foreground">{money(billResidual)}</dd>
+                            </div>
+                          )}
+                          <div className="flex items-baseline justify-between gap-3 border-t border-border pt-1.5 font-semibold">
+                            <dt className="text-foreground">{t('accounts.billBreakdown.total')}</dt>
+                            <dd className="tabular-nums text-foreground">{money(billTotal)}</dd>
+                          </div>
+                        </dl>
+                      </PopoverContent>
+                    </Popover>
+                  )}
+                  {deltaPct != null && prevCycleLabel && (
+                    <span className={`text-xs font-medium tabular-nums ${deltaPct > 0 ? 'text-rose-500' : 'text-emerald-600'}`}>
+                      {deltaPct > 0 ? '+' : ''}{deltaPct.toFixed(0)}%{' '}
+                      <span className="font-normal text-muted-foreground">{t('accounts.vsPreviousBill', { label: prevCycleLabel })}</span>
+                    </span>
+                  )}
+                </div>
+              </div>
+              {(cardConnection || hiddenCardLast4.length > 0) && (
+                <div className="space-y-0.5 text-xs text-muted-foreground">
+                  {cardConnection && (
+                    <p>
+                      {cardConnection.last_sync_at ? (
+                        <time
+                          dateTime={cardConnection.last_sync_at}
+                          title={new Date(cardConnection.last_sync_at).toLocaleString(dateLocale)}
+                        >
+                          {t('accounts.syncedAgo', {
+                            time: formatDistanceToNow(new Date(cardConnection.last_sync_at), { addSuffix: true, locale: dfLocale }),
+                          })}
+                        </time>
+                      ) : t('accounts.neverSynced')}
+                    </p>
+                  )}
+                  {/* Hiding a card changes this number, so say so right here. */}
+                  {hiddenCardLast4.length > 0 && (
+                    <p>
+                      {t('accountCards.hiddenFromTotal', { count: hiddenCardLast4.length })}
+                      {canWrite && (
+                        <>
+                          {' · '}
+                          <button
+                            type="button"
+                            className="rounded-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            onClick={() => hiddenCardLast4.forEach(last4 => cardUpdateMutation.mutate({ last4, payload: { is_hidden: false } }))}
+                          >
+                            {t('accountCards.showAll')}
+                          </button>
+                        </>
+                      )}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+            {canPay && (
+              <Button className="h-11 w-full shrink-0 sm:h-9 sm:w-auto" onClick={() => setTransferPurpose('billPayment')}>
+                <ReceiptText className="h-4 w-4" />
+                {t('accounts.billHeader.pay')}
+              </Button>
+            )}
+          </section>
+        )
+      })()}
+
+      {/* Bill navigation: the cycle selector and the strip of statements
+          around the selected one, under the bill they select. */}
+      {isCreditCard && (() => {
         const dfLocale = resolveDateFnsLocale(i18n.resolvedLanguage ?? i18n.language)
         const slots = timelineCycles.map((item) => {
           const period = item.cycle_key && item.start && item.end
@@ -1153,8 +1436,9 @@ export default function AccountDetailPage() {
         })
         const max = Math.max(1, ...slots.map(s => s.total ?? 0))
         return (
-          <div className="bg-card rounded-xl border border-border shadow-sm p-3 sm:p-4 mb-6">
-            <div className="flex items-stretch gap-2 sm:gap-3 overflow-x-auto pb-1">
+          <nav aria-label={t('accounts.billNav')} className="bg-card rounded-xl border border-border shadow-sm p-3 sm:p-4 mb-6 space-y-3">
+            {periodControls}
+            <div className="flex items-stretch gap-2 sm:gap-3 overflow-x-auto pb-1 empty:hidden">
               {slots.map(({ item, period, isCurrent, total }) => {
                 const missing = item.kind === 'unavailable'
                 const credit = total != null && total < -0.005
@@ -1219,222 +1503,23 @@ export default function AccountDetailPage() {
                 )
               })}
             </div>
-          </div>
+          </nav>
         )
       })()}
 
+      {isCreditCard && cards.length > 0 && (
+        <div className="mb-6 flex flex-wrap items-center gap-x-3 gap-y-2">
+          <AccountCardsControl
+            cards={cards}
+            canWrite={canWrite}
+            onToggleHidden={(card) => cardUpdateMutation.mutate({ last4: card.last4, payload: { is_hidden: !card.is_hidden } })}
+            onRename={(card, alias) => cardUpdateMutation.mutate({ last4: card.last4, payload: { alias } })}
+          />
+        </div>
+      )}
+
       {/* Compact stat bar */}
-      {isCreditCard ? (() => {
-        const dfLocale = resolveDateFnsLocale(i18n.resolvedLanguage ?? i18n.language)
-        const isDefaultCycle = activeCycleKey === timelineData?.[0]?.default_key
-        const cycleDueDate = activeCycle?.due_date ?? null
-        const dueIn = cycleDueDate ? daysUntil(cycleDueDate) : null
-        // Show the countdown whenever the due date is upcoming (future or today),
-        // OR when the default bill is overdue (urgent, needs paying). Hide for
-        // past bills the user can't act on.
-        const dueSubtitle = (() => {
-          if (dueIn == null) return null
-          if (dueIn > 0) return t('accounts.dueIn', { count: dueIn })
-          if (dueIn === 0) return t('accounts.dueToday')
-          if (isDefaultCycle) return t('accounts.overdueDays', { count: Math.abs(dueIn) })
-          return null
-        })()
-        const dueSubtitleClass =
-          dueIn != null && dueIn < 0 ? 'text-rose-500'
-          : dueIn != null && dueIn <= 3 ? 'text-rose-500'
-          : dueIn != null && dueIn <= 7 ? 'text-amber-600'
-          : 'text-muted-foreground'
-        // Compare against the previous canonical timeline item. Its amount is
-        // stable for a Statement; unavailable periods fall back to the scoped
-        // summary's bill total when one exists. A credit balance has no
-        // meaningful percentage against a bill.
-        const prevTotal = Number(
-          previousCycle?.amount
-          ?? previousCycleSummary?.projected_expenses
-          ?? previousCycleSummary?.monthly_expenses
-          ?? 0,
-        )
-        const creditBalance = billTotal < -0.005
-        const showComparison = !!previousCycle && prevTotal > 0 && !creditBalance
-        const deltaPct = showComparison ? ((billTotal - prevTotal) / prevTotal) * 100 : null
-        const prevCycleMonth = previousCycle?.due_date
-          ? format(parseISO(previousCycle.due_date + 'T00:00:00'), 'MMM yyyy', { locale: dfLocale })
-          : previousCycle?.due_month ?? null
-        const prevCycleLabel = prevCycleMonth
-          ? prevCycleMonth.charAt(0).toUpperCase() + prevCycleMonth.slice(1)
-          : null
-        const closingDate = activeCycle?.closing_date ?? null
-        const provenance = billSource === 'bank' && closingDate
-          ? {
-              label: t('accounts.billConfidence.bank', { date: formatDayMonth(closingDate, dateLocale) }),
-              className: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
-            }
-          : billSource === 'manual'
-            ? { label: t('accounts.billConfidence.manual'), className: 'bg-foreground/5 text-foreground' }
-            : { label: t('accounts.billConfidence.estimated'), className: 'bg-amber-500/10 text-amber-700 dark:text-amber-400' }
-        const money = (value: number) => mask(formatCurrency(value, displayCurrency, locale))
-        // Purchases and credits side by side once both exist, so a refund
-        // that shrinks the bill is visible next to the number it shrank.
-        const billCharges = billParts ? billParts.net + billParts.credits : 0
-        const showComposition = billTotalSettled && !!billParts && billParts.credits > 0.005 && billCharges > 0.005
-        return (
-          <div className={`grid grid-cols-3 gap-2 sm:gap-4 mb-6 ${cycleSectionClass}`} aria-busy={cycleSwitching}>
-            <div className="bg-card rounded-xl border border-border shadow-sm p-3 sm:p-4 overflow-hidden">
-              <p className="text-[10px] sm:text-xs font-medium text-muted-foreground mb-1 truncate">
-                {creditBalance ? t('accounts.creditBalance') : t('accounts.cycleBillTotal')}
-              </p>
-              <p className={`text-[length:clamp(0.7rem,3.5vw,1.25rem)] sm:text-2xl font-bold tabular-nums ${creditBalance ? 'text-emerald-600 dark:text-emerald-400' : 'text-foreground'}`}>
-                {money(Math.abs(billTotal))}
-              </p>
-              {showComposition && billParts && (
-                <dl className="mt-0.5 flex flex-wrap gap-x-1.5 text-[10px] sm:text-xs text-muted-foreground tabular-nums">
-                  <div className="flex gap-1">
-                    <dt>{t('accounts.billBreakdown.purchases')}</dt>
-                    <dd className="text-foreground">{money(billCharges)}</dd>
-                  </div>
-                  <div className="flex gap-1">
-                    <dt><span aria-hidden="true">· </span>{t('accounts.billBreakdown.creditsShort')}</dt>
-                    <dd className="text-foreground">{money(-billParts.credits)}</dd>
-                  </div>
-                  {billResidual !== 0 && (
-                    <div className="flex gap-1">
-                      <dt><span aria-hidden="true">· </span>{t('accounts.billBreakdown.adjustmentsShort')}</dt>
-                      <dd className="text-foreground">{money(billResidual)}</dd>
-                    </div>
-                  )}
-                </dl>
-              )}
-              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-                <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] sm:text-[11px] font-semibold leading-tight ${provenance.className}`}>
-                  {provenance.label}
-                </span>
-                {billSource === 'estimate' && billParts && (
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <button
-                        type="button"
-                        className="rounded-sm text-[10px] sm:text-xs font-medium text-muted-foreground underline decoration-dotted underline-offset-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      >
-                        {t('accounts.billBreakdown.toggle')}
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent align="start" className="w-72 p-3">
-                      <p className="text-sm font-semibold text-foreground">{t('accounts.billBreakdown.title')}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">{t('accounts.billBreakdown.hint')}</p>
-                      <dl className="mt-3 space-y-1.5 text-xs">
-                        <div className="flex items-baseline justify-between gap-3">
-                          <dt className="text-muted-foreground">{t('accounts.billBreakdown.purchases')}</dt>
-                          <dd className="tabular-nums text-foreground">{money(billParts.purchases)}</dd>
-                        </div>
-                        {billParts.credits > 0.005 && (
-                          <div className="flex items-baseline justify-between gap-3">
-                            <dt className="text-muted-foreground">{t('accounts.billBreakdown.credits')}</dt>
-                            <dd className="tabular-nums text-foreground">{money(-billParts.credits)}</dd>
-                          </div>
-                        )}
-                        {billParts.pending > 0.005 && (
-                          <div className="flex items-baseline justify-between gap-3">
-                            <dt className="text-muted-foreground">{t('accounts.billBreakdown.pending')}</dt>
-                            <dd className="tabular-nums text-foreground">{money(billParts.pending)}</dd>
-                          </div>
-                        )}
-                        {billParts.installmentCount > 0 && (
-                          <div className="flex items-baseline justify-between gap-3">
-                            <dt className="text-muted-foreground">{t('accounts.billBreakdown.installments', { count: billParts.installmentCount })}</dt>
-                            <dd className="tabular-nums text-foreground">{money(billParts.installments)}</dd>
-                          </div>
-                        )}
-                        {billResidual !== 0 && (
-                          <div className="flex items-baseline justify-between gap-3">
-                            <dt className="text-muted-foreground">{t('accounts.billBreakdown.adjustments')}</dt>
-                            <dd className="tabular-nums text-foreground">{money(billResidual)}</dd>
-                          </div>
-                        )}
-                        <div className="flex items-baseline justify-between gap-3 border-t border-border pt-1.5 font-semibold">
-                          <dt className="text-foreground">{t('accounts.billBreakdown.total')}</dt>
-                          <dd className="tabular-nums text-foreground">{money(billTotal)}</dd>
-                        </div>
-                      </dl>
-                    </PopoverContent>
-                  </Popover>
-                )}
-              </div>
-              {deltaPct != null && prevCycleLabel && (
-                <p className={`text-[10px] sm:text-xs font-medium mt-1 tabular-nums ${deltaPct > 0 ? 'text-rose-500' : 'text-emerald-600'}`}>
-                  {deltaPct > 0 ? '+' : ''}{deltaPct.toFixed(0)}%{' '}
-                  <span className="text-muted-foreground font-normal">{t('accounts.vsPreviousBill', { label: prevCycleLabel })}</span>
-                </p>
-              )}
-              {/* A closed bank bill already names its closing date in the chip. */}
-              {billSource !== 'bank' && closingDate && (
-                <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
-                  {closingDate < format(new Date(), 'yyyy-MM-dd')
-                    ? t('accounts.billClosing.pastDate', { date: formatDayMonth(closingDate, dateLocale) })
-                    : t('accounts.billClosing.upcomingDate', { date: formatDayMonth(closingDate, dateLocale) })}
-                </p>
-              )}
-              {cardConnection && (
-                <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
-                  {cardConnection.last_sync_at ? (
-                    <time
-                      dateTime={cardConnection.last_sync_at}
-                      title={new Date(cardConnection.last_sync_at).toLocaleString(dateLocale)}
-                    >
-                      {t('accounts.syncedAgo', {
-                        time: formatDistanceToNow(new Date(cardConnection.last_sync_at), { addSuffix: true, locale: dfLocale }),
-                      })}
-                    </time>
-                  ) : t('accounts.neverSynced')}
-                </p>
-              )}
-              {/* Hiding a card changes this number, so say so right here. */}
-              {hiddenCardLast4.length > 0 && (
-                <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
-                  {t('accountCards.hiddenFromTotal', { count: hiddenCardLast4.length })}
-                  {canWrite && (
-                    <>
-                      {' · '}
-                      <button
-                        type="button"
-                        className="rounded-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        onClick={() => hiddenCardLast4.forEach(last4 => cardUpdateMutation.mutate({ last4, payload: { is_hidden: false } }))}
-                      >
-                        {t('accountCards.showAll')}
-                      </button>
-                    </>
-                  )}
-                </p>
-              )}
-            </div>
-            <div className="bg-card rounded-xl border border-border shadow-sm p-3 sm:p-4 overflow-hidden">
-              <p className="text-[10px] sm:text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1 truncate">
-                {t('accounts.availableCredit')}
-                <span className="inline-flex items-center px-1 py-0 rounded text-[8px] sm:text-[9px] font-bold uppercase tracking-wide bg-muted text-muted-foreground shrink-0">
-                  {t('accounts.currentTag')}
-                </span>
-              </p>
-              <p className="text-[length:clamp(0.7rem,3.5vw,1.25rem)] sm:text-2xl font-bold tabular-nums text-emerald-600">
-                {account.available_credit != null
-                  ? mask(formatCurrency(Number(account.available_credit), account.currency, locale))
-                  : '—'}
-              </p>
-            </div>
-            <div className="bg-card rounded-xl border border-border shadow-sm p-3 sm:p-4 overflow-hidden">
-              <p className="text-[10px] sm:text-xs font-medium text-muted-foreground mb-1 truncate">
-                {t('accounts.dueDate')}
-              </p>
-              <p className="text-[length:clamp(0.7rem,3.5vw,1.25rem)] sm:text-2xl font-bold tabular-nums text-foreground">
-                {cycleDueDate ? formatFriendlyDate(cycleDueDate, dateLocale) : '—'}
-              </p>
-              {dueSubtitle && (
-                <p className={`text-[10px] sm:text-xs font-medium mt-0.5 ${dueSubtitleClass}`}>
-                  {dueSubtitle}
-                </p>
-              )}
-            </div>
-          </div>
-        )
-      })() : (
+      {!isCreditCard && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 mb-6">
           <div className="bg-card rounded-xl border border-border shadow-sm p-3 sm:p-4 overflow-hidden">
             <p className="text-[10px] sm:text-xs font-medium text-muted-foreground mb-1 truncate">
@@ -1561,26 +1646,19 @@ export default function AccountDetailPage() {
                   {limit != null ? mask(formatCurrency(limit, account.currency, locale)) : '—'}
                 </p>
               </div>
-              {(() => {
-                // Closing date. For bill-driven cycles we derive it from the
-                // bill's due_date + account.statement_close_day (handles
-                // dynamic close days). For cycle-math cycles, filterTo is
-                // the day before the close, so close = filterTo + 1.
-                const closing = activeCycle?.closing_date
-                  ?? (filterTo ? format(addDays(parseISO(filterTo), 1), 'yyyy-MM-dd') : null)
-                return (
-                  <div>
-                    <p className="text-[10px] sm:text-xs font-medium text-muted-foreground mb-0.5">
-                      {closing && closing < format(new Date(), 'yyyy-MM-dd')
-                        ? t('accounts.billClosing.past')
-                        : t('accounts.billClosing.upcoming')}
-                    </p>
-                    <p className="text-sm sm:text-base font-semibold tabular-nums text-foreground">
-                      {closing ? formatDateStr(closing, dateLocale) : '—'}
-                    </p>
-                  </div>
-                )
-              })()}
+              <div>
+                <p className="text-[10px] sm:text-xs font-medium text-muted-foreground mb-0.5 flex items-center gap-1">
+                  {t('accounts.availableCredit')}
+                  <span className="inline-flex items-center px-1 py-0 rounded text-[8px] sm:text-[9px] font-bold uppercase tracking-wide bg-muted text-muted-foreground shrink-0">
+                    {t('accounts.currentTag')}
+                  </span>
+                </p>
+                <p className="text-sm sm:text-base font-semibold tabular-nums text-emerald-600">
+                  {account.available_credit != null
+                    ? mask(formatCurrency(Number(account.available_credit), account.currency, locale))
+                    : '—'}
+                </p>
+              </div>
             </div>
           </div>
         )
@@ -1982,12 +2060,20 @@ export default function AccountDetailPage() {
       />
 
       <TransferDialog
-        open={transferDialogOpen}
-        onClose={() => setTransferDialogOpen(false)}
-        accounts={accountsList ?? []}
+        open={transferPurpose !== null}
+        onClose={() => setTransferPurpose(null)}
+        accounts={transferPurpose === 'billPayment' ? billPaymentAccounts : accountsList ?? []}
         onSave={(data) => transferMutation.mutate(data)}
         loading={transferMutation.isPending}
-        defaultFromAccountId={id}
+        defaultFromAccountId={transferPurpose === 'billPayment'
+          ? billPaymentAccounts.find((item) => item.type !== 'credit_card')?.id
+          : id}
+        defaultToAccountId={transferPurpose === 'billPayment' ? id : undefined}
+        defaultAmount={transferPurpose === 'billPayment' ? billPaymentAmount : undefined}
+        defaultDescription={transferPurpose === 'billPayment'
+          ? t('accounts.billHeader.paymentDescription', { name: getAccountName(account) })
+          : undefined}
+        lockToAccount={transferPurpose === 'billPayment'}
       />
 
       {account && (

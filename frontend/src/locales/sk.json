@@ -1319,11 +1319,20 @@
       "manual": "Ručné",
       "estimated": "Odhad Securo"
     },
-    "billClosing": {
-      "upcoming": "Uzávierka",
-      "past": "Uzavreté",
-      "upcomingDate": "Uzávierka {{date}}",
-      "pastDate": "Uzavreté {{date}}"
+    "billNav": "Vyúčtovania",
+    "billHeader": {
+      "title": "Vyúčtovanie za {{month}}",
+      "state": {
+        "open": "Otvorené",
+        "closed": "Uzavreté",
+        "paid": "Zaplatené"
+      },
+      "closes": "Uzávierka {{date}}",
+      "closed": "Uzavreté {{date}}",
+      "due": "Splatnosť {{date}}",
+      "wasDue": "Splatnosť bola {{date}}",
+      "pay": "Zaplatiť vyúčtovanie",
+      "paymentDescription": "Platba vyúčtovania - {{name}}"
     },
     "billBreakdown": {
       "toggle": "Čo zahŕňa?",
@@ -1352,7 +1361,6 @@
     "vsPreviousBill": "oproti {{label}}",
     "syncedAgo": "Synchronizované {{time}}",
     "neverSynced": "Zatiaľ nesynchronizované",
-    "dueDate": "Dátum splatnosti",
     "minimumPayment": "Minimum",
     "noChargesYet": "V tomto cykle zatiaľ žiadne čerpanie",
     "currentTag": "teraz",

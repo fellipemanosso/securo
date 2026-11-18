@@ -1267,11 +1267,20 @@
       "manual": "Manuale",
       "estimated": "Stima Securo"
     },
-    "billClosing": {
-      "upcoming": "Chiude il",
-      "past": "Chiuso il",
-      "upcomingDate": "Chiude il {{date}}",
-      "pastDate": "Chiuso il {{date}}"
+    "billNav": "Estratti conto",
+    "billHeader": {
+      "title": "Estratto conto di {{month}}",
+      "state": {
+        "open": "Aperto",
+        "closed": "Chiuso",
+        "paid": "Pagato"
+      },
+      "closes": "Chiude il {{date}}",
+      "closed": "Chiuso il {{date}}",
+      "due": "Scade il {{date}}",
+      "wasDue": "Scaduto il {{date}}",
+      "pay": "Paga estratto conto",
+      "paymentDescription": "Pagamento estratto conto - {{name}}"
     },
     "billBreakdown": {
       "toggle": "Cosa include?",
@@ -1298,7 +1307,6 @@
     "vsPreviousBill": "rispetto a {{label}}",
     "syncedAgo": "Sincronizzato {{time}}",
     "neverSynced": "Non ancora sincronizzato",
-    "dueDate": "Data di scadenza",
     "minimumPayment": "Minimo",
     "noChargesYet": "Ancora nessun addebito in questo ciclo",
     "currentTag": "ora",

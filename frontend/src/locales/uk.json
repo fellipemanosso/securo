@@ -1280,11 +1280,20 @@
       "manual": "Вручну",
       "estimated": "Оцінка Securo"
     },
-    "billClosing": {
-      "upcoming": "Закривається",
-      "past": "Закрито",
-      "upcomingDate": "Закривається {{date}}",
-      "pastDate": "Закрито {{date}}"
+    "billNav": "Рахунки",
+    "billHeader": {
+      "title": "Рахунок за {{month}}",
+      "state": {
+        "open": "Відкритий",
+        "closed": "Закритий",
+        "paid": "Оплачений"
+      },
+      "closes": "Закривається {{date}}",
+      "closed": "Закрито {{date}}",
+      "due": "Сплатити до {{date}}",
+      "wasDue": "Термін сплати був {{date}}",
+      "pay": "Сплатити рахунок",
+      "paymentDescription": "Оплата рахунку - {{name}}"
     },
     "billBreakdown": {
       "toggle": "Що входить?",
@@ -1313,7 +1322,6 @@
     "vsPreviousBill": "до {{label}}",
     "syncedAgo": "Синхронізовано {{time}}",
     "neverSynced": "Ще не синхронізовано",
-    "dueDate": "Дата платежу",
     "minimumPayment": "Мінімум",
     "noChargesYet": "У цьому циклі поки немає нарахувань",
     "currentTag": "зараз",

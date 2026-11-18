@@ -1267,11 +1267,20 @@
       "manual": "Manual",
       "estimated": "Estimativa Securo"
     },
-    "billClosing": {
-      "upcoming": "Fecha em",
-      "past": "Fechou em",
-      "upcomingDate": "Fecha em {{date}}",
-      "pastDate": "Fechou em {{date}}"
+    "billNav": "Faturas",
+    "billHeader": {
+      "title": "Fatura de {{month}}",
+      "state": {
+        "open": "Aberta",
+        "closed": "Fechada",
+        "paid": "Paga"
+      },
+      "closes": "Fecha {{date}}",
+      "closed": "Fechou {{date}}",
+      "due": "Vence {{date}}",
+      "wasDue": "Venceu {{date}}",
+      "pay": "Pagar fatura",
+      "paymentDescription": "Pagamento de fatura - {{name}}"
     },
     "billBreakdown": {
       "toggle": "O que entra?",
@@ -1298,7 +1307,6 @@
     "vsPreviousBill": "frente a {{label}}",
     "syncedAgo": "Sincronizado {{time}}",
     "neverSynced": "Ainda não sincronizado",
-    "dueDate": "Vencimento",
     "minimumPayment": "Mínimo",
     "noChargesYet": "Nenhuma compra ainda neste ciclo",
     "currentTag": "agora",

@@ -1263,11 +1263,20 @@
       "manual": "Kézi",
       "estimated": "Securo becslés"
     },
-    "billClosing": {
-      "upcoming": "Zárás",
-      "past": "Lezárva",
-      "upcomingDate": "Zárás: {{date}}",
-      "pastDate": "Lezárva: {{date}}"
+    "billNav": "Számlák",
+    "billHeader": {
+      "title": "{{month}}i számla",
+      "state": {
+        "open": "Nyitott",
+        "closed": "Lezárt",
+        "paid": "Kifizetett"
+      },
+      "closes": "Zárás: {{date}}",
+      "closed": "Lezárva: {{date}}",
+      "due": "Esedékes: {{date}}",
+      "wasDue": "Esedékes volt: {{date}}",
+      "pay": "Számla befizetése",
+      "paymentDescription": "Számla befizetése - {{name}}"
     },
     "billBreakdown": {
       "toggle": "Mit tartalmaz?",
@@ -1294,7 +1303,6 @@
     "vsPreviousBill": "vs. {{label}}",
     "syncedAgo": "Szinkronizálva: {{time}}",
     "neverSynced": "Még nincs szinkronizálva",
-    "dueDate": "Fizetési határidő",
     "minimumPayment": "Minimum",
     "noChargesYet": "Ebben a ciklusban még nincs terhelés",
     "currentTag": "most",

@@ -1263,11 +1263,20 @@
       "manual": "手動",
       "estimated": "Securoの見積もり"
     },
-    "billClosing": {
-      "upcoming": "締め日",
-      "past": "締め日",
-      "upcomingDate": "{{date}}締め",
-      "pastDate": "{{date}}に締め済み"
+    "billNav": "請求",
+    "billHeader": {
+      "title": "{{month}}の請求",
+      "state": {
+        "open": "締め前",
+        "closed": "締め済み",
+        "paid": "支払済み"
+      },
+      "closes": "{{date}}締め",
+      "closed": "{{date}}に締め済み",
+      "due": "支払期日 {{date}}",
+      "wasDue": "支払期日は{{date}}でした",
+      "pay": "請求を支払う",
+      "paymentDescription": "カード請求の支払い - {{name}}"
     },
     "billBreakdown": {
       "toggle": "内訳",
@@ -1294,7 +1303,6 @@
     "vsPreviousBill": "{{label}}比",
     "syncedAgo": "{{time}}に同期",
     "neverSynced": "まだ同期されていません",
-    "dueDate": "支払期日",
     "minimumPayment": "最低支払額",
     "noChargesYet": "今サイクルの請求はまだありません",
     "currentTag": "現在",

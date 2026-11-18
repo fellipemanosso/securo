@@ -1263,11 +1263,20 @@
       "manual": "मैनुअल",
       "estimated": "Securo अनुमान"
     },
-    "billClosing": {
-      "upcoming": "बंद होने की तारीख",
-      "past": "बंद हुआ",
-      "upcomingDate": "{{date}} को बंद होगा",
-      "pastDate": "{{date}} को बंद हुआ"
+    "billNav": "बिल",
+    "billHeader": {
+      "title": "{{month}} का बिल",
+      "state": {
+        "open": "खुला",
+        "closed": "बंद",
+        "paid": "भुगतान किया गया"
+      },
+      "closes": "{{date}} को बंद होगा",
+      "closed": "{{date}} को बंद हुआ",
+      "due": "{{date}} को देय",
+      "wasDue": "{{date}} को देय था",
+      "pay": "बिल चुकाएं",
+      "paymentDescription": "बिल भुगतान - {{name}}"
     },
     "billBreakdown": {
       "toggle": "इसमें क्या शामिल है?",
@@ -1294,7 +1303,6 @@
     "vsPreviousBill": "{{label}} की तुलना में",
     "syncedAgo": "{{time}} सिंक हुआ",
     "neverSynced": "अभी तक सिंक नहीं हुआ",
-    "dueDate": "देय तिथि",
     "minimumPayment": "न्यूनतम",
     "noChargesYet": "इस चक्र में अभी कोई शुल्क नहीं",
     "currentTag": "अभी",

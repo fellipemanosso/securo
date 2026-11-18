@@ -1335,11 +1335,20 @@
       "manual": "Ruční",
       "estimated": "Odhad Securo"
     },
-    "billClosing": {
-      "upcoming": "Uzávěrka",
-      "past": "Uzavřeno",
-      "upcomingDate": "Uzávěrka {{date}}",
-      "pastDate": "Uzavřeno {{date}}"
+    "billNav": "Vyúčtování",
+    "billHeader": {
+      "title": "Vyúčtování za {{month}}",
+      "state": {
+        "open": "Otevřené",
+        "closed": "Uzavřené",
+        "paid": "Zaplacené"
+      },
+      "closes": "Uzávěrka {{date}}",
+      "closed": "Uzavřeno {{date}}",
+      "due": "Splatnost {{date}}",
+      "wasDue": "Splatnost byla {{date}}",
+      "pay": "Zaplatit vyúčtování",
+      "paymentDescription": "Platba vyúčtování - {{name}}"
     },
     "billBreakdown": {
       "toggle": "Co zahrnuje?",
@@ -1368,7 +1377,6 @@
     "vsPreviousBill": "oproti {{label}}",
     "syncedAgo": "Synchronizováno {{time}}",
     "neverSynced": "Zatím nesynchronizováno",
-    "dueDate": "Datum splatnosti",
     "minimumPayment": "Minimum",
     "noChargesYet": "V tomto cyklu zatím žádné čerpání",
     "currentTag": "nyní",

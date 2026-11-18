@@ -1264,11 +1264,20 @@
       "manual": "Manuell",
       "estimated": "Securo-Schätzung"
     },
-    "billClosing": {
-      "upcoming": "Abschluss am",
-      "past": "Abgeschlossen am",
-      "upcomingDate": "Abschluss am {{date}}",
-      "pastDate": "Abgeschlossen am {{date}}"
+    "billNav": "Abrechnungen",
+    "billHeader": {
+      "title": "Abrechnung {{month}}",
+      "state": {
+        "open": "Offen",
+        "closed": "Abgeschlossen",
+        "paid": "Bezahlt"
+      },
+      "closes": "Abschluss am {{date}}",
+      "closed": "Abgeschlossen am {{date}}",
+      "due": "Fällig am {{date}}",
+      "wasDue": "War fällig am {{date}}",
+      "pay": "Abrechnung bezahlen",
+      "paymentDescription": "Zahlung der Abrechnung - {{name}}"
     },
     "billBreakdown": {
       "toggle": "Was ist enthalten?",
@@ -1295,7 +1304,6 @@
     "vsPreviousBill": "ggü. {{label}}",
     "syncedAgo": "Synchronisiert {{time}}",
     "neverSynced": "Noch nicht synchronisiert",
-    "dueDate": "Fällig am",
     "minimumPayment": "Mindestbetrag",
     "noChargesYet": "Noch keine Umsätze in diesem Abrechnungszeitraum",
     "currentTag": "jetzt",

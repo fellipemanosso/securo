@@ -1280,11 +1280,20 @@
       "manual": "Вручную",
       "estimated": "Оценка Securo"
     },
-    "billClosing": {
-      "upcoming": "Закрывается",
-      "past": "Закрыт",
-      "upcomingDate": "Закрывается {{date}}",
-      "pastDate": "Закрыт {{date}}"
+    "billNav": "Счета",
+    "billHeader": {
+      "title": "Счёт за {{month}}",
+      "state": {
+        "open": "Открыт",
+        "closed": "Закрыт",
+        "paid": "Оплачен"
+      },
+      "closes": "Закрывается {{date}}",
+      "closed": "Закрыт {{date}}",
+      "due": "Оплатить до {{date}}",
+      "wasDue": "Срок оплаты был {{date}}",
+      "pay": "Оплатить счёт",
+      "paymentDescription": "Оплата счёта - {{name}}"
     },
     "billBreakdown": {
       "toggle": "Что входит?",
@@ -1313,7 +1322,6 @@
     "vsPreviousBill": "к {{label}}",
     "syncedAgo": "Синхронизировано {{time}}",
     "neverSynced": "Ещё не синхронизировано",
-    "dueDate": "Дата платежа",
     "minimumPayment": "Минимум",
     "noChargesYet": "В этом цикле пока нет начислений",
     "currentTag": "сейчас",

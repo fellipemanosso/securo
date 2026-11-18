@@ -1263,11 +1263,20 @@
       "manual": "Manual",
       "estimated": "Securo estimate"
     },
-    "billClosing": {
-      "upcoming": "Closes on",
-      "past": "Closed on",
-      "upcomingDate": "Closes on {{date}}",
-      "pastDate": "Closed on {{date}}"
+    "billNav": "Bills",
+    "billHeader": {
+      "title": "{{month}} bill",
+      "state": {
+        "open": "Open",
+        "closed": "Closed",
+        "paid": "Paid"
+      },
+      "closes": "Closes {{date}}",
+      "closed": "Closed {{date}}",
+      "due": "Due {{date}}",
+      "wasDue": "Was due {{date}}",
+      "pay": "Pay bill",
+      "paymentDescription": "Bill payment - {{name}}"
     },
     "billBreakdown": {
       "toggle": "What's included?",
@@ -1294,7 +1303,6 @@
     "vsPreviousBill": "vs {{label}}",
     "syncedAgo": "Synced {{time}}",
     "neverSynced": "Not synced yet",
-    "dueDate": "Due date",
     "minimumPayment": "Minimum",
     "noChargesYet": "No charges yet this cycle",
     "currentTag": "now",

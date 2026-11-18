@@ -247,7 +247,7 @@ describe('credit card cycle window', () => {
 })
 
 /** A one-statement timeline whose statement is the default bill. */
-function statementTimeline(statement: { source: 'bank' | 'manual'; closing_date: string; due_date: string; amount: number }) {
+function statementTimeline(statement: { source: 'bank' | 'manual'; closing_date: string; due_date: string; amount: number; status?: 'open' | 'paid' }) {
   return [{
     account_id: 'acc-1',
     default_key: 'bill:bill-1',
@@ -255,7 +255,7 @@ function statementTimeline(statement: { source: 'bank' | 'manual'; closing_date:
       account_id: 'acc-1', due_month: statement.due_date.slice(0, 7), kind: 'statement',
       cycle_key: 'bill:bill-1', start: '2026-08-01', end: '2026-08-29',
       closing_date: statement.closing_date, due_date: statement.due_date, amount: statement.amount,
-      primary_amount: null, source: statement.source, record_id: 'bill-1', status: 'open',
+      primary_amount: null, source: statement.source, record_id: 'bill-1', status: statement.status ?? 'open',
       editable: statement.source === 'manual', unavailable_reason: null,
     }],
   }]
@@ -314,9 +314,87 @@ describe('bill total provenance', () => {
     }))
     renderWithProviders(<AccountDetailPage />, { route: '/accounts/acc-1', path: '/accounts/:id' })
 
-    expect(await screen.findByText('Closes on 09/30')).toBeInTheDocument()
+    expect(await screen.findByText('Closes Wed, 9/30')).toBeInTheDocument()
     expect(screen.getByText('Securo estimate')).toBeInTheDocument()
     expect(screen.queryByText(/^Bank/)).not.toBeInTheDocument()
+  })
+})
+
+describe('bill header', () => {
+  it('leads with the open bill: its state, closing and due dates and countdown', async () => {
+    await renderPage()
+
+    const header = await screen.findByRole('region', { name: 'October bill' })
+    expect(within(header).getByText('Open')).toBeInTheDocument()
+    expect(within(header).getByText('Closes Wed, 9/30')).toBeInTheDocument()
+    expect(within(header).getByText('Due Sat, 10/10')).toBeInTheDocument()
+    expect(within(header).getByText('Due in 32 days')).toBeInTheDocument()
+    expect(within(header).getByText('Securo estimate')).toBeInTheDocument()
+    // The statement navigation follows the bill it selects.
+    const nav = screen.getByRole('navigation', { name: 'Bills' })
+    expect(header.compareDocumentPosition(nav) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(within(nav).getByTitle('Previous cycle')).toBeInTheDocument()
+  })
+
+  it('marks a paid statement as paid, with nothing left to pay or count down', async () => {
+    api.accounts.creditCardTimeline.mockResolvedValue(statementTimeline({
+      source: 'bank', closing_date: '2026-08-30', due_date: '2026-09-10', amount: 512, status: 'paid',
+    }))
+    renderWithProviders(<AccountDetailPage />, { route: '/accounts/acc-1', path: '/accounts/:id' })
+
+    const header = await screen.findByRole('region', { name: 'September bill' })
+    expect(await within(header).findByText('Paid')).toBeInTheDocument()
+    expect(within(header).getByText('Closed Sun, 8/30')).toBeInTheDocument()
+    expect(within(header).getByText('Due Thu, 9/10')).toBeInTheDocument()
+    expect(within(header).queryByText(/Due in/)).not.toBeInTheDocument()
+    expect(within(header).queryByRole('button', { name: 'Pay bill' })).not.toBeInTheDocument()
+  })
+
+  it('pays the bill with a transfer into this card, prefilled with the total', async () => {
+    const checking = { id: 'chk-1', name: 'Checking', type: 'checking', currency: 'BRL', balance: 1000, is_active: true }
+    api.accounts.list.mockResolvedValue([account, checking])
+    api.accounts.summary.mockResolvedValue({
+      monthly_income: 0, monthly_expenses: 0, projected_income: 0, projected_expenses: 720,
+    })
+    const { user } = await renderPage()
+
+    await user.click(await screen.findByRole('button', { name: 'Pay bill' }))
+
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByDisplayValue('720')).toBeInTheDocument()
+    const [from, to] = within(dialog).getAllByRole('combobox')
+    expect(from).toHaveValue('chk-1')
+    expect(to).toHaveValue('acc-1')
+    expect(to).toBeDisabled()
+  })
+
+  it('extends the strip past the selected bill to the next ones already committed', async () => {
+    const projection = (dueMonth: string, closing: string, amount: number) => ({
+      account_id: 'acc-1', due_month: dueMonth, kind: 'projection',
+      cycle_key: `cycle:${closing}`, start: closing, end: closing,
+      closing_date: closing, due_date: `${dueMonth}-10`, amount,
+      primary_amount: null, source: null, record_id: null, status: null,
+      editable: false, unavailable_reason: null,
+    })
+    api.accounts.creditCardTimeline.mockResolvedValue([{
+      ...timeline[0],
+      items: [
+        ...timeline[0].items,
+        projection('2026-11', '2026-10-30', 400),
+        projection('2026-12', '2026-11-30', 300),
+        projection('2027-01', '2026-12-30', 200),
+        projection('2027-02', '2027-01-30', 100),
+      ],
+    }])
+    await renderPage()
+
+    const nav = screen.getByRole('navigation', { name: 'Bills' })
+    // Six cells: the two bills before the selected one, the selected one
+    // and the next three.
+    expect(await within(nav).findByRole('button', { name: /Jan 2027/ })).toBeInTheDocument()
+    expect(within(nav).getByRole('button', { name: /Apr 2026/ })).toBeInTheDocument()
+    expect(within(nav).getByRole('button', { name: /Nov 2026.*R\$400\.00/ })).toBeInTheDocument()
+    expect(within(nav).queryByRole('button', { name: /Feb 2027/ })).not.toBeInTheDocument()
   })
 })
 
