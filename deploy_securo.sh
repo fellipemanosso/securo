@@ -4,7 +4,10 @@
 #
 # Fluxo completo a cada atualização:
 #   (local)    git push origin main
-#   (servidor) ./deploy_securo.sh
+#   (servidor) /root/deploy_securo.sh
+#
+# O script se atualiza sozinho: se a versão no main for diferente desta, ela
+# substitui este arquivo e roda no lugar dele.
 set -euo pipefail
 
 STACK=${STACK:-securo}
@@ -27,7 +30,16 @@ if [ -d "$SRC_DIR/.git" ]; then
 else
   git clone --depth 1 https://github.com/fellipemanosso/securo.git "$SRC_DIR"
 fi
-echo "main em $(git -C "$SRC_DIR" log -1 --format='%h %s')"
+DEPLOY_COMMIT=$(git -C "$SRC_DIR" log -1 --format='%h %s')
+
+SELF=$(readlink -f "$0")
+if [ "${DEPLOY_SELF_UPDATED:-0}" != "1" ] && ! cmp -s "$SRC_DIR/deploy_securo.sh" "$SELF"; then
+  echo "Script de deploy mudou no main; atualizando $SELF e reiniciando..."
+  install -m 0755 "$SRC_DIR/deploy_securo.sh" "$SELF"
+  DEPLOY_SELF_UPDATED=1 exec "$SELF" "$@"
+fi
+
+echo "main em $DEPLOY_COMMIT"
 docker build -t "$BACKEND_IMAGE" -f "$SRC_DIR/backend/Dockerfile" "$SRC_DIR/backend"
 docker build -t "$FRONTEND_IMAGE" \
   --build-arg VITE_APP_VERSION="main-$(git -C "$SRC_DIR" rev-parse --short HEAD)" \
@@ -101,3 +113,7 @@ for svc in "${BACKEND_SERVICES[@]}" "$FRONTEND_SERVICE"; do
   docker service ps "$svc" --filter desired-state=running
 done
 docker image prune -f
+
+echo
+echo "Publicado: $DEPLOY_COMMIT"
+echo "No navegador, recarregue com Ctrl+Shift+R (no celular, feche e abra o app)."
