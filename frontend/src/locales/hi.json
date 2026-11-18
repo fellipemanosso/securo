@@ -1253,6 +1253,12 @@
     "dayOfMonthHint": "महीने का दिन (1–31)",
     "availableCredit": "उपलब्ध क्रेडिट",
     "utilization": "उपयोग",
+    "limitCard": {
+      "usedOf": "{{limit}} में से {{used}} उपयोग किया गया",
+      "billShare": "यह बिल: सीमा का {{pct}}%",
+      "fromBalance": "कार्ड बैलेंस से अनुमानित: बैंक ने उपलब्ध क्रेडिट नहीं बताया।",
+      "noLimit": "कोई क्रेडिट सीमा तय नहीं है।"
+    },
     "payments": "भुगतान",
     "charges": "शुल्क",
     "previousCycle": "पिछला चक्र",

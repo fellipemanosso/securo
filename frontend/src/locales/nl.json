@@ -1254,6 +1254,12 @@
     "dayOfMonthHint": "Dag van de maand (1–31)",
     "availableCredit": "Beschikbaar krediet",
     "utilization": "Gebruik",
+    "limitCard": {
+      "usedOf": "{{used}} van {{limit}} gebruikt",
+      "billShare": "Dit afschrift: {{pct}}% van de limiet",
+      "fromBalance": "Geschat op basis van het kaartsaldo: de bank heeft het beschikbare krediet niet doorgegeven.",
+      "noLimit": "Geen kredietlimiet ingesteld."
+    },
     "payments": "Betalingen",
     "charges": "Kosten",
     "previousCycle": "Vorige cyclus",

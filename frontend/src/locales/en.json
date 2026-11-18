@@ -1253,6 +1253,12 @@
     "dayOfMonthHint": "Day of month (1–31)",
     "availableCredit": "Available credit",
     "utilization": "Utilization",
+    "limitCard": {
+      "usedOf": "Used {{used}} of {{limit}}",
+      "billShare": "This bill: {{pct}}% of the limit",
+      "fromBalance": "Estimated from the card balance: the bank did not report the available credit.",
+      "noLimit": "No credit limit set."
+    },
     "payments": "Payments",
     "charges": "Charges",
     "previousCycle": "Previous cycle",

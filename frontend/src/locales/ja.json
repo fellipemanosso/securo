@@ -1253,6 +1253,12 @@
     "dayOfMonthHint": "日付(1〜31)",
     "availableCredit": "利用可能枠",
     "utilization": "利用率",
+    "limitCard": {
+      "usedOf": "{{limit}} のうち {{used}} 利用済み",
+      "billShare": "この請求: 限度額の {{pct}}%",
+      "fromBalance": "カード残高から推定: 銀行から利用可能額が提供されていません。",
+      "noLimit": "利用限度額が設定されていません。"
+    },
     "payments": "支払い",
     "charges": "請求",
     "previousCycle": "前サイクル",

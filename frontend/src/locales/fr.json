@@ -1257,6 +1257,12 @@
     "dayOfMonthHint": "Jour du mois (1–31)",
     "availableCredit": "Crédit disponible",
     "utilization": "Utilisation",
+    "limitCard": {
+      "usedOf": "Utilisé {{used}} sur {{limit}}",
+      "billShare": "Ce relevé : {{pct}} % du plafond",
+      "fromBalance": "Estimé à partir du solde de la carte : la banque n'a pas indiqué le crédit disponible.",
+      "noLimit": "Aucun plafond défini."
+    },
     "payments": "Paiements",
     "charges": "Prélèvements",
     "previousCycle": "Cycle précédent",

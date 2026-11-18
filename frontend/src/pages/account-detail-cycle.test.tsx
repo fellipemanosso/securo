@@ -398,6 +398,41 @@ describe('bill header', () => {
   })
 })
 
+describe('card limit', () => {
+  it('shows the card\'s current use on every bill, and the selected bill\'s share beside it', async () => {
+    api.accounts.get.mockResolvedValue({ ...account, available_credit: 3200 })
+    api.accounts.summary.mockResolvedValue({
+      monthly_income: 0, monthly_expenses: 0, projected_income: 0, projected_expenses: 720,
+    })
+    const { user } = await renderPage()
+
+    const card = screen.getByRole('region', { name: 'Credit limit' })
+    // (5000 − 3200) ÷ 5000, not the open bill's 720 ÷ 5000.
+    expect(await within(card).findByRole('progressbar', { name: 'Utilization' })).toHaveAttribute('aria-valuenow', '36')
+    expect(within(card).getByText('Used R$1,800.00 of R$5,000.00')).toBeInTheDocument()
+    expect(within(card).getByText('R$3,200.00')).toBeInTheDocument()
+    expect(await within(card).findByText('This bill: 14% of the limit')).toBeInTheDocument()
+
+    await user.click(screen.getByTitle('Previous cycle'))
+
+    // The May bank statement (280) is now the selected bill; the card's use
+    // has not moved.
+    expect(await within(card).findByText('This bill: 6% of the limit')).toBeInTheDocument()
+    expect(within(card).getByRole('progressbar', { name: 'Utilization' })).toHaveAttribute('aria-valuenow', '36')
+    expect(within(card).getByText('Used R$1,800.00 of R$5,000.00')).toBeInTheDocument()
+  })
+
+  it('falls back to the card balance when the bank reports no available credit, and says so', async () => {
+    api.accounts.get.mockResolvedValue({ ...account, current_balance: -1000, available_credit: null })
+    await renderPage()
+
+    const card = screen.getByRole('region', { name: 'Credit limit' })
+    expect(await within(card).findByRole('progressbar', { name: 'Utilization' })).toHaveAttribute('aria-valuenow', '20')
+    expect(within(card).getByText('Used R$1,000.00 of R$5,000.00')).toBeInTheDocument()
+    expect(within(card).getByText(/Estimated from the card balance/)).toBeInTheDocument()
+  })
+})
+
 function category(overrides: Partial<Category>): Category {
   return {
     id: 'cat-1', user_id: 'user-1', group_id: null, name: 'Shopping', icon: 'tag',

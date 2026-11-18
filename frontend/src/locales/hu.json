@@ -1253,6 +1253,12 @@
     "dayOfMonthHint": "A hónap napja (1–31)",
     "availableCredit": "Elérhető keret",
     "utilization": "Kihasználtság",
+    "limitCard": {
+      "usedOf": "Felhasználva {{used}} / {{limit}}",
+      "billShare": "Ez a kivonat: a keret {{pct}}%-a",
+      "fromBalance": "A kártya egyenlegéből becsülve: a bank nem adta meg az elérhető keretet.",
+      "noLimit": "Nincs beállított hitelkeret."
+    },
     "payments": "Befizetések",
     "charges": "Terhelések",
     "previousCycle": "Előző ciklus",

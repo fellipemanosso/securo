@@ -1309,6 +1309,12 @@
     "dayOfMonthHint": "Deň v mesiaci (1–31)",
     "availableCredit": "Dostupný kredit",
     "utilization": "Využitie",
+    "limitCard": {
+      "usedOf": "Využité {{used}} z {{limit}}",
+      "billShare": "Tento výpis: {{pct}} % limitu",
+      "fromBalance": "Odhadnuté zo zostatku karty: banka neuviedla dostupný úver.",
+      "noLimit": "Úverový limit nie je nastavený."
+    },
     "payments": "Platby",
     "charges": "Čerpanie",
     "previousCycle": "Predchádzajúci cyklus",

@@ -107,13 +107,6 @@ function cycleRangeLabel(from: string, to: string, i18nLanguage: string): string
   return `${at(from)} - ${at(to)}`
 }
 
-function utilizationColor(pct: number): string {
-  if (pct >= 90) return 'bg-rose-500'
-  if (pct >= 70) return 'bg-amber-400'
-  if (pct >= 30) return 'bg-blue-500'
-  return 'bg-emerald-500'
-}
-
 type TxWithBalance = Transaction & { runningBalance: number }
 
 export default function AccountDetailPage() {
@@ -1575,20 +1568,45 @@ export default function AccountDetailPage() {
         </div>
       )}
 
+      {/* The card's limit as it stands now. It belongs to the account, not to
+          the bill above, so it reads the same on every bill; the selected
+          bill only adds its share as a secondary line. */}
       {isCreditCard && (() => {
         const limit = account.credit_limit != null ? Number(account.credit_limit) : null
-        // Cycle-bound utilization: how much of the limit was charged in the cycle
-        // currently being viewed. For the current cycle this matches the "current
-        // open balance" since nothing has been paid yet; for past cycles it shows
-        // that month's burn rate against the (current) limit.
-        // A credit balance uses none of the limit.
-        const utilized = limit != null ? Math.max(0, billTotal) : null
-        const rawPct = limit != null && limit > 0 && utilized != null ? (utilized / limit) * 100 : null
-        const pct = rawPct != null ? Math.min(100, rawPct) : null
+        const money = (value: number) => mask(formatCurrency(value, account.currency, locale))
+        // Used = limit − available, as the bank (or Securo, for a manual card)
+        // reports it. Without an available figure, the card's open balance is
+        // the closest current number, and the card says so.
+        const fromBalance = account.available_credit == null
+        const used = limit == null
+          ? null
+          : fromBalance
+            ? Math.max(0, -Number(account.current_balance ?? 0))
+            : Math.max(0, limit - Number(account.available_credit))
+        const available = limit != null && used != null
+          ? (fromBalance ? limit - used : Number(account.available_credit))
+          : null
+        const utilization = limit != null && limit > 0 && used != null ? (used / limit) * 100 : null
+        // One hue for the bar; colour only once the limit is nearly or fully
+        // used, and the percentage beside it says the same without colour.
+        const tone = utilization == null || utilization < 90
+          ? { bar: 'bg-primary', text: 'text-foreground' }
+          : utilization < 100
+            ? { bar: 'bg-amber-500', text: 'text-amber-700 dark:text-amber-400' }
+            : { bar: 'bg-rose-500', text: 'text-rose-600 dark:text-rose-400' }
+        // The selected bill against the limit, only when both are in the
+        // card's currency and the bill on screen is the selected one.
+        const billShare = limit != null && limit > 0 && activeCycle && billTotalSettled
+          && billTotal > 0.005 && displayCurrency === account.currency
+          ? (billTotal / limit) * 100
+          : null
         return (
-          <div className={`bg-card rounded-xl border border-border shadow-sm p-4 sm:p-5 mb-6 ${cycleSectionClass}`} aria-busy={cycleSwitching}>
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
+          <section aria-labelledby="card-limit-title" className="bg-card rounded-xl border border-border shadow-sm p-4 sm:p-5 mb-6">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 id="card-limit-title" className="text-sm font-semibold text-foreground">
+                  {t('accounts.creditLimit')}
+                </h2>
                 {account.card_brand && (
                   <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-foreground/5 text-foreground text-[10px] sm:text-xs font-bold tracking-wide uppercase">
                     {account.card_brand}
@@ -1599,11 +1617,6 @@ export default function AccountDetailPage() {
                     {account.card_level}
                   </span>
                 )}
-                {!account.card_brand && !account.card_level && (
-                  <p className="text-[10px] sm:text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    {t('accounts.typeCreditCard')}
-                  </p>
-                )}
               </div>
               {canWrite && (
                 <button
@@ -1611,56 +1624,62 @@ export default function AccountDetailPage() {
                   onClick={() => setCcSettingsOpen(true)}
                   className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                   title={t('common.edit')}
+                  aria-label={t('common.edit')}
                 >
                   <Pencil size={13} />
                 </button>
               )}
             </div>
-            {limit != null && pct != null && rawPct != null && (
+            {limit != null && used != null && available != null ? (
               <>
-                <div className="flex items-baseline justify-between mb-2">
-                  <p className="text-[10px] sm:text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    {t('accounts.utilization')}
-                  </p>
-                  <p className={`text-sm font-bold tabular-nums ${rawPct >= 100 ? 'text-rose-500' : 'text-foreground'}`}>{rawPct.toFixed(1)}%</p>
-                </div>
-                <div className="h-2 bg-muted/60 rounded-full overflow-hidden mb-2">
-                  <div
-                    className={`h-full rounded-full transition-all ${utilizationColor(rawPct)}`}
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground tabular-nums mb-4">
-                  {mask(formatCurrency(utilized ?? 0, account.currency, locale))}
-                  {' / '}
-                  {mask(formatCurrency(limit, account.currency, locale))}
-                </p>
-              </>
-            )}
-            <div className="grid grid-cols-2 gap-3 pt-3 border-t border-border">
-              <div>
-                <p className="text-[10px] sm:text-xs font-medium text-muted-foreground mb-0.5">
-                  {t('accounts.creditLimit')}
-                </p>
-                <p className="text-sm sm:text-base font-semibold tabular-nums text-foreground">
-                  {limit != null ? mask(formatCurrency(limit, account.currency, locale)) : '—'}
-                </p>
-              </div>
-              <div>
-                <p className="text-[10px] sm:text-xs font-medium text-muted-foreground mb-0.5 flex items-center gap-1">
+                <p className="mt-3 text-xs text-muted-foreground">
                   {t('accounts.availableCredit')}
-                  <span className="inline-flex items-center px-1 py-0 rounded text-[8px] sm:text-[9px] font-bold uppercase tracking-wide bg-muted text-muted-foreground shrink-0">
-                    {t('accounts.currentTag')}
-                  </span>
+                  <span aria-hidden="true"> · </span>
+                  {t('accounts.currentTag')}
                 </p>
-                <p className="text-sm sm:text-base font-semibold tabular-nums text-emerald-600">
-                  {account.available_credit != null
-                    ? mask(formatCurrency(Number(account.available_credit), account.currency, locale))
-                    : '—'}
+                <p className="text-2xl font-bold tracking-tight tabular-nums text-foreground">
+                  {money(available)}
                 </p>
-              </div>
-            </div>
-          </div>
+                {utilization != null && (
+                  <div
+                    role="progressbar"
+                    aria-label={t('accounts.utilization')}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={Math.min(100, Math.round(utilization))}
+                    aria-valuetext={`${utilization.toFixed(0)}%`}
+                    className="mt-3 h-2 bg-muted rounded-full overflow-hidden"
+                  >
+                    <div
+                      className={`h-full rounded-full transition-[width] ${tone.bar}`}
+                      style={{ width: `${Math.min(100, utilization)}%` }}
+                    />
+                  </div>
+                )}
+                <div className="mt-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-xs tabular-nums">
+                  <p className="text-muted-foreground">
+                    {t('accounts.limitCard.usedOf', { used: money(used), limit: money(limit) })}
+                  </p>
+                  {utilization != null && (
+                    <p className="text-muted-foreground">
+                      {t('accounts.utilization')}{' '}
+                      <span className={`font-semibold ${tone.text}`}>{utilization.toFixed(0)}%</span>
+                    </p>
+                  )}
+                </div>
+                {(fromBalance || billShare != null) && (
+                  <div className="mt-3 space-y-0.5 border-t border-border pt-3 text-xs text-muted-foreground">
+                    {billShare != null && (
+                      <p className="tabular-nums">{t('accounts.limitCard.billShare', { pct: billShare.toFixed(0) })}</p>
+                    )}
+                    {fromBalance && <p>{t('accounts.limitCard.fromBalance')}</p>}
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="mt-2 text-sm text-muted-foreground">{t('accounts.limitCard.noLimit')}</p>
+            )}
+          </section>
         )
       })()}
 

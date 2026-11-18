@@ -1254,6 +1254,12 @@
     "dayOfMonthHint": "Tag des Monats (1–31)",
     "availableCredit": "Verfügbarer Kredit",
     "utilization": "Auslastung",
+    "limitCard": {
+      "usedOf": "{{used}} von {{limit}} genutzt",
+      "billShare": "Diese Abrechnung: {{pct}} % des Limits",
+      "fromBalance": "Aus dem Kartensaldo geschätzt: Die Bank hat den verfügbaren Kredit nicht gemeldet.",
+      "noLimit": "Kein Kreditlimit festgelegt."
+    },
     "payments": "Zahlungen",
     "charges": "Umsätze",
     "previousCycle": "Vorheriger Zeitraum",
