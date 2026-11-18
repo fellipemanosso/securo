@@ -17,6 +17,11 @@ import type { BankConnection } from '@/types'
 import { AccountIcon, ConnectionLogo } from '@/components/account-icon'
 import { PageHeader } from '@/components/page-header'
 import { PageRefreshButton } from '@/components/page-refresh-button'
+import {
+  SyncAllConnectionsButton,
+  isSyncableConnection,
+  useSyncAllPending,
+} from '@/components/sync-all-connections-button'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -118,38 +123,8 @@ export default function ConnectionsPage() {
     },
   })
 
-  // The header button pulls every connection that can sync without the user
-  // stepping in (active ones, and errored ones that a plain retry may fix),
-  // one at a time so a bank is never hit by parallel refreshes.
-  const syncableConnections = (connectionsList ?? []).filter(
-    (conn) => conn.status === 'active' || conn.status === 'error',
-  )
-  const syncAllMutation = useMutation({
-    mutationFn: async (ids: string[]) => {
-      const outcome = { synced: 0, rateLimited: 0, failed: 0 }
-      for (const id of ids) {
-        try {
-          const result = await connections.sync(id)
-          if (result.sync_outcome === 'rate_limited') outcome.rateLimited += 1
-          else outcome.synced += 1
-        } catch {
-          outcome.failed += 1
-        }
-      }
-      return outcome
-    },
-    onSuccess: (outcome) => {
-      if (outcome.rateLimited === 0 && outcome.failed === 0) {
-        toast.success(t('accounts.syncAllDone', { count: outcome.synced }))
-      } else {
-        toast.warning(t('accounts.syncAllPartial', outcome))
-      }
-    },
-    onSettled: () => {
-      invalidateFinancialQueries(queryClient)
-      queryClient.invalidateQueries({ queryKey: ['connections'] })
-    },
-  })
+  const syncableConnections = (connectionsList ?? []).filter(isSyncableConnection)
+  const syncAllPending = useSyncAllPending()
 
   const disconnectMutation = useMutation({
     mutationFn: (id: string) => connections.delete(id),
@@ -174,15 +149,7 @@ export default function ConnectionsPage() {
         action={
           <div className="flex items-center gap-2">
             {canWrite && syncableConnections.length > 0 ? (
-              <Button
-                variant="outline"
-                className="gap-1.5"
-                disabled={syncAllMutation.isPending || syncMutation.isPending}
-                onClick={() => syncAllMutation.mutate(syncableConnections.map((conn) => conn.id))}
-              >
-                <RefreshCw size={16} className={syncAllMutation.isPending ? 'animate-spin' : ''} />
-                {t('accounts.syncAll')}
-              </Button>
+              <SyncAllConnectionsButton disabled={syncMutation.isPending} />
             ) : (
               <PageRefreshButton
                 onRefresh={() => queryClient.refetchQueries({ type: 'active' })}
@@ -215,7 +182,7 @@ export default function ConnectionsPage() {
             // row offers a plain retry next to the reconnect action.
             const canRetrySync = conn.status === 'error'
             const syncPending = (syncMutation.isPending && syncMutation.variables === conn.id)
-              || (syncAllMutation.isPending && syncableConnections.some((c) => c.id === conn.id))
+              || (syncAllPending && isSyncableConnection(conn))
             return (
               <div key={conn.id} className="bg-card rounded-xl border border-border shadow-sm">
                 <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">

@@ -27,6 +27,7 @@ import { AccountPageActions } from '@/components/account-page-actions'
 import { AccountRowActions } from '@/components/account-row-actions'
 import { PageHeader } from '@/components/page-header'
 import { PageRefreshButton } from '@/components/page-refresh-button'
+import { SyncAllConnectionsButton } from '@/components/sync-all-connections-button'
 import { usePrivacyMode } from '@/hooks/use-privacy-mode'
 import { useAuth } from '@/contexts/auth-context'
 import { useCollectionFilter } from '@/contexts/collection-filter-context'
@@ -148,6 +149,7 @@ export default function AccountsPage() {
               onRefresh={() => queryClient.refetchQueries({ type: 'active' })}
               refreshing={accountsFetching}
             />
+            <SyncAllConnectionsButton />
             <AccountPageActions
               canWrite={canWrite}
               onAddAccount={() => { setEditingAccount(null); setDialogOpen(true) }}

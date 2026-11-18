@@ -30,6 +30,12 @@ const api = vi.hoisted(() => ({
   payees: { list: vi.fn() },
   rules: { create: vi.fn(), list: vi.fn() },
   settings: { attachments: vi.fn() },
+  connections: { list: vi.fn(async () => []), sync: vi.fn() },
+}))
+
+vi.mock('@/contexts/workspace-context', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  useWorkspace: () => ({ canWrite: false }),
 }))
 
 vi.mock('@/lib/api', () => api)

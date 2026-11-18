@@ -44,6 +44,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ICON_MAP } from '@/lib/category-icons'
 import { PageHeader } from '@/components/page-header'
 import { PageRefreshButton } from '@/components/page-refresh-button'
+import { SyncAllConnectionsButton } from '@/components/sync-all-connections-button'
 import { CategoryIcon } from '@/components/category-icon'
 import { CategorySplitBadge, TransactionCategoryIcon } from '@/components/category-lines-display'
 import { isSplitByCategory, projectedSplitSource } from '@/lib/category-lines'
@@ -774,6 +775,7 @@ export default function DashboardPage() {
               onRefresh={() => queryClient.refetchQueries({ type: 'active' })}
               refreshing={summaryFetching}
             />
+            <SyncAllConnectionsButton />
           </div>
         }
       />

@@ -7,12 +7,15 @@ import type { Account } from '@/types'
 
 const api = vi.hoisted(() => ({
   accountsList: vi.fn(),
+  connectionsList: vi.fn(),
+  sync: vi.fn(),
 }))
 
 vi.mock('@/lib/api', () => ({
   accounts: { list: api.accountsList },
   assets: { list: vi.fn().mockResolvedValue([]) },
   currencies: { list: vi.fn().mockResolvedValue([]) },
+  connections: { list: api.connectionsList, sync: api.sync },
 }))
 
 vi.mock('@/contexts/auth-context', () => ({
@@ -79,6 +82,8 @@ describe('AccountsPage lists', () => {
         makeAccount({ id: 'card-1', name: 'Black Card', type: 'credit_card' }),
       ]),
     )
+    api.connectionsList.mockResolvedValue([])
+    api.sync.mockResolvedValue({ sync_outcome: 'synced' })
   })
 
   it('lists manual and bank-linked accounts together', async () => {
@@ -101,6 +106,27 @@ describe('AccountsPage lists', () => {
     await screen.findByText('Healthy Checking')
     expect(screen.queryByRole('button', { name: t('accounts.sync') })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: t('accounts.reconnect') })).not.toBeInTheDocument()
+  })
+
+  it('pulls every syncable bank connection from the page header', async () => {
+    api.connectionsList.mockResolvedValue([
+      { id: 'conn-1', status: 'active' },
+      { id: 'conn-2', status: 'expired' },
+      { id: 'conn-3', status: 'error' },
+    ])
+    const { user } = renderWithProviders(<AccountsPage />, { route: '/accounts' })
+
+    await user.click(await screen.findByRole('button', { name: t('accounts.syncAll') }))
+
+    await vi.waitFor(() => expect(api.sync).toHaveBeenCalledTimes(2))
+    expect(api.sync.mock.calls.map(([id]) => id)).toEqual(['conn-1', 'conn-3'])
+  })
+
+  it('offers no bank sync when nothing is connected', async () => {
+    renderWithProviders(<AccountsPage />, { route: '/accounts' })
+
+    await screen.findByText('Healthy Checking')
+    expect(screen.queryByRole('button', { name: t('accounts.syncAll') })).not.toBeInTheDocument()
   })
 })
 
