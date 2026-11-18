@@ -1,46 +1,37 @@
 #!/bin/bash
-# Roda NO SERVIDOR (Swarm). As imagens são construídas no GitHub Actions
-# (release.yml) e publicadas em ghcr.io/fellipemanosso; aqui só puxamos e
-# atualizamos os serviços da stack "securo".
+# Roda NO SERVIDOR (Swarm). Constrói as imagens aqui, a partir do main no
+# GitHub, e atualiza os serviços da stack "securo".
 #
 # Fluxo completo a cada atualização:
-#   (local)    git push origin main && gh workflow run release.yml --ref main
+#   (local)    git push origin main
 #   (servidor) ./deploy_securo.sh
-#
-# Sem GitHub Actions: LOCAL_BUILD=1 ./deploy_securo.sh constrói as duas
-# imagens aqui, a partir do main no GitHub, em vez de puxá-las do registry.
 set -euo pipefail
 
 STACK=${STACK:-securo}
+# The stack's services reference these registry tags; the images built here
+# reuse them so the stack definition needs no change.
 REGISTRY=ghcr.io/fellipemanosso
 BACKEND_IMAGE=$REGISTRY/securo-backend:latest
 FRONTEND_IMAGE=$REGISTRY/securo-frontend:latest
 BACKEND_SERVICES=("${STACK}_backend" "${STACK}_celery-worker" "${STACK}_celery-beat")
 FRONTEND_SERVICE="${STACK}_frontend"
-LOCAL_BUILD=${LOCAL_BUILD:-0}
 SRC_DIR=${SRC_DIR:-/root/securo-src}
-# A locally built tag must not be resolved against the registry, or Swarm
-# would run the older image published there under the same tag.
-RESOLVE=()
+# Services and the migration job use --no-resolve-image: a locally built tag
+# must not be resolved against the registry, or Swarm would run whatever older
+# image is published there under the same tag.
 
-if [ "$LOCAL_BUILD" = "1" ]; then
-  echo "[1/5] Construindo imagens a partir do main..."
-  if [ -d "$SRC_DIR/.git" ]; then
-    git -C "$SRC_DIR" fetch --depth 1 origin main
-    git -C "$SRC_DIR" reset --hard FETCH_HEAD
-  else
-    git clone --depth 1 https://github.com/fellipemanosso/securo.git "$SRC_DIR"
-  fi
-  docker build -t "$BACKEND_IMAGE" -f "$SRC_DIR/backend/Dockerfile" "$SRC_DIR/backend"
-  docker build -t "$FRONTEND_IMAGE" \
-    --build-arg VITE_APP_VERSION="main-$(git -C "$SRC_DIR" rev-parse --short HEAD)" \
-    -f "$SRC_DIR/frontend/Dockerfile" "$SRC_DIR/frontend"
-  RESOLVE=(--no-resolve-image)
+echo "[1/5] Construindo imagens a partir do main..."
+if [ -d "$SRC_DIR/.git" ]; then
+  git -C "$SRC_DIR" fetch --depth 1 origin main
+  git -C "$SRC_DIR" reset --hard FETCH_HEAD
 else
-  echo "[1/5] Baixando imagens..."
-  docker pull "$BACKEND_IMAGE"
-  docker pull "$FRONTEND_IMAGE"
+  git clone --depth 1 https://github.com/fellipemanosso/securo.git "$SRC_DIR"
 fi
+echo "main em $(git -C "$SRC_DIR" log -1 --format='%h %s')"
+docker build -t "$BACKEND_IMAGE" -f "$SRC_DIR/backend/Dockerfile" "$SRC_DIR/backend"
+docker build -t "$FRONTEND_IMAGE" \
+  --build-arg VITE_APP_VERSION="main-$(git -C "$SRC_DIR" rev-parse --short HEAD)" \
+  -f "$SRC_DIR/frontend/Dockerfile" "$SRC_DIR/frontend"
 
 echo "[2/5] Aplicando migrations antes dos serviços protegidos pelo schema head..."
 mapfile -t BACKEND_ENV < <(
@@ -66,7 +57,7 @@ cleanup_migration() {
 }
 trap cleanup_migration EXIT
 docker service create \
-  "${RESOLVE[@]}" \
+  --no-resolve-image \
   --detach \
   --name "$MIGRATION_SERVICE" \
   --mode replicated-job \
@@ -99,11 +90,11 @@ trap - EXIT
 
 echo "[3/5] Atualizando backend e workers..."
 for svc in "${BACKEND_SERVICES[@]}"; do
-  docker service update --force "${RESOLVE[@]}" --image "$BACKEND_IMAGE" "$svc"
+  docker service update --force --no-resolve-image --image "$BACKEND_IMAGE" "$svc"
 done
 
 echo "[4/5] Atualizando frontend..."
-docker service update --force "${RESOLVE[@]}" --image "$FRONTEND_IMAGE" "$FRONTEND_SERVICE"
+docker service update --force --no-resolve-image --image "$FRONTEND_IMAGE" "$FRONTEND_SERVICE"
 
 echo "[5/5] Verificando tarefas ativas..."
 for svc in "${BACKEND_SERVICES[@]}" "$FRONTEND_SERVICE"; do
