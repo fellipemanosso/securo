@@ -26,6 +26,32 @@ export function transactionAmountForBalance(
     : Number(transaction.amount)
 }
 
+type BillTransaction = BalanceTransaction & Pick<Transaction, 'transfer_pair_id' | 'category'>
+
+/** What one row adds to a credit-card bill: purchases count up, credits and
+ *  refunds count down. Null when the bill leaves the row out, mirroring the
+ *  backend's `counts_on_bill`: the opening balance, ignored rows (or rows in
+ *  an ignored category), paired transfers, settlement debits and unpaired
+ *  card payments (a credit in a transfer-like category). An unknown currency
+ *  conversion is null too: Securo cannot say what it adds. */
+export function billContribution(
+  transaction: BillTransaction,
+  usePrimary: boolean,
+  displayCurrency: string,
+): number | null {
+  if (
+    transaction.source === 'opening_balance'
+    || transaction.is_ignored
+    || transaction.category?.is_ignored
+    || transaction.transfer_pair_id
+    || (transaction.type === 'debit' && transaction.source === 'settlement')
+    || (transaction.type === 'credit' && transaction.category?.treat_as_transfer)
+  ) return null
+  const amount = transactionAmountForBalance(transaction, usePrimary, displayCurrency)
+  if (amount == null) return null
+  return transaction.type === 'credit' ? -Math.abs(amount) : Math.abs(amount)
+}
+
 /** Apply one transaction to a running balance using Account Detail semantics. */
 export function applyTransactionToBalance(
   balance: number,

@@ -7,7 +7,7 @@ import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tansta
 import { format, addDays, addMonths, endOfMonth, formatDistanceToNow, parseISO, startOfMonth, subMonths } from 'date-fns'
 import { accounts, connections, dashboard, transactions, categories as categoriesApi, categoryGroups as categoryGroupsApi } from '@/lib/api'
 import { localDateString } from '@/lib/date-utils'
-import { applyTransactionToBalance, excludeMaterializedProjections, mergeRunningBalances, runningBalanceChartFrom, transactionAmountForBalance } from '@/lib/account-detail-utils'
+import { applyTransactionToBalance, billContribution, excludeMaterializedProjections, mergeRunningBalances, runningBalanceChartFrom } from '@/lib/account-detail-utils'
 import { invalidateFinancialQueries } from '@/lib/invalidate-queries'
 import { shouldShowPendingBadge } from '@/lib/transaction-status'
 import { isTransferTransaction } from '@/lib/transaction-transfer'
@@ -193,10 +193,22 @@ export default function AccountDetailPage() {
     queryFn: () => accounts.creditCardTimeline([id!], timelineFrom, timelineTo),
     enabled: !!id && isCreditCard,
   })
-  const timelineItems = timelineData?.[0]?.items.filter(
+  // The card's history starts at its first bill. A connected card's months
+  // before the bank's first statement are not missing statements, just time
+  // before the connection; a manual card has no statement unless one is
+  // entered, so every cycle Securo can place stays reachable.
+  const timelineHistory = useMemo(() => {
+    const items = timelineData?.[0]?.items ?? []
+    const first = items.findIndex((item) =>
+      account?.connection_id ? item.kind !== 'unavailable' : !!item.cycle_key)
+    return first < 0 ? [] : items.slice(first)
+  }, [timelineData, account?.connection_id])
+  // Every period the page can open: statements, projections and the months
+  // without a statement that still have a cycle to show.
+  const timelineItems = timelineHistory.filter(
     (item): item is CreditCardTimelineItem & { cycle_key: string; start: string; end: string } =>
       !!item.cycle_key && !!item.start && !!item.end,
-  ) ?? []
+  )
   const activeCycle = timelineItems.find((item) => item.cycle_key === activeCycleKey) ?? null
   const activeBill = activeCycle?.kind === 'statement' && activeCycle.record_id && activeCycle.due_date
     ? { due_date: activeCycle.due_date }
@@ -287,9 +299,14 @@ export default function AccountDetailPage() {
     enabled: !!id && !!previousCycle,
   })
 
+  // The strip shows every month of the history, including the ones without
+  // a statement: a missing bill is a normal state to see, not a gap to hide.
   const timelineCount = isMobile ? 4 : 6
-  const timelineEnd = activeCycleIndex >= 0 ? activeCycleIndex + 1 : timelineItems.length
-  const timelineCycles = timelineItems.slice(
+  const stripActiveIndex = activeCycleKey
+    ? timelineHistory.findIndex((item) => item.cycle_key === activeCycleKey)
+    : -1
+  const timelineEnd = stripActiveIndex >= 0 ? stripActiveIndex + 1 : timelineHistory.length
+  const timelineCycles = timelineHistory.slice(
     Math.max(0, timelineEnd - timelineCount),
     timelineEnd,
   )
@@ -330,11 +347,12 @@ export default function AccountDetailPage() {
   })
 
   // Installments of older purchases that the bank bills on this statement
-  // but has not sent yet. Only statement projections can have them.
+  // but has not sent yet. Any cycle without a statement can have them, the
+  // same cycles whose summary adds them to the bill total.
   const { data: installmentForecasts } = useQuery({
     queryKey: ['accounts', id, 'installment-forecasts', activeCycleKey],
     queryFn: () => accounts.installmentForecasts(id!, activeCycleKey!),
-    enabled: !!id && account?.type === 'credit_card' && activeCycle?.kind === 'projection',
+    enabled: !!id && account?.type === 'credit_card' && !!activeCycle && activeCycle.kind !== 'statement',
   })
 
   // Connected cards say how fresh the bank data behind the bill is.
@@ -583,71 +601,6 @@ export default function AccountDetailPage() {
     ? (summary?.opening_balance_primary ?? summary?.opening_balance ?? 0)
     : (summary?.opening_balance ?? 0)
 
-  // Chart data:
-  // - Non-CC: the server's end-of-day balance (pending rows included), with
-  //   recurring projections added on top as a running forecast.
-  // - CC: cumulative charges within the current cycle, starting at 0
-  //   (answers "how much have I spent this cycle", ignores bill payments/transfers)
-  const chartData = useMemo(() => {
-    if (isCreditCard) {
-      if (!cycleTxData?.items) return []
-      const byDay = new Map<string, number>()
-      for (const tx of cycleTxData.items) {
-        if (tx.type !== 'debit') continue
-        if (tx.source === 'opening_balance') continue
-        if (tx.transfer_pair_id) continue
-        const amt = transactionAmountForBalance(tx, usePrimary, displayCurrency)
-        if (amt == null) continue
-        byDay.set(tx.date, (byDay.get(tx.date) ?? 0) + amt)
-      }
-      // Chart span: when a real bill is active, derive the range from the
-      // actual debit dates so charges Pluggy bucketed outside our nominal
-      // [prev_due+1, this_due] window (e.g. a 03/02 charge rolled into the
-      // March bill) still show up. Otherwise use the cycle-math range.
-      let rangeStart: string | null = null
-      let rangeEnd: string | null = null
-      if (activeBill) {
-        const dates = Array.from(byDay.keys()).sort()
-        if (dates.length === 0) return []
-        rangeStart = dates[0]
-        rangeEnd = activeBill.due_date < dates[dates.length - 1] ? dates[dates.length - 1] : activeBill.due_date
-      } else if (filterFrom && filterTo) {
-        rangeStart = filterFrom
-        rangeEnd = filterTo
-      }
-      if (!rangeStart || !rangeEnd) return []
-      const series: { label: string; date: string; balance: number }[] = []
-      // Synthetic zero baseline (day before cycle start) so the line always
-      // anchors at 0 even when the cycle's first day already has charges.
-      const startDate = parseISO(rangeStart + 'T00:00:00')
-      const baseline = new Date(startDate.getTime() - 86400000)
-      const baselineKey = format(baseline, 'yyyy-MM-dd')
-      series.push({ label: formatDateStr(baselineKey, dateLocale), date: baselineKey, balance: 0 })
-      const cur = new Date(startDate)
-      const end = new Date(rangeEnd + 'T00:00:00')
-      let running = 0
-      while (cur <= end) {
-        const key = format(cur, 'yyyy-MM-dd')
-        running += byDay.get(key) ?? 0
-        series.push({ label: formatDateStr(key, dateLocale), date: key, balance: running })
-        cur.setDate(cur.getDate() + 1)
-      }
-      return series
-    }
-    if (!runningBalanceSeries) return []
-    const projectedByDay = new Map<string, number>()
-    for (const tx of projectedRows) {
-      const previous = projectedByDay.get(tx.date) ?? 0
-      projectedByDay.set(tx.date, applyTransactionToBalance(previous, tx, usePrimary, displayCurrency))
-    }
-    let projected = 0
-    return runningBalanceSeries.map((point) => {
-      projected += projectedByDay.get(point.date) ?? 0
-      const balance = usePrimary ? (point.balance_primary ?? point.balance) : point.balance
-      return { label: formatDateStr(point.date, dateLocale), date: point.date, balance: balance + projected }
-    })
-  }, [isCreditCard, cycleTxData, runningBalanceSeries, projectedRows, filterFrom, filterTo, dateLocale, usePrimary, displayCurrency, activeBill])
-
   const installmentForecastRows = useMemo((): Transaction[] => (
     (installmentForecasts ?? []).map((forecast): Transaction => ({
       id: `installment-forecast-${forecast.key}`,
@@ -687,6 +640,9 @@ export default function AccountDetailPage() {
     }))
   ), [installmentForecasts, categoriesList, id])
 
+  // The running bill total. Every row stays in the list, but only what the
+  // bill counts moves the total (see `billContribution`), so the newest row
+  // lands on the same number the bill card shows.
   const ccRunningTotal = useMemo((): TxWithBalance[] => {
     if (!isCreditCard || !cycleTxData?.items) return []
     const ascending = [...cycleTxData.items, ...installmentForecastRows].sort(
@@ -694,42 +650,109 @@ export default function AccountDetailPage() {
     )
     let running = 0
     const withBalance = ascending.map((tx) => {
-      if (!tx.is_ignored && tx.source !== 'opening_balance' && !tx.transfer_pair_id) {
-        const amt = transactionAmountForBalance(tx, usePrimary, displayCurrency)
-        if (amt == null) return { ...tx, runningBalance: running }
-        if (tx.type === 'debit') running += amt
-        else if (tx.type === 'credit') running -= amt
-      }
+      running += billContribution(tx, usePrimary, displayCurrency) ?? 0
       return { ...tx, runningBalance: running }
     })
     return withBalance.reverse()
   }, [cycleTxData, installmentForecastRows, isCreditCard, usePrimary, displayCurrency])
 
-  // The parts an estimated bill adds up, for the "what's included" panel.
-  // Same exclusions as the running total above, plus the bill's own rule
-  // that a transfer-like credit is an unpaired payment rather than a refund.
+  // The parts the listed rows add up to, split for the bill card: posted and
+  // pending purchases, forecast installments, credits and refunds. `net` is
+  // the running total's last value.
   const billParts = useMemo(() => {
     if (!isCreditCard || !cycleTxData?.items) return null
     let purchases = 0
     let credits = 0
     let pending = 0
     for (const tx of cycleTxData.items) {
-      if (tx.is_ignored || tx.category?.is_ignored || tx.source === 'opening_balance' || tx.transfer_pair_id) continue
-      if (tx.type === 'credit' && tx.category?.treat_as_transfer) continue
-      const amt = transactionAmountForBalance(tx, usePrimary, displayCurrency)
-      if (amt == null) continue
-      if (tx.type === 'credit') credits += Math.abs(amt)
-      else if (tx.status === 'pending') pending += Math.abs(amt)
-      else purchases += Math.abs(amt)
+      const amount = billContribution(tx, usePrimary, displayCurrency)
+      if (amount == null) continue
+      if (amount < 0) credits -= amount
+      else if (tx.status === 'pending') pending += amount
+      else purchases += amount
     }
     let installments = 0
     for (const row of installmentForecastRows) {
-      const amt = transactionAmountForBalance(row, usePrimary, displayCurrency)
-      if (amt == null) continue
-      installments += row.type === 'debit' ? Math.abs(amt) : -Math.abs(amt)
+      installments += billContribution(row, usePrimary, displayCurrency) ?? 0
     }
-    return { purchases, credits, pending, installments, installmentCount: installmentForecastRows.length }
+    const net = purchases + pending + installments - credits
+    return { purchases, credits, pending, installments, installmentCount: installmentForecastRows.length, net }
   }, [isCreditCard, cycleTxData, installmentForecastRows, usePrimary, displayCurrency])
+
+  // Chart data:
+  // - Non-CC: the server's end-of-day balance (pending rows included), with
+  //   recurring projections added on top as a running forecast.
+  // - CC: the running bill total day by day, starting at 0. Same rows and
+  //   rules as the table's column: purchases up, credits and refunds down,
+  //   forecast installments included, payments left out.
+  const chartData = useMemo(() => {
+    if (isCreditCard) {
+      if (!cycleTxData?.items) return []
+      const byDay = new Map<string, number>()
+      const postedDates: string[] = []
+      for (const tx of ccRunningTotal) {
+        const amount = billContribution(tx, usePrimary, displayCurrency)
+        if (amount == null) continue
+        byDay.set(tx.date, (byDay.get(tx.date) ?? 0) + amount)
+        if (!tx.virtual) postedDates.push(tx.date)
+      }
+      // Chart span: when a real bill is active, derive the range from the
+      // actual charge dates so charges Pluggy bucketed outside our nominal
+      // [prev_due+1, this_due] window (e.g. a 03/02 charge rolled into the
+      // March bill) still show up. Otherwise use the cycle-math range.
+      let rangeStart: string | null = null
+      let rangeEnd: string | null = null
+      if (activeBill) {
+        const dates = postedDates.sort()
+        if (dates.length === 0) return []
+        rangeStart = dates[0]
+        rangeEnd = activeBill.due_date < dates[dates.length - 1] ? dates[dates.length - 1] : activeBill.due_date
+      } else if (filterFrom && filterTo) {
+        rangeStart = filterFrom
+        rangeEnd = filterTo
+      }
+      if (!rangeStart || !rangeEnd) return []
+      // A row dated outside the span still counts on this bill (a forecast
+      // installment carries its purchase date): it lands on the first or
+      // last day, so the line always ends on the running total.
+      let before = 0
+      let after = 0
+      for (const [date, amount] of byDay) {
+        if (date < rangeStart) before += amount
+        else if (date > rangeEnd) after += amount
+      }
+      const series: { label: string; date: string; balance: number }[] = []
+      // Synthetic zero baseline (day before cycle start) so the line always
+      // anchors at 0 even when the cycle's first day already has charges.
+      const startDate = parseISO(rangeStart + 'T00:00:00')
+      const baseline = new Date(startDate.getTime() - 86400000)
+      const baselineKey = format(baseline, 'yyyy-MM-dd')
+      series.push({ label: formatDateStr(baselineKey, dateLocale), date: baselineKey, balance: 0 })
+      const cur = new Date(startDate)
+      const end = new Date(rangeEnd + 'T00:00:00')
+      let running = before
+      while (cur <= end) {
+        const key = format(cur, 'yyyy-MM-dd')
+        running += byDay.get(key) ?? 0
+        series.push({ label: formatDateStr(key, dateLocale), date: key, balance: running })
+        cur.setDate(cur.getDate() + 1)
+      }
+      series[series.length - 1].balance += after
+      return series
+    }
+    if (!runningBalanceSeries) return []
+    const projectedByDay = new Map<string, number>()
+    for (const tx of projectedRows) {
+      const previous = projectedByDay.get(tx.date) ?? 0
+      projectedByDay.set(tx.date, applyTransactionToBalance(previous, tx, usePrimary, displayCurrency))
+    }
+    let projected = 0
+    return runningBalanceSeries.map((point) => {
+      projected += projectedByDay.get(point.date) ?? 0
+      const balance = usePrimary ? (point.balance_primary ?? point.balance) : point.balance
+      return { label: formatDateStr(point.date, dateLocale), date: point.date, balance: balance + projected }
+    })
+  }, [isCreditCard, cycleTxData, ccRunningTotal, runningBalanceSeries, projectedRows, filterFrom, filterTo, dateLocale, usePrimary, displayCurrency, activeBill])
 
   // Merged list: real transactions, pending rows, and virtual recurring
   // projections. The newest row is the forecast at the end of the range,
@@ -778,6 +801,16 @@ export default function AccountDetailPage() {
   const billTotal = billSource !== 'estimate' && statementAmount != null
     ? statementAmount
     : (primaryShown ? summary?.projected_expenses_primary : undefined) ?? summary?.projected_expenses ?? summary?.monthly_expenses ?? 0
+  // The numbers on screen belong to the selected bill: its statement amount,
+  // or this cycle's summary (not the previous cycle's, kept while it loads).
+  const billTotalSettled = !cycleSwitching && (billSource !== 'estimate' || summary !== undefined)
+  // What the listed rows do not explain: payments netted against the bill,
+  // charges the bank billed but Securo has no row for, conversions it cannot
+  // make. The card, the table and the chart all name it, so every view of
+  // the bill ends on billTotal.
+  const billResidual = billTotalSettled && billParts && Math.abs(billTotal - billParts.net) > 0.005
+    ? billTotal - billParts.net
+    : 0
 
   // The mobile transaction view is intentionally grouped by day so the date
   // remains visible without spending a full column on every row.
@@ -1101,39 +1134,41 @@ export default function AccountDetailPage() {
       {/* Bill timeline (last 6 cycles) — only for CC with cycle metadata */}
       {isCreditCard && timelineCycles.length > 0 && (() => {
         const dfLocale = resolveDateFnsLocale(i18n.resolvedLanguage ?? i18n.language)
-        const totals = timelineCycles.map((item) => ({
-          ...item,
-          total: Number(item.amount ?? 0),
-          loading: false,
-        }))
-        const max = Math.max(1, ...totals.map(c => c.total))
+        const slots = timelineCycles.map((item) => {
+          const period = item.cycle_key && item.start && item.end
+            ? { cycle_key: item.cycle_key, start: item.start, end: item.end }
+            : null
+          // The selected bill shows the card's own number, so a bank amount
+          // still moving (an open statement) or a cycle Securo estimates
+          // reads the same in both places.
+          const total = period?.cycle_key === activeCycleKey && billTotalSettled && !primaryShown
+            ? billTotal
+            : item.amount != null ? Number(item.amount) : null
+          return {
+            item,
+            period,
+            isCurrent: !!period && period.start === filterFrom && period.end === filterTo,
+            total,
+          }
+        })
+        const max = Math.max(1, ...slots.map(s => s.total ?? 0))
         return (
           <div className="bg-card rounded-xl border border-border shadow-sm p-3 sm:p-4 mb-6">
-            <div className="flex items-end gap-2 sm:gap-3 overflow-x-auto pb-1">
-              {totals.map((c, i) => {
-                const isCurrent = c.start === filterFrom && c.end === filterTo
-                const heightPct = c.total > 0 ? Math.max(8, (c.total / max) * 100) : 4
-                const label = c.due_date
-                  ? format(parseISO(c.due_date + 'T00:00:00'), 'MMM yyyy', { locale: dfLocale })
-                  : c.due_month
-                return (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => {
-                      setFilterTouched(true)
-                      setActiveCycleKey(c.cycle_key)
-                      setFilterFrom(c.start)
-                      setFilterTo(c.end)
-                    }}
-                    className={`group flex-1 min-w-[60px] flex flex-col items-center gap-1.5 px-1 py-2 rounded-lg transition-colors ${isCurrent ? 'bg-rose-50 dark:bg-rose-500/10' : 'hover:bg-muted/50'}`}
-                  >
+            <div className="flex items-stretch gap-2 sm:gap-3 overflow-x-auto pb-1">
+              {slots.map(({ item, period, isCurrent, total }) => {
+                const missing = item.kind === 'unavailable'
+                const credit = total != null && total < -0.005
+                const heightPct = total != null && total > 0 ? Math.max(8, (total / max) * 100) : 4
+                const label = format(parseISO((item.due_date ?? `${item.due_month}-01`) + 'T00:00:00'), 'MMM yyyy', { locale: dfLocale })
+                const slotClass = `group flex-1 min-w-[60px] flex flex-col items-center gap-1.5 px-1 py-2 rounded-lg border transition-colors ${missing ? 'border-dashed border-border' : 'border-transparent'} ${isCurrent ? 'bg-rose-50 dark:bg-rose-500/10' : period ? 'hover:bg-muted/50' : ''}`
+                const content = (
+                  <>
                     <div className="h-12 w-full flex items-end justify-center">
-                      {c.loading ? (
-                        <div className="w-6 h-3 rounded-sm bg-muted animate-pulse" />
+                      {missing && !isCurrent ? (
+                        <div className="w-6 h-full rounded-sm border border-dashed border-muted-foreground/40" />
                       ) : (
                         <div
-                          className={`w-6 rounded-sm transition-colors ${isCurrent ? 'bg-rose-500' : c.total > 0 ? 'bg-rose-300 dark:bg-rose-500/40 group-hover:bg-rose-400' : 'bg-muted-foreground/20'}`}
+                          className={`w-6 rounded-sm transition-colors ${credit ? 'bg-emerald-500/70' : isCurrent ? 'bg-rose-500' : total != null && total > 0 ? 'bg-rose-300 dark:bg-rose-500/40 group-hover:bg-rose-400' : 'bg-muted-foreground/20'}`}
                           style={{ height: `${heightPct}%` }}
                         />
                       )}
@@ -1141,10 +1176,46 @@ export default function AccountDetailPage() {
                     <p className={`text-[10px] sm:text-xs font-medium capitalize ${isCurrent ? 'text-rose-700 dark:text-rose-400' : 'text-muted-foreground'}`}>
                       {label}
                     </p>
-                    <p className={`text-[10px] sm:text-xs font-semibold tabular-nums ${isCurrent ? 'text-foreground' : 'text-muted-foreground'}`}>
-                      {c.loading ? '—' : mask(formatCurrency(c.total, account.currency, locale))}
-                    </p>
+                    {total != null && (!missing || isCurrent) && (
+                      <p className={`text-[10px] sm:text-xs font-semibold tabular-nums ${credit ? 'text-emerald-700 dark:text-emerald-400' : isCurrent ? 'text-foreground' : 'text-muted-foreground'}`}>
+                        {mask(formatCurrency(Math.abs(total), account.currency, locale))}
+                      </p>
+                    )}
+                    {credit && (
+                      <p className="text-[10px] sm:text-xs leading-tight text-center text-emerald-700 dark:text-emerald-400">
+                        {t('accounts.creditBalance')}
+                      </p>
+                    )}
+                    {/* A missing statement is a normal state: the bank sends
+                        nothing for some months, a manual card has no
+                        statement unless one is entered. */}
+                    {missing && (
+                      <p className="text-[10px] sm:text-xs leading-tight text-center text-muted-foreground">
+                        {item.unavailable_reason === 'past_statement_missing' && account.connection_id
+                          ? t('accounts.billSlot.bankMissing')
+                          : t('accounts.billSlot.noStatement')}
+                      </p>
+                    )}
+                  </>
+                )
+                return period ? (
+                  <button
+                    key={item.due_month}
+                    type="button"
+                    onClick={() => {
+                      setFilterTouched(true)
+                      setActiveCycleKey(period.cycle_key)
+                      setFilterFrom(period.start)
+                      setFilterTo(period.end)
+                    }}
+                    className={slotClass}
+                  >
+                    {content}
                   </button>
+                ) : (
+                  <div key={item.due_month} className={slotClass}>
+                    {content}
+                  </div>
                 )
               })}
             </div>
@@ -1175,13 +1246,16 @@ export default function AccountDetailPage() {
           : 'text-muted-foreground'
         // Compare against the previous canonical timeline item. Its amount is
         // stable for a Statement; unavailable periods fall back to the scoped
-        // summary when one exists.
+        // summary's bill total when one exists. A credit balance has no
+        // meaningful percentage against a bill.
         const prevTotal = Number(
           previousCycle?.amount
+          ?? previousCycleSummary?.projected_expenses
           ?? previousCycleSummary?.monthly_expenses
           ?? 0,
         )
-        const showComparison = !!previousCycle && prevTotal > 0
+        const creditBalance = billTotal < -0.005
+        const showComparison = !!previousCycle && prevTotal > 0 && !creditBalance
         const deltaPct = showComparison ? ((billTotal - prevTotal) / prevTotal) * 100 : null
         const prevCycleMonth = previousCycle?.due_date
           ? format(parseISO(previousCycle.due_date + 'T00:00:00'), 'MMM yyyy', { locale: dfLocale })
@@ -1199,21 +1273,37 @@ export default function AccountDetailPage() {
             ? { label: t('accounts.billConfidence.manual'), className: 'bg-foreground/5 text-foreground' }
             : { label: t('accounts.billConfidence.estimated'), className: 'bg-amber-500/10 text-amber-700 dark:text-amber-400' }
         const money = (value: number) => mask(formatCurrency(value, displayCurrency, locale))
-        // Whatever the listed parts do not explain (payments netted against
-        // the bill, rows the client cannot classify) gets its own line, so
-        // the panel always adds up to the number it explains.
-        const billAdjustments = billParts
-          ? billTotal - (billParts.purchases - billParts.credits + billParts.pending + billParts.installments)
-          : 0
+        // Purchases and credits side by side once both exist, so a refund
+        // that shrinks the bill is visible next to the number it shrank.
+        const billCharges = billParts ? billParts.net + billParts.credits : 0
+        const showComposition = billTotalSettled && !!billParts && billParts.credits > 0.005 && billCharges > 0.005
         return (
           <div className={`grid grid-cols-3 gap-2 sm:gap-4 mb-6 ${cycleSectionClass}`} aria-busy={cycleSwitching}>
             <div className="bg-card rounded-xl border border-border shadow-sm p-3 sm:p-4 overflow-hidden">
               <p className="text-[10px] sm:text-xs font-medium text-muted-foreground mb-1 truncate">
-                {t('accounts.cycleBillTotal')}
+                {creditBalance ? t('accounts.creditBalance') : t('accounts.cycleBillTotal')}
               </p>
-              <p className="text-[length:clamp(0.7rem,3.5vw,1.25rem)] sm:text-2xl font-bold tabular-nums text-foreground">
-                {money(billTotal)}
+              <p className={`text-[length:clamp(0.7rem,3.5vw,1.25rem)] sm:text-2xl font-bold tabular-nums ${creditBalance ? 'text-emerald-600 dark:text-emerald-400' : 'text-foreground'}`}>
+                {money(Math.abs(billTotal))}
               </p>
+              {showComposition && billParts && (
+                <dl className="mt-0.5 flex flex-wrap gap-x-1.5 text-[10px] sm:text-xs text-muted-foreground tabular-nums">
+                  <div className="flex gap-1">
+                    <dt>{t('accounts.billBreakdown.purchases')}</dt>
+                    <dd className="text-foreground">{money(billCharges)}</dd>
+                  </div>
+                  <div className="flex gap-1">
+                    <dt><span aria-hidden="true">· </span>{t('accounts.billBreakdown.creditsShort')}</dt>
+                    <dd className="text-foreground">{money(-billParts.credits)}</dd>
+                  </div>
+                  {billResidual !== 0 && (
+                    <div className="flex gap-1">
+                      <dt><span aria-hidden="true">· </span>{t('accounts.billBreakdown.adjustmentsShort')}</dt>
+                      <dd className="text-foreground">{money(billResidual)}</dd>
+                    </div>
+                  )}
+                </dl>
+              )}
               <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
                 <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] sm:text-[11px] font-semibold leading-tight ${provenance.className}`}>
                   {provenance.label}
@@ -1254,10 +1344,10 @@ export default function AccountDetailPage() {
                             <dd className="tabular-nums text-foreground">{money(billParts.installments)}</dd>
                           </div>
                         )}
-                        {Math.abs(billAdjustments) > 0.005 && (
+                        {billResidual !== 0 && (
                           <div className="flex items-baseline justify-between gap-3">
                             <dt className="text-muted-foreground">{t('accounts.billBreakdown.adjustments')}</dt>
-                            <dd className="tabular-nums text-foreground">{money(billAdjustments)}</dd>
+                            <dd className="tabular-nums text-foreground">{money(billResidual)}</dd>
                           </div>
                         )}
                         <div className="flex items-baseline justify-between gap-3 border-t border-border pt-1.5 font-semibold">
@@ -1406,7 +1496,8 @@ export default function AccountDetailPage() {
         // currently being viewed. For the current cycle this matches the "current
         // open balance" since nothing has been paid yet; for past cycles it shows
         // that month's burn rate against the (current) limit.
-        const utilized = limit != null ? billTotal : null
+        // A credit balance uses none of the limit.
+        const utilized = limit != null ? Math.max(0, billTotal) : null
         const rawPct = limit != null && limit > 0 && utilized != null ? (utilized / limit) * 100 : null
         const pct = rawPct != null ? Math.min(100, rawPct) : null
         return (
@@ -1499,10 +1590,15 @@ export default function AccountDetailPage() {
         <LoanScheduleCard accountId={account.id} locale={locale} dateLocale={dateLocale} mask={mask} canWrite={canWrite} />
       )}
 
-      {/* Balance / Cycle spending chart */}
+      {/* Balance / running bill total chart */}
       {(() => {
-        const cycleEmpty = isCreditCard && chartData.length > 0 && chartData[chartData.length - 1].balance === 0
-        const balances = chartData.map(d => d.balance)
+        // What the listed rows do not explain lands on the bill's last day,
+        // so the line ends on the bill total like the card above it.
+        const series = isCreditCard && billResidual !== 0 && chartData.length > 0
+          ? [...chartData.slice(0, -1), { ...chartData[chartData.length - 1], balance: chartData[chartData.length - 1].balance + billResidual }]
+          : chartData
+        const cycleEmpty = isCreditCard && series.length > 0 && series.every(d => d.balance === 0)
+        const balances = series.map(d => d.balance)
         const dataMin = balances.length > 0 ? Math.min(...balances) : 0
         const dataMax = balances.length > 0 ? Math.max(...balances) : 0
         const flat = dataMin === 0 && dataMax === 0
@@ -1530,8 +1626,13 @@ export default function AccountDetailPage() {
       <div className={`bg-card rounded-xl border border-border shadow-sm mb-6 ${cycleSectionClass}`} aria-busy={cycleSwitching}>
         <div className="px-5 pt-5 pb-3">
           <p className="text-base font-bold text-foreground">
-            {isCreditCard ? t('accounts.cycleSpending') : t('dashboard.balanceFlow')}
+            {isCreditCard ? t('accounts.billRunningTotal') : t('dashboard.balanceFlow')}
           </p>
+          {isCreditCard && billResidual !== 0 && series.length > 0 && (
+            <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
+              {t('accounts.billChartAdjustments', { amount: mask(formatCurrency(billResidual, displayCurrency, locale)) })}
+            </p>
+          )}
         </div>
         <div className="px-1 pb-4 h-[280px]">
           {chartLoading ? (
@@ -1541,10 +1642,10 @@ export default function AccountDetailPage() {
               <Clock className="h-8 w-8 opacity-40" />
               <p className="text-sm">{t('accounts.noChargesYet')}</p>
             </div>
-          ) : chartData.length > 0 ? (
+          ) : series.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart
-                data={chartData}
+                data={series}
                 margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
               >
                 <defs>
@@ -1605,7 +1706,7 @@ export default function AccountDetailPage() {
                 <Tooltip
                   formatter={(value) => [
                     value !== null ? (privacyMode ? MASK : formatCurrency(Number(value), displayCurrency, locale)) : '\u2014',
-                    isCreditCard ? t('accounts.cycleSpending') : t('accounts.currentBalance'),
+                    isCreditCard ? t('accounts.billRunningTotal') : t('accounts.currentBalance'),
                   ]}
                   labelFormatter={(label) => label}
                   contentStyle={{
@@ -1644,8 +1745,15 @@ export default function AccountDetailPage() {
 
       {/* Transaction table */}
       <div className={`bg-card rounded-xl border border-border shadow-sm overflow-hidden ${cycleSectionClass}`} aria-busy={cycleSwitching}>
-        <div className="px-5 py-4 border-b border-border">
+        <div className="px-5 py-4 border-b border-border flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
           <p className="font-semibold text-foreground">{t('transactions.title')}</p>
+          {/* The running total column ends on the listed rows; name what the
+              bill adds on top so its last value plus this is the bill total. */}
+          {isCreditCard && billResidual !== 0 && displayRows.length > 0 && (
+            <p className="text-xs text-muted-foreground tabular-nums">
+              {t('accounts.billUnlisted', { amount: mask(formatCurrency(billResidual, displayCurrency, locale)) })}
+            </p>
+          )}
         </div>
         <div className="p-0">
           {txLoading ? (

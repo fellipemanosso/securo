@@ -6,10 +6,11 @@
  * as the user chooses a generic date range.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 
 import AccountDetailPage from '@/pages/account-detail'
 import { renderWithProviders } from '@/test/utils'
+import type { Category, Transaction } from '@/types'
 
 const api = vi.hoisted(() => ({
   accounts: {
@@ -25,6 +26,7 @@ const api = vi.hoisted(() => ({
   dashboard: { projectedTransactions: vi.fn() },
   categories: { list: vi.fn() },
   categoryGroups: { list: vi.fn() },
+  connections: { list: vi.fn() },
 }))
 
 vi.mock('@/lib/api', () => ({
@@ -33,6 +35,7 @@ vi.mock('@/lib/api', () => ({
   dashboard: api.dashboard,
   categories: api.categories,
   categoryGroups: api.categoryGroups,
+  connections: api.connections,
 }))
 
 vi.mock('@/hooks/use-display-locale', () => ({
@@ -314,5 +317,166 @@ describe('bill total provenance', () => {
     expect(await screen.findByText('Closes on 09/30')).toBeInTheDocument()
     expect(screen.getByText('Securo estimate')).toBeInTheDocument()
     expect(screen.queryByText(/^Bank/)).not.toBeInTheDocument()
+  })
+})
+
+function category(overrides: Partial<Category>): Category {
+  return {
+    id: 'cat-1', user_id: 'user-1', group_id: null, name: 'Shopping', icon: 'tag',
+    color: '#000000', is_system: false, is_hidden: false, treat_as_transfer: false,
+    is_ignored: false, ...overrides,
+  }
+}
+
+function cardTx(id: string, overrides: Partial<Transaction>): Transaction {
+  return {
+    id, user_id: 'user-1', account_id: 'acc-1', category_id: null, category: null,
+    external_id: null, description: id, original_description: null, amount: 0,
+    currency: 'BRL', date: '2026-09-01', type: 'debit', source: 'manual', status: 'posted',
+    payee: null, payee_id: null, payee_name: null, notes: null, transfer_pair_id: null,
+    amount_primary: null, fx_rate_used: null, fx_fallback: false, installment_number: null,
+    total_installments: null, installment_total_amount: null, installment_purchase_date: null,
+    installment_series_id: null, bill_id: null, effective_bill_date: null, splits: [],
+    is_ignored: false, ...overrides,
+  }
+}
+
+describe('one bill total per statement', () => {
+  it('ends the running total, the strip and the card on the same bill total', async () => {
+    // A purchase, a refund, a card payment nobody paired (filed under a
+    // transfer category) and an installment the bank has not sent yet. The
+    // bill counts all but the payment: 300 - 50 + 720 = 970.
+    api.transactions.list.mockResolvedValue({
+      items: [
+        cardTx('Card payment', {
+          date: '2026-09-07', type: 'credit', amount: 1000,
+          category: category({ id: 'cat-pay', name: 'Transfers', treat_as_transfer: true }),
+        }),
+        cardTx('Refund', { date: '2026-09-03', type: 'credit', amount: 50, category: category({}) }),
+        cardTx('Market', { date: '2026-09-02', type: 'debit', amount: 300, category: category({}) }),
+      ],
+      total: 3,
+    })
+    api.accounts.installmentForecasts.mockResolvedValue([{
+      key: 'tx-1:7', description: 'THIAGO PEREIRA', amount: 720, currency: 'BRL', type: 'debit',
+      purchase_date: '2026-05-06', due_date: '2026-10-10', installment_number: 7,
+      total_installments: 10, category_id: null, card_last4: '9984',
+    }])
+    api.accounts.summary.mockResolvedValue({
+      monthly_income: 0, monthly_expenses: 250, projected_income: 0, projected_expenses: 970,
+    })
+    // The timeline still carries an older figure for the open cycle.
+    api.accounts.creditCardTimeline.mockResolvedValue([{
+      ...timeline[0],
+      items: timeline[0].items.map((item) =>
+        item.cycle_key === 'cycle:2026-09-30' ? { ...item, amount: 1234 } : item),
+    }])
+
+    await renderPage()
+    await screen.findByText('THIAGO PEREIRA')
+
+    // The newest row is the payment; the bill leaves it out, so the running
+    // total stays on what the rows before it add up to.
+    const newest = screen.getByText('Card payment').closest('tr')!
+    await waitFor(() => expect(newest.querySelectorAll('td')[4].textContent).toBe('R$970.00'))
+    const stripSlot = screen.getAllByRole('button', { name: /Oct 2026/ }).find((b) => b !== cycleHeader())!
+    expect(stripSlot.textContent).toContain('R$970.00')
+    expect(screen.queryByText(/1,234\.00/)).not.toBeInTheDocument()
+    // Purchases and credits side by side under the total.
+    const composition = screen.getByText('Credits').closest('dl')!
+    expect(composition.textContent).toContain('PurchasesR$1,020.00')
+    expect(composition.textContent).toContain('-R$50.00')
+    expect(screen.queryByText(/not in this list/)).not.toBeInTheDocument()
+  })
+
+  it('names what the listed rows do not explain, so the views still end on the total', async () => {
+    api.transactions.list.mockResolvedValue({
+      items: [cardTx('Market', { date: '2026-09-02', type: 'debit', amount: 300 })],
+      total: 1,
+    })
+    api.accounts.summary.mockResolvedValue({
+      monthly_income: 0, monthly_expenses: 300, projected_income: 0, projected_expenses: 250,
+    })
+
+    await renderPage()
+
+    expect(await screen.findByText('Payments and adjustments not in this list: -R$50.00')).toBeInTheDocument()
+    expect(screen.getByText('The last day includes -R$50.00 in payments and adjustments')).toBeInTheDocument()
+  })
+
+  it('shows a statement with more credits than charges as a credit balance', async () => {
+    api.accounts.creditCardTimeline.mockResolvedValue(statementTimeline({
+      source: 'manual', closing_date: '2026-08-30', due_date: '2026-09-10', amount: -150,
+    }))
+    renderWithProviders(<AccountDetailPage />, { route: '/accounts/acc-1', path: '/accounts/:id' })
+
+    // Once in the card's title, once under the strip's amount.
+    await waitFor(() => expect(screen.getAllByText('Credit balance')).toHaveLength(2))
+    expect(screen.queryByText('Bill total')).not.toBeInTheDocument()
+    expect(screen.getAllByText('R$150.00').length).toBeGreaterThanOrEqual(2)
+    expect(screen.queryByText(/-R\$150/)).not.toBeInTheDocument()
+  })
+})
+
+describe('months without a statement', () => {
+  const missing = (overrides: Record<string, unknown>) => ({
+    account_id: 'acc-1', kind: 'unavailable', closing_date: null, amount: null,
+    primary_amount: null, source: null, record_id: null, status: null, editable: false,
+    ...overrides,
+  })
+  const bill = (id: string, dates: { start: string; end: string; closing_date: string; due_date: string }, amount: number) => ({
+    account_id: 'acc-1', due_month: dates.due_date.slice(0, 7), kind: 'statement',
+    cycle_key: `bill:${id}`, ...dates, amount, primary_amount: null, source: 'bank',
+    record_id: id, status: 'paid', editable: false, unavailable_reason: null,
+  })
+
+  beforeEach(() => {
+    api.accounts.get.mockResolvedValue({ ...account, connection_id: 'conn-1' })
+    api.connections.list.mockResolvedValue([{ id: 'conn-1', last_sync_at: null }])
+    api.accounts.creditCardTimeline.mockResolvedValue([{
+      account_id: 'acc-1',
+      default_key: 'bill:bill-sep',
+      items: [
+        // Before the card's history begins: not shown at all.
+        missing({ due_month: '2026-05', cycle_key: 'cycle:2026-04-30', start: '2026-03-30', end: '2026-04-29', due_date: '2026-05-10', unavailable_reason: 'past_statement_missing' }),
+        bill('bill-jun', { start: '2026-04-30', end: '2026-05-29', closing_date: '2026-05-30', due_date: '2026-06-10' }, 200),
+        missing({ due_month: '2026-07', cycle_key: 'cycle:2026-06-30', start: '2026-05-30', end: '2026-06-29', closing_date: '2026-06-30', due_date: '2026-07-10', unavailable_reason: 'past_statement_missing' }),
+        missing({ due_month: '2026-08', cycle_key: null, start: null, end: null, due_date: null, unavailable_reason: 'missing_close_config' }),
+        bill('bill-sep', { start: '2026-07-30', end: '2026-08-29', closing_date: '2026-08-30', due_date: '2026-09-10' }, 500),
+      ],
+    }])
+  })
+
+  async function renderStatementPage() {
+    const rendered = renderWithProviders(<AccountDetailPage />, { route: '/accounts/acc-1', path: '/accounts/:id' })
+    await waitFor(() => expect(txCalls().at(-1)?.cycle_key).toBe('bill:bill-sep'))
+    return rendered
+  }
+
+  it('keeps each missing month in the strip as a labelled slot, never as R$0', async () => {
+    await renderStatementPage()
+
+    const bankMissing = (await screen.findByText("Bank didn't send")).parentElement!
+    expect(bankMissing.tagName).toBe('BUTTON')
+    expect(within(bankMissing).queryByText(/R\$/)).not.toBeInTheDocument()
+    // A month Securo cannot even place in a cycle is shown but not selectable.
+    const noBill = screen.getByText('No bill').parentElement!
+    expect(noBill.tagName).toBe('DIV')
+    expect(within(noBill).queryByText(/R\$/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/May 2026/)).not.toBeInTheDocument()
+  })
+
+  it('steps over a month with no cycle and onto one the bank did not send, as an estimate', async () => {
+    const { user } = await renderStatementPage()
+    const previous = await screen.findByTitle('Previous cycle')
+
+    await user.click(previous)
+    await waitFor(() => expect(txCalls().at(-1)!.cycle_key).toBe('cycle:2026-06-30'))
+    expect(await screen.findByText('Securo estimate')).toBeInTheDocument()
+    expect(screen.queryByText(/^Bank ·/)).not.toBeInTheDocument()
+
+    await user.click(previous)
+    await waitFor(() => expect(txCalls().at(-1)!.cycle_key).toBe('bill:bill-jun'))
+    expect(previous).toBeDisabled()
   })
 })
