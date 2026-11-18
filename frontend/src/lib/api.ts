@@ -29,6 +29,8 @@ import type {
   LoanBalanceUpdate,
   LoanSchedule,
   DescriptionSuggestion,
+  CategorySuggestion,
+  SimilarTransaction,
   Transaction,
   Payee,
   PayeeSummary,
@@ -735,11 +737,31 @@ export const transactions = {
     const { data } = await api.post('/transactions/transfer', transfer)
     return data
   },
-  bulkCategorize: async (transactionIds: string[], categoryId: string | null): Promise<{ updated: number; skipped_split?: number }> => {
+  bulkCategorize: async (
+    transactionIds: string[],
+    categoryId: string | null,
+    source: 'manual' | 'suggestion' = 'manual',
+  ): Promise<{ updated: number; skipped_split?: number }> => {
     const { data } = await api.patch('/transactions/bulk-categorize', {
       transaction_ids: transactionIds,
       category_id: categoryId,
+      category_source: source,
     })
+    return data
+  },
+  /** For each listed uncategorized row, the category its look-alikes (same
+   *  payee, or same description, same direction) were filed under most. */
+  categorySuggestions: async (transactionIds: string[]): Promise<CategorySuggestion[]> => {
+    const { data } = await api.post(
+      '/transactions/category-suggestions',
+      { transaction_ids: transactionIds },
+      readOnly,
+    )
+    return data
+  },
+  /** Every other row, in any month, of the same payee (or description) and direction. */
+  similar: async (id: string): Promise<SimilarTransaction[]> => {
+    const { data } = await api.get(`/transactions/${id}/similar`)
     return data
   },
   bulkAddTags: async (transactionIds: string[], tags: string[]): Promise<{ updated: number }> => {

@@ -125,6 +125,7 @@
     "recurring": "Регулярні",
     "assets": "Активи",
     "investments": "Інвестиції",
+    "categorization": "Категоризація",
     "payees": "Отримувачі",
     "splitGroups": "Групи",
     "goals": "Цілі",
@@ -3645,5 +3646,90 @@
     "hiddenFromTotal_many": "Без {{count}} прихованих карток",
     "hiddenFromTotal_other": "Без {{count}} прихованої картки",
     "updateError": "Could not update the card"
+  },
+  "categorization": {
+    "subtitle": "Усі категорії місяця, зокрема автоматичні, і звідки взялася кожна. Виправте тут неправильні.",
+    "uncategorizedCount_one": "{{count}} без категорії",
+    "uncategorizedCount_few": "{{count}} без категорії",
+    "uncategorizedCount_many": "{{count}} без категорії",
+    "uncategorizedCount_other": "{{count}} без категорії",
+    "error": "Не вдалося завантажити транзакції за місяць.",
+    "empty": {
+      "title": "У цьому місяці немає транзакцій",
+      "hint": "Тут для перевірки з’являються транзакції з ваших банків, з імпорту та ті, що ви додаєте."
+    },
+    "emptyFilter": {
+      "uncategorized": "Усі транзакції цього місяця мають категорію.",
+      "other": "Під цей фільтр нічого не підходить."
+    },
+    "filterLabel": "Фільтр за походженням категорії",
+    "filters": {
+      "uncategorized": "Без категорії",
+      "automatic": "Автоматичні",
+      "manual": "Ручні",
+      "all": "Усі"
+    },
+    "searchPlaceholder": "Шукати опис, отримувача або категорію",
+    "unknownHint_one": "{{count}} транзакцію категоризовано до того, як Securo почав записувати походження категорій, тому вона видна лише у вкладці «Усі».",
+    "unknownHint_few": "{{count}} транзакції категоризовано до того, як Securo почав записувати походження категорій, тому вони видні лише у вкладці «Усі».",
+    "unknownHint_many": "{{count}} транзакцій категоризовано до того, як Securo почав записувати походження категорій, тому вони видні лише у вкладці «Усі».",
+    "unknownHint_other": "{{count}} транзакції категоризовано до того, як Securo почав записувати походження категорій, тому вони видні лише у вкладці «Усі».",
+    "totals": {
+      "title": "За категоріями"
+    },
+    "rowCount_one": "{{count}} транзакція",
+    "rowCount_few": "{{count}} транзакції",
+    "rowCount_many": "{{count}} транзакцій",
+    "rowCount_other": "{{count}} транзакції",
+    "uncategorized": "Без категорії",
+    "split": "Розділена між категоріями",
+    "splitHint": "Змініть розподіл у розділі «Транзакції»",
+    "categoryOf": "Категорія {{description}}: {{category}}",
+    "source": {
+      "rule": "Правило",
+      "ruleNamed": "Правило: {{name}}",
+      "provider": "Банк",
+      "import": "Імпорт",
+      "recurring": "Регулярна",
+      "manual": "Вручну",
+      "suggestion": "Прийнята підказка",
+      "unknown": "Походження не записано",
+      "uncategorized": "Без категорії"
+    },
+    "suggestion": "Підказка:",
+    "suggestionBasis": {
+      "payee_one": "{{count}} раз для цього отримувача",
+      "payee_few": "{{count}} рази для цього отримувача",
+      "payee_many": "{{count}} разів для цього отримувача",
+      "payee_other": "{{count}} рази для цього отримувача",
+      "description_one": "{{count}} раз для цього опису",
+      "description_few": "{{count}} рази для цього опису",
+      "description_many": "{{count}} разів для цього опису",
+      "description_other": "{{count}} рази для цього опису"
+    },
+    "accept": "Прийняти",
+    "acceptLabel": "Прийняти {{category}} для {{description}}",
+    "ruleName": "{{name}} → {{category}}",
+    "followUp": {
+      "movedTo": "до",
+      "dismiss": "Закрити",
+      "samePayee": "Інші транзакції від {{name}}",
+      "sameDescription": "Інші транзакції з описом «{{name}}»",
+      "applyMonth_one": "Застосувати ще до {{count}} у цьому місяці",
+      "applyMonth_few": "Застосувати ще до {{count}} у цьому місяці",
+      "applyMonth_many": "Застосувати ще до {{count}} у цьому місяці",
+      "applyMonth_other": "Застосувати ще до {{count}} у цьому місяці",
+      "applyAll_one": "Застосувати до {{count}} з іншого місяця",
+      "applyAll_few": "Застосувати до всіх {{count}} за всі місяці",
+      "applyAll_many": "Застосувати до всіх {{count}} за всі місяці",
+      "applyAll_other": "Застосувати до всіх {{count}} за всі місяці",
+      "noneMonth": "Жодній іншій транзакції цього місяця це не потрібно.",
+      "createRule": "Створити правило для наступних",
+      "error": "Не вдалося знайти схожі транзакції.",
+      "applied_one": "{{count}} транзакцію перекатегоризовано",
+      "applied_few": "{{count}} транзакції перекатегоризовано",
+      "applied_many": "{{count}} транзакцій перекатегоризовано",
+      "applied_other": "{{count}} транзакції перекатегоризовано"
+    }
   }
 }

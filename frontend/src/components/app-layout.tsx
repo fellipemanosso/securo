@@ -43,6 +43,8 @@ import { WorkspaceSwitcher } from '@/components/workspace-switcher'
 import { isNavItemActive, navItems, visibleNavItems, type NavItem } from '@/lib/nav-items'
 import { NavCountBadge } from '@/components/nav-count-badge'
 import { usePendingReconciliationCount } from '@/hooks/use-pending-reconciliation-count'
+import { useUncategorizedCount } from '@/hooks/use-uncategorized-count'
+import { currentMonth } from '@/lib/month-utils'
 import {
   Menu,
   ChevronLeft,
@@ -255,11 +257,15 @@ export function AppLayout() {
     () => visibleNavItems(navItems, hasModule),
     [hasModule],
   )
-  // Work waiting behind a link. Only Conciliações has any today; the
-  // count is a separate cheap request so the sidebar never pays for
-  // labelling every question in the queue.
+  // Work waiting behind a link: questions matching could not answer, and
+  // this month's transactions with no category. Each count is a separate
+  // cheap request so the sidebar never pays for loading the work itself.
   const { data: pendingReconciliations } = usePendingReconciliationCount(hasModule('transactions'))
-  const navBadges: Partial<Record<string, number>> = { reconciliation: pendingReconciliations }
+  const { data: uncategorized } = useUncategorizedCount(currentMonth(), hasModule('transactions'))
+  const navBadges: Partial<Record<string, { count: number | undefined; labelKey: string }>> = {
+    reconciliation: { count: pendingReconciliations, labelKey: 'reconciliation.page.pendingCount' },
+    categorization: { count: uncategorized, labelKey: 'categorization.uncategorizedCount' },
+  }
   const isMac =
     typeof navigator !== 'undefined' &&
     /Mac|iPhone|iPad|iPod/.test(navigator.platform)
@@ -540,8 +546,8 @@ export function AppLayout() {
               const badge = navBadges[item.key]
               // The badge is drawn for the eye; the label says it in words,
               // so a screen reader hears "Conciliações, Pending: 3".
-              const label = badge
-                ? `${t(`nav.${item.key}`)}, ${t('reconciliation.page.pendingCount', { count: badge })}`
+              const label = badge?.count
+                ? `${t(`nav.${item.key}`)}, ${t(badge.labelKey, { count: badge.count })}`
                 : t(`nav.${item.key}`)
               const link = (
                 <Link
@@ -568,10 +574,10 @@ export function AppLayout() {
                     )}
                   />
                   <span className={cn(desktopSidebarCollapsed && 'lg:hidden')}>{t(`nav.${item.key}`)}</span>
-                  <NavCountBadge count={badge} className={cn('ml-auto', desktopSidebarCollapsed && 'lg:hidden')} />
+                  <NavCountBadge count={badge?.count} className={cn('ml-auto', desktopSidebarCollapsed && 'lg:hidden')} />
                   {/* Collapsed to icons there is no room for a number, so
                       the icon carries a dot: something is waiting. */}
-                  {!!badge && desktopSidebarCollapsed && (
+                  {!!badge?.count && desktopSidebarCollapsed && (
                     <span aria-hidden="true" className="absolute right-1.5 top-1.5 hidden h-2 w-2 rounded-full bg-amber-500 ring-2 ring-sidebar lg:block" />
                   )}
                 </Link>

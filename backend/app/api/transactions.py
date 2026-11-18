@@ -19,9 +19,9 @@ from app.core.workspace_context import (
 )
 from app.models.account import Account
 from app.models.transaction import Transaction
-from app.schemas.transaction import BulkAddToGroupRequest, BulkCategorizeRequest, DescriptionSuggestion, BulkTagsRequest, CreateCounterpartRequest, InstallmentSeriesCreate, LinkTransferRequest, TransactionBulkDeleteRequest, TransactionCreate, TransactionRead, TransactionTransferCounterpart, TransactionUpdate, TransferCreate, TransferRead
+from app.schemas.transaction import BulkAddToGroupRequest, BulkCategorizeRequest, CategorySuggestion, CategorySuggestionRequest, DescriptionSuggestion, BulkTagsRequest, CreateCounterpartRequest, InstallmentSeriesCreate, LinkTransferRequest, SimilarTransaction, TransactionBulkDeleteRequest, TransactionCreate, TransactionRead, TransactionTransferCounterpart, TransactionUpdate, TransferCreate, TransferRead
 from app.schemas.transaction_calendar import TransactionCalendarResponse
-from app.services import transaction_service
+from app.services import categorization_service, transaction_service
 from app.services.category_line_service import csv_export_parts
 from app.services.admin_service import get_credit_card_accounting_mode
 from app.services.credit_card_timeline import (
@@ -368,11 +368,30 @@ async def bulk_categorize(
     )
     try:
         count = await transaction_service.bulk_update_category(
-            session, ctx.workspace.id, data.transaction_ids, data.category_id
+            session,
+            ctx.workspace.id,
+            data.transaction_ids,
+            data.category_id,
+            source=data.category_source,
         )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     return {"updated": count, "skipped_split": skipped_split}
+
+
+@router.post("/category-suggestions", response_model=list[CategorySuggestion])
+async def category_suggestions(
+    data: CategorySuggestionRequest,
+    ctx: WorkspaceContext = Depends(current_workspace),
+    session: AsyncSession = Depends(get_async_session),
+):
+    """The category the user's history points to for each listed uncategorized row.
+
+    A POST only to carry a page of ids; it reads and changes nothing.
+    """
+    return await categorization_service.suggest_categories(
+        session, ctx.workspace.id, data.transaction_ids
+    )
 
 
 @router.patch("/bulk-add-tags")
@@ -541,6 +560,21 @@ async def get_transfer_pair(
     return _tag_fx_fallback(
         TransactionRead.model_validate(pair, from_attributes=True), ctx.user.primary_currency
     )
+
+
+@router.get("/{transaction_id}/similar", response_model=list[SimilarTransaction])
+async def get_similar_transactions(
+    transaction_id: uuid.UUID,
+    ctx: WorkspaceContext = Depends(current_workspace),
+    session: AsyncSession = Depends(get_async_session),
+):
+    """Other transactions of the same payee (or description) and direction, any month."""
+    similar = await categorization_service.similar_transactions(
+        session, ctx.workspace.id, transaction_id
+    )
+    if similar is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found")
+    return similar
 
 
 @router.get("/{transaction_id}", response_model=TransactionRead)

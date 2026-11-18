@@ -225,6 +225,12 @@ class TransactionRead(TransactionBase):
     # is then null and the categories live in `category_lines`.
     has_category_lines: bool = False
     category_lines: list[TransactionCategoryLineRead] = []
+    # How the category got there (see the model) and, for a rule, which one.
+    # Null when it was not recorded.
+    category_source: Optional[
+        Literal["rule", "provider", "import", "recurring", "manual", "suggestion"]
+    ] = None
+    category_rule_id: Optional[uuid.UUID] = None
     # Set by the paginated list when it is filtered by category: the part of
     # a split row that falls in the filtered categories, so a drill-down
     # total adds up to the report it came from. Null on plain rows.
@@ -262,6 +268,31 @@ class TransactionRead(TransactionBase):
 class BulkCategorizeRequest(BaseModel):
     transaction_ids: list[uuid.UUID]
     category_id: Optional[uuid.UUID] = None
+    # "suggestion" when the user accepted the category the review suggested.
+    category_source: Literal["manual", "suggestion"] = "manual"
+
+
+class CategorySuggestionRequest(BaseModel):
+    transaction_ids: list[uuid.UUID] = Field(max_length=1000)
+
+
+class CategorySuggestion(BaseModel):
+    """The category most used before for what this transaction looks like."""
+
+    transaction_id: uuid.UUID
+    category_id: uuid.UUID
+    # How many earlier transactions of the same payee (or description) and
+    # direction were filed under it.
+    uses: int
+    matched_by: Literal["payee", "description"]
+
+
+class SimilarTransaction(BaseModel):
+    """Another transaction of the same payee (or description) and direction."""
+
+    id: uuid.UUID
+    category_id: Optional[uuid.UUID] = None
+    date: _Date
 
 
 class TransactionBulkDeleteRequest(BaseModel):

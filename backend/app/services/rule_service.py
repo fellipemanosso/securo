@@ -623,6 +623,8 @@ _PREVIEW_COLUMNS = (
     Transaction.notes,
     Transaction.is_ignored,
     Transaction.has_category_lines,
+    Transaction.category_source,
+    Transaction.category_rule_id,
 )
 
 
@@ -646,6 +648,8 @@ def _rule_preview(transaction: Transaction) -> Transaction:
         payee_id=transaction.payee_id,
         notes=transaction.notes,
         is_ignored=transaction.is_ignored,
+        category_source=transaction.category_source,
+        category_rule_id=transaction.category_rule_id,
     )
 
 
@@ -757,6 +761,7 @@ async def apply_rules_to_transaction(
                 category_set,
                 assignable_category_ids=assignable_categories,
                 existing_payee_ids=existing_payees,
+                rule_id=rule.id,
             )
 
 
@@ -964,6 +969,7 @@ async def apply_single_rule(
             skip_description=_has_manual_description(tx),
             assignable_category_ids=assignable_categories,
             existing_payee_ids=existing_payees,
+            rule_id=rule.id,
         )
         after = (
             tx.category_id,
@@ -1035,6 +1041,7 @@ async def apply_all_rules(session: AsyncSession, workspace_id: uuid.UUID) -> int
                     skip_description=preserve_manual_description,
                     assignable_category_ids=assignable_categories,
                     existing_payee_ids=existing_payees,
+                    rule_id=rule.id,
                 )
 
         after = (

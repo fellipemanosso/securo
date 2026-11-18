@@ -30,7 +30,7 @@ from app.models.collection import collection_asset_groups
 from app.models.credit_card_bill import CreditCardBill
 from app.models.payee import Payee, PayeeMapping
 from app.models.rule import Rule
-from app.models.transaction import Transaction
+from app.models.transaction import Transaction, copy_category_source, stamp_category_source
 from app.models.transaction_category_line import TransactionCategoryLine
 from app.models.user import User
 from app.providers import get_provider
@@ -1144,6 +1144,25 @@ async def _find_installment_category(
     return source.category_id if source is not None else None
 
 
+def _stamp_sync_category(
+    transaction: Transaction, installment_source: Optional[Transaction]
+) -> None:
+    """Record where the category a synced row just took came from.
+
+    The bank's category is only looked up when the earlier parcel of the same
+    purchase had none, so a category equal to that parcel's is the parcel's,
+    and keeps the parcel's provenance.
+    """
+    if (
+        installment_source is not None
+        and installment_source.category_id is not None
+        and installment_source.category_id == transaction.category_id
+    ):
+        copy_category_source(installment_source, transaction)
+    else:
+        stamp_category_source(transaction, "provider")
+
+
 async def _find_installment_source(
     session: AsyncSession,
     account_id: uuid.UUID,
@@ -1632,6 +1651,7 @@ async def handle_oauth_callback(
                 )
             if transaction.category_id is None and not transaction.has_category_lines:
                 transaction.category_id = category_id
+                _stamp_sync_category(transaction, installment_source)
 
             acct_currency = acc_data.currency or user_currency
             await _stamp_synced_primary_amount(
@@ -3216,7 +3236,12 @@ async def sync_connection(
                             session, placeholder, expected_amount
                         )
                     if placeholder.category_id is None and not placeholder.has_category_lines:
-                        placeholder.category_id = preview.category_id or category_id
+                        if preview.category_id is not None:
+                            placeholder.category_id = preview.category_id
+                            copy_category_source(preview, placeholder)
+                        else:
+                            placeholder.category_id = category_id
+                            _stamp_sync_category(placeholder, installment_source)
                     if txn_data.payee and not placeholder.payee:
                         placeholder.payee = txn_data.payee
                     if placeholder.payee_id is None:
@@ -3263,6 +3288,7 @@ async def sync_connection(
                     )
                 if transaction.category_id is None and not transaction.has_category_lines:
                     transaction.category_id = category_id
+                    _stamp_sync_category(transaction, installment_source)
 
                 await _stamp_synced_primary_amount(
                     session, user_id, transaction, converted

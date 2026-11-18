@@ -125,6 +125,7 @@
     "recurring": "Ismétlődő",
     "assets": "Eszközök",
     "investments": "Befektetések",
+    "categorization": "Kategorizálások",
     "payees": "Partnerek",
     "splitGroups": "Csoportok",
     "goals": "Célok",
@@ -3594,5 +3595,74 @@
     "hiddenFromTotal_one": "{{count}} rejtett kártya nélkül",
     "hiddenFromTotal_other": "{{count}} rejtett kártya nélkül",
     "updateError": "Could not update the card"
+  },
+  "categorization": {
+    "subtitle": "A hónap összes kategóriája, az automatikusakkal együtt, és hogy melyik honnan származik. Itt javíthatod a hibásakat.",
+    "uncategorizedCount_one": "{{count}} kategória nélkül",
+    "uncategorizedCount_other": "{{count}} kategória nélkül",
+    "error": "Nem sikerült betölteni a hónap tranzakcióit.",
+    "empty": {
+      "title": "Ebben a hónapban nincs tranzakció",
+      "hint": "A bankjaidból, az importokból és a saját magad által rögzített tranzakciók itt jelennek meg ellenőrzésre."
+    },
+    "emptyFilter": {
+      "uncategorized": "A hónap minden tranzakciójának van kategóriája.",
+      "other": "Semmi nem felel meg ennek a szűrőnek."
+    },
+    "filterLabel": "Szűrés a kategória eredete szerint",
+    "filters": {
+      "uncategorized": "Kategória nélkül",
+      "automatic": "Automatikus",
+      "manual": "Kézi",
+      "all": "Összes"
+    },
+    "searchPlaceholder": "Leírás, kedvezményezett vagy kategória keresése",
+    "unknownHint_one": "{{count}} tranzakciót még azelőtt kategorizáltak, hogy a Securo rögzítette volna a kategóriák eredetét, ezért csak az Összes alatt jelenik meg.",
+    "unknownHint_other": "{{count}} tranzakciót még azelőtt kategorizáltak, hogy a Securo rögzítette volna a kategóriák eredetét, ezért ezek csak az Összes alatt jelennek meg.",
+    "totals": {
+      "title": "Kategóriánként"
+    },
+    "rowCount_one": "{{count}} tranzakció",
+    "rowCount_other": "{{count}} tranzakció",
+    "uncategorized": "Kategória nélkül",
+    "split": "Több kategóriára osztva",
+    "splitHint": "A felosztást a Tranzakciók oldalon szerkesztheted",
+    "categoryOf": "{{description}} kategóriája: {{category}}",
+    "source": {
+      "rule": "Szabály",
+      "ruleNamed": "Szabály: {{name}}",
+      "provider": "Bank",
+      "import": "Importálás",
+      "recurring": "Ismétlődő",
+      "manual": "Kézi",
+      "suggestion": "Elfogadott javaslat",
+      "unknown": "Az eredet nincs rögzítve",
+      "uncategorized": "Nincs kategória"
+    },
+    "suggestion": "Javaslat:",
+    "suggestionBasis": {
+      "payee_one": "{{count}} alkalommal ennél a kedvezményezettnél",
+      "payee_other": "{{count}} alkalommal ennél a kedvezményezettnél",
+      "description_one": "{{count}} alkalommal ennél a leírásnál",
+      "description_other": "{{count}} alkalommal ennél a leírásnál"
+    },
+    "accept": "Elfogadás",
+    "acceptLabel": "{{category}} elfogadása ehhez: {{description}}",
+    "ruleName": "{{name}} → {{category}}",
+    "followUp": {
+      "movedTo": "ide:",
+      "dismiss": "Bezárás",
+      "samePayee": "{{name}} további tranzakciói",
+      "sameDescription": "További tranzakciók „{{name}}” leírással",
+      "applyMonth_one": "Alkalmazás további {{count}} tranzakcióra ebben a hónapban",
+      "applyMonth_other": "Alkalmazás további {{count}} tranzakcióra ebben a hónapban",
+      "applyAll_one": "Alkalmazás {{count}} tranzakcióra egy másik hónapból",
+      "applyAll_other": "Alkalmazás mind a(z) {{count}} tranzakcióra az összes hónapban",
+      "noneMonth": "Ebben a hónapban egyetlen másik tranzakciónak sincs erre szüksége.",
+      "createRule": "Szabály létrehozása a következőkhöz",
+      "error": "Nem sikerült hasonló tranzakciókat keresni.",
+      "applied_one": "{{count}} tranzakció átkategorizálva",
+      "applied_other": "{{count}} tranzakció átkategorizálva"
+    }
   }
 }

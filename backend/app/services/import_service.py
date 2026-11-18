@@ -19,7 +19,7 @@ from app.models.account import Account
 from app.models.bank_connection import BankConnection
 from app.models.category import Category
 from app.models.rule import Rule
-from app.models.transaction import Transaction
+from app.models.transaction import Transaction, copy_category_source, stamp_category_source
 from pydantic import ValidationError
 
 from app.schemas.transaction import FailedRow, ImportCategoryLine, TransactionImport
@@ -1211,6 +1211,8 @@ async def import_transactions(
             payee=import_payee_raw,
             payee_id=import_payee_id,
             category_id=category_id,
+            # Picked in the import preview, or suggested there from the file.
+            category_source="import" if category_id is not None else None,
             notes=getattr(txn_data, "notes", None),
         )
         apply_effective_date(incoming, account)
@@ -1222,6 +1224,7 @@ async def import_transactions(
         )
         if preview.category_id is None and not txn_data.force_uncategorized:
             preview.category_id = csv_category_id
+            stamp_category_source(preview, "import")
 
         # Normalize a detached candidate before either recurring match. If a
         # generated placeholder already represents this occurrence, upgrade it
@@ -1278,6 +1281,7 @@ async def import_transactions(
                     await session.refresh(placeholder)
             if placeholder.category_id is None and not placeholder.has_category_lines:
                 placeholder.category_id = preview.category_id
+                copy_category_source(preview, placeholder)
             if import_payee_raw and not placeholder.payee:
                 placeholder.payee = import_payee_raw
             if placeholder.payee_id is None:
@@ -1335,6 +1339,7 @@ async def import_transactions(
                 await category_line_service.apply_template_split(session, incoming, recurring_link)
             if incoming.category_id is None and not incoming.has_category_lines:
                 incoming.category_id = csv_category_id
+                stamp_category_source(incoming, "import")
 
         if not txn_data.fx_rate:
             await stamp_primary_amount(session, user_id, incoming)

@@ -336,6 +336,27 @@ export interface DescriptionSuggestion {
   payee_id: string | null
 }
 
+/** How a transaction got its category, as the backend records it. Null
+ *  when it was not recorded (rows categorized before it was, or by a path
+ *  that does not say). */
+export type CategorySource = 'rule' | 'provider' | 'import' | 'recurring' | 'manual' | 'suggestion'
+
+/** The category the user's history points to for an uncategorized row. */
+export interface CategorySuggestion {
+  transaction_id: string
+  category_id: string
+  /** How many earlier rows of the same payee (or description) went there. */
+  uses: number
+  matched_by: 'payee' | 'description'
+}
+
+/** Another row of the same payee (or description) and direction. */
+export interface SimilarTransaction {
+  id: string
+  category_id: string | null
+  date: string
+}
+
 export interface Transaction {
   /** Every invoice this transaction settles — a payout net of fees
    *  settles several. Absent in a workspace without the module. */
@@ -389,6 +410,9 @@ export interface Transaction {
   // each part lives in `category_lines`, adding up to `amount`.
   has_category_lines?: boolean
   category_lines?: TransactionCategoryLine[]
+  category_source?: CategorySource | null
+  /** The rule that set the category, when `category_source` is "rule". */
+  category_rule_id?: string | null
   // Set by a list filtered by category: the part of a split row that falls
   // in the filter, so totals built from rows match the report they came from.
   matched_amount?: number | null

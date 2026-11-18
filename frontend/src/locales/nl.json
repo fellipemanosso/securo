@@ -125,6 +125,7 @@
     "recurring": "Terugkerend",
     "assets": "Activa",
     "investments": "Beleggingen",
+    "categorization": "Categorisaties",
     "payees": "Begunstigden",
     "splitGroups": "Groepen",
     "goals": "Doelen",
@@ -3596,5 +3597,74 @@
     "hiddenFromTotal_one": "Zonder {{count}} verborgen kaart",
     "hiddenFromTotal_other": "Zonder {{count}} verborgen kaarten",
     "updateError": "Could not update the card"
+  },
+  "categorization": {
+    "subtitle": "Alle categorieën van de maand, ook de automatische, en waar elke vandaan komt. Corrigeer hier de verkeerde.",
+    "uncategorizedCount_one": "{{count}} zonder categorie",
+    "uncategorizedCount_other": "{{count}} zonder categorie",
+    "error": "De transacties van deze maand konden niet worden geladen.",
+    "empty": {
+      "title": "Geen transacties deze maand",
+      "hint": "Transacties van je banken, uit imports en die je zelf invoert, verschijnen hier om te controleren."
+    },
+    "emptyFilter": {
+      "uncategorized": "Alle transacties van deze maand hebben een categorie.",
+      "other": "Niets voldoet aan dit filter."
+    },
+    "filterLabel": "Filteren op herkomst van de categorie",
+    "filters": {
+      "uncategorized": "Zonder categorie",
+      "automatic": "Automatisch",
+      "manual": "Handmatig",
+      "all": "Alle"
+    },
+    "searchPlaceholder": "Zoek omschrijving, begunstigde of categorie",
+    "unknownHint_one": "{{count}} transactie is gecategoriseerd voordat Securo de herkomst van categorieën vastlegde en staat daarom alleen onder Alle.",
+    "unknownHint_other": "{{count}} transacties zijn gecategoriseerd voordat Securo de herkomst van categorieën vastlegde en staan daarom alleen onder Alle.",
+    "totals": {
+      "title": "Per categorie"
+    },
+    "rowCount_one": "{{count}} transactie",
+    "rowCount_other": "{{count}} transacties",
+    "uncategorized": "Zonder categorie",
+    "split": "Verdeeld over categorieën",
+    "splitHint": "Bewerk de verdeling bij Transacties",
+    "categoryOf": "Categorie van {{description}}: {{category}}",
+    "source": {
+      "rule": "Regel",
+      "ruleNamed": "Regel: {{name}}",
+      "provider": "Bank",
+      "import": "Import",
+      "recurring": "Terugkerend",
+      "manual": "Handmatig",
+      "suggestion": "Suggestie overgenomen",
+      "unknown": "Herkomst niet vastgelegd",
+      "uncategorized": "Geen categorie"
+    },
+    "suggestion": "Suggestie:",
+    "suggestionBasis": {
+      "payee_one": "{{count}} keer voor deze begunstigde",
+      "payee_other": "{{count}} keer voor deze begunstigde",
+      "description_one": "{{count}} keer voor deze omschrijving",
+      "description_other": "{{count}} keer voor deze omschrijving"
+    },
+    "accept": "Overnemen",
+    "acceptLabel": "{{category}} overnemen voor {{description}}",
+    "ruleName": "{{name}} → {{category}}",
+    "followUp": {
+      "movedTo": "naar",
+      "dismiss": "Sluiten",
+      "samePayee": "Andere transacties van {{name}}",
+      "sameDescription": "Andere transacties met de omschrijving “{{name}}”",
+      "applyMonth_one": "Toepassen op nog {{count}} deze maand",
+      "applyMonth_other": "Toepassen op nog {{count}} deze maand",
+      "applyAll_one": "Toepassen op {{count}} uit een andere maand",
+      "applyAll_other": "Toepassen op alle {{count}} uit elke maand",
+      "noneMonth": "Geen andere transactie deze maand heeft dit nodig.",
+      "createRule": "Regel maken voor de volgende",
+      "error": "Kon niet zoeken naar vergelijkbare transacties.",
+      "applied_one": "{{count}} transactie opnieuw gecategoriseerd",
+      "applied_other": "{{count}} transacties opnieuw gecategoriseerd"
+    }
   }
 }

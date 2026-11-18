@@ -125,6 +125,7 @@
     "recurring": "Récurrentes",
     "assets": "Actifs",
     "investments": "Investissements",
+    "categorization": "Catégorisations",
     "payees": "Bénéficiaires",
     "splitGroups": "Groupes",
     "goals": "Objectifs",
@@ -3598,5 +3599,74 @@
     "hiddenFromTotal_one": "Exclut {{count}} carte masquée",
     "hiddenFromTotal_other": "Exclut {{count}} cartes masquées",
     "updateError": "Could not update the card"
+  },
+  "categorization": {
+    "subtitle": "Toutes les catégories du mois, automatiques comprises, et l'origine de chacune. Corrigez ici celles qui sont fausses.",
+    "uncategorizedCount_one": "{{count}} sans catégorie",
+    "uncategorizedCount_other": "{{count}} sans catégorie",
+    "error": "Impossible de charger les transactions du mois.",
+    "empty": {
+      "title": "Aucune transaction ce mois-ci",
+      "hint": "Les transactions de vos banques, de vos imports et celles que vous saisissez apparaissent ici pour être vérifiées."
+    },
+    "emptyFilter": {
+      "uncategorized": "Toutes les transactions du mois ont une catégorie.",
+      "other": "Rien ne correspond à ce filtre."
+    },
+    "filterLabel": "Filtrer selon l'origine de la catégorie",
+    "filters": {
+      "uncategorized": "Sans catégorie",
+      "automatic": "Automatiques",
+      "manual": "Manuelles",
+      "all": "Toutes"
+    },
+    "searchPlaceholder": "Rechercher une description, un bénéficiaire ou une catégorie",
+    "unknownHint_one": "{{count}} transaction a été catégorisée avant que Securo n'enregistre l'origine des catégories ; elle n'apparaît que dans Toutes.",
+    "unknownHint_other": "{{count}} transactions ont été catégorisées avant que Securo n'enregistre l'origine des catégories ; elles n'apparaissent que dans Toutes.",
+    "totals": {
+      "title": "Par catégorie"
+    },
+    "rowCount_one": "{{count}} transaction",
+    "rowCount_other": "{{count}} transactions",
+    "uncategorized": "Sans catégorie",
+    "split": "Répartie entre catégories",
+    "splitHint": "Modifiez la répartition dans Transactions",
+    "categoryOf": "Catégorie de {{description}} : {{category}}",
+    "source": {
+      "rule": "Règle",
+      "ruleNamed": "Règle : {{name}}",
+      "provider": "Banque",
+      "import": "Import",
+      "recurring": "Récurrence",
+      "manual": "Manuelle",
+      "suggestion": "Suggestion acceptée",
+      "unknown": "Origine non enregistrée",
+      "uncategorized": "Sans catégorie"
+    },
+    "suggestion": "Suggestion :",
+    "suggestionBasis": {
+      "payee_one": "{{count}} fois pour ce bénéficiaire",
+      "payee_other": "{{count}} fois pour ce bénéficiaire",
+      "description_one": "{{count}} fois pour cette description",
+      "description_other": "{{count}} fois pour cette description"
+    },
+    "accept": "Accepter",
+    "acceptLabel": "Accepter {{category}} pour {{description}}",
+    "ruleName": "{{name}} → {{category}}",
+    "followUp": {
+      "movedTo": "vers",
+      "dismiss": "Fermer",
+      "samePayee": "Autres transactions de {{name}}",
+      "sameDescription": "Autres transactions décrites « {{name}} »",
+      "applyMonth_one": "Appliquer à {{count}} autre ce mois-ci",
+      "applyMonth_other": "Appliquer à {{count}} autres ce mois-ci",
+      "applyAll_one": "Appliquer à {{count}} d'un autre mois",
+      "applyAll_other": "Appliquer aux {{count}} de tous les mois",
+      "noneMonth": "Aucune autre transaction de ce mois n'en a besoin.",
+      "createRule": "Créer une règle pour les suivantes",
+      "error": "Impossible de rechercher les transactions similaires.",
+      "applied_one": "{{count}} transaction recatégorisée",
+      "applied_other": "{{count}} transactions recatégorisées"
+    }
   }
 }

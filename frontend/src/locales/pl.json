@@ -124,6 +124,7 @@
     "recurring": "Cykliczne",
     "assets": "Aktywa",
     "investments": "Inwestycje",
+    "categorization": "Kategoryzacje",
     "payees": "Odbiorcy",
     "splitGroups": "Grupy",
     "goals": "Cele",
@@ -3732,5 +3733,90 @@
     "hiddenFromTotal_many": "Bez {{count}} ukrytych kart",
     "hiddenFromTotal_other": "Bez {{count}} ukrytej karty",
     "updateError": "Could not update the card"
+  },
+  "categorization": {
+    "subtitle": "Wszystkie kategorie miesiąca, także automatyczne, i skąd pochodzi każda z nich. Popraw tu błędne.",
+    "uncategorizedCount_one": "{{count}} bez kategorii",
+    "uncategorizedCount_few": "{{count}} bez kategorii",
+    "uncategorizedCount_many": "{{count}} bez kategorii",
+    "uncategorizedCount_other": "{{count}} bez kategorii",
+    "error": "Nie udało się wczytać transakcji z tego miesiąca.",
+    "empty": {
+      "title": "Brak transakcji w tym miesiącu",
+      "hint": "Transakcje z twoich banków, z importów i te, które dodajesz, pojawiają się tutaj do przejrzenia."
+    },
+    "emptyFilter": {
+      "uncategorized": "Wszystkie transakcje z tego miesiąca mają kategorię.",
+      "other": "Nic nie pasuje do tego filtra."
+    },
+    "filterLabel": "Filtruj według pochodzenia kategorii",
+    "filters": {
+      "uncategorized": "Bez kategorii",
+      "automatic": "Automatyczne",
+      "manual": "Ręczne",
+      "all": "Wszystkie"
+    },
+    "searchPlaceholder": "Szukaj opisu, odbiorcy lub kategorii",
+    "unknownHint_one": "{{count}} transakcja została skategoryzowana, zanim Securo zaczął zapisywać pochodzenie kategorii, dlatego widać ją tylko w Wszystkie.",
+    "unknownHint_few": "{{count}} transakcje zostały skategoryzowane, zanim Securo zaczął zapisywać pochodzenie kategorii, dlatego widać je tylko w Wszystkie.",
+    "unknownHint_many": "{{count}} transakcji zostało skategoryzowanych, zanim Securo zaczął zapisywać pochodzenie kategorii, dlatego widać je tylko w Wszystkie.",
+    "unknownHint_other": "{{count}} transakcji zostało skategoryzowanych, zanim Securo zaczął zapisywać pochodzenie kategorii, dlatego widać je tylko w Wszystkie.",
+    "totals": {
+      "title": "Według kategorii"
+    },
+    "rowCount_one": "{{count}} transakcja",
+    "rowCount_few": "{{count}} transakcje",
+    "rowCount_many": "{{count}} transakcji",
+    "rowCount_other": "{{count}} transakcji",
+    "uncategorized": "Bez kategorii",
+    "split": "Podzielona między kategorie",
+    "splitHint": "Edytuj podział w Transakcjach",
+    "categoryOf": "Kategoria {{description}}: {{category}}",
+    "source": {
+      "rule": "Reguła",
+      "ruleNamed": "Reguła: {{name}}",
+      "provider": "Bank",
+      "import": "Import",
+      "recurring": "Cykliczna",
+      "manual": "Ręczna",
+      "suggestion": "Przyjęta sugestia",
+      "unknown": "Pochodzenie niezapisane",
+      "uncategorized": "Bez kategorii"
+    },
+    "suggestion": "Sugestia:",
+    "suggestionBasis": {
+      "payee_one": "{{count}} raz dla tego odbiorcy",
+      "payee_few": "{{count}} razy dla tego odbiorcy",
+      "payee_many": "{{count}} razy dla tego odbiorcy",
+      "payee_other": "{{count}} razy dla tego odbiorcy",
+      "description_one": "{{count}} raz dla tego opisu",
+      "description_few": "{{count}} razy dla tego opisu",
+      "description_many": "{{count}} razy dla tego opisu",
+      "description_other": "{{count}} razy dla tego opisu"
+    },
+    "accept": "Przyjmij",
+    "acceptLabel": "Przyjmij {{category}} dla {{description}}",
+    "ruleName": "{{name}} → {{category}}",
+    "followUp": {
+      "movedTo": "na",
+      "dismiss": "Zamknij",
+      "samePayee": "Inne transakcje od {{name}}",
+      "sameDescription": "Inne transakcje z opisem „{{name}}”",
+      "applyMonth_one": "Zastosuj do jeszcze {{count}} w tym miesiącu",
+      "applyMonth_few": "Zastosuj do jeszcze {{count}} w tym miesiącu",
+      "applyMonth_many": "Zastosuj do jeszcze {{count}} w tym miesiącu",
+      "applyMonth_other": "Zastosuj do jeszcze {{count}} w tym miesiącu",
+      "applyAll_one": "Zastosuj do {{count}} z innego miesiąca",
+      "applyAll_few": "Zastosuj do wszystkich {{count}} ze wszystkich miesięcy",
+      "applyAll_many": "Zastosuj do wszystkich {{count}} ze wszystkich miesięcy",
+      "applyAll_other": "Zastosuj do wszystkich {{count}} ze wszystkich miesięcy",
+      "noneMonth": "Żadna inna transakcja z tego miesiąca tego nie potrzebuje.",
+      "createRule": "Utwórz regułę dla kolejnych",
+      "error": "Nie udało się wyszukać podobnych transakcji.",
+      "applied_one": "{{count}} transakcja przekategoryzowana",
+      "applied_few": "{{count}} transakcje przekategoryzowane",
+      "applied_many": "{{count}} transakcji przekategoryzowanych",
+      "applied_other": "{{count}} transakcji przekategoryzowanych"
+    }
   }
 }

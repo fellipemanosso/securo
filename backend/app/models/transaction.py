@@ -1,11 +1,12 @@
 import uuid
 from datetime import date as _date, datetime, timezone
 from decimal import Decimal
-from typing import TYPE_CHECKING, Optional, cast
+from typing import TYPE_CHECKING, Literal, Optional, cast
 
 from sqlalchemy import Boolean, Date, DateTime, ForeignKey, JSON, Numeric, SmallInteger, String, event
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm.base import instance_state
 
 from app.core.database import Base
 
@@ -119,6 +120,19 @@ class Transaction(Base):
     has_category_lines: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default="false"
     )
+    # How the current category got there, for the categorization review:
+    # "rule" (with the rule in `category_rule_id`), "provider" (the bank's own
+    # category, through the sync), "import" (the file or the import preview),
+    # "recurring" (the recurring bill the row was generated from), "manual"
+    # (the user picked it) or "suggestion" (the user accepted the category the
+    # review suggested). Null means not recorded: rows categorized before the
+    # column existed, or by a path that does not say. Written through
+    # `stamp_category_source`; the flush listeners below clear it whenever the
+    # category changes without saying how, so it never describes an old one.
+    category_source: Mapped[Optional[str]] = mapped_column(String(12), nullable=True)
+    category_rule_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("rules.id", ondelete="SET NULL"), nullable=True
+    )
     # Link to the recurring bill this transaction fulfills (issue #116). Set when
     # a synced/imported/manual charge is matched to a recurring bill, or stamped
     # onto the placeholder generate_pending materializes. ON DELETE SET NULL: if
@@ -182,3 +196,72 @@ def _default_effective_date(mapper, connection, target):
 def _default_effective_date_on_update(mapper, connection, target):
     if target.effective_date is None:
         target.effective_date = target.date
+
+
+CategorySource = Literal["rule", "provider", "import", "recurring", "manual", "suggestion"]
+
+_STAMPED = "_category_source_stamped"
+
+
+def _category_value(tx: Transaction) -> tuple:
+    loaded = instance_state(tx).dict
+    return (loaded.get("category_id"), bool(loaded.get("has_category_lines")))
+
+
+def stamp_category_source(
+    tx: Transaction, source: Optional[CategorySource], rule_id: Optional[uuid.UUID] = None
+) -> None:
+    """Record how `tx` got the category it holds now.
+
+    Call it right after writing the category. Setting the column by hand is not
+    enough on its own: when the new value equals the old one (a rule replacing
+    another rule's category) SQLAlchemy sees no change, and the listener would
+    take the category change as undeclared and clear it. The stamp names the
+    category it was made for, so a later change that does not stamp again is
+    still caught.
+    """
+    tx.category_source = source
+    tx.category_rule_id = rule_id if source == "rule" else None
+    setattr(tx, _STAMPED, _category_value(tx))
+
+
+def copy_category_source(source: Transaction, target: Transaction) -> None:
+    """Give `target` the provenance of the category it just took from `source`."""
+    stamp_category_source(
+        target,
+        cast(Optional[CategorySource], source.category_source),
+        source.category_rule_id,
+    )
+
+
+def _settle_category_source(target: Transaction, inserting: bool) -> None:
+    state = instance_state(target)
+    loaded = state.dict
+    stamped_for = loaded.pop(_STAMPED, None)
+    # Only read what is loaded: a lazy load here would fail under async.
+    if "category_id" not in loaded:
+        return
+    if loaded["category_id"] is None and not loaded.get("has_category_lines"):
+        target.category_source = None
+        target.category_rule_id = None
+        return
+    if inserting or stamped_for == _category_value(target):
+        return
+    attrs = state.attrs
+    changed = (
+        attrs.category_id.history.has_changes()
+        or attrs.has_category_lines.history.has_changes()
+    )
+    if changed and not attrs.category_source.history.has_changes():
+        target.category_source = None
+        target.category_rule_id = None
+
+
+@event.listens_for(Transaction, "before_insert")
+def _category_source_on_insert(mapper, connection, target):
+    _settle_category_source(target, inserting=True)
+
+
+@event.listens_for(Transaction, "before_update")
+def _category_source_on_update(mapper, connection, target):
+    _settle_category_source(target, inserting=False)

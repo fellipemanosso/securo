@@ -125,6 +125,7 @@
     "recurring": "Opakované",
     "assets": "Aktíva",
     "investments": "Investície",
+    "categorization": "Kategorizácie",
     "payees": "Príjemcovia",
     "splitGroups": "Skupiny",
     "goals": "Ciele",
@@ -3764,5 +3765,90 @@
     "hiddenFromTotal_many": "Bez {{count}} skrytej karty",
     "hiddenFromTotal_other": "Bez {{count}} skrytých kariet",
     "updateError": "Could not update the card"
+  },
+  "categorization": {
+    "subtitle": "Všetky kategórie mesiaca vrátane automatických a odkiaľ sa každá vzala. Opravte tu tie nesprávne.",
+    "uncategorizedCount_one": "{{count}} bez kategórie",
+    "uncategorizedCount_few": "{{count}} bez kategórie",
+    "uncategorizedCount_many": "{{count}} bez kategórie",
+    "uncategorizedCount_other": "{{count}} bez kategórie",
+    "error": "Transakcie za tento mesiac sa nepodarilo načítať.",
+    "empty": {
+      "title": "Tento mesiac žiadne transakcie",
+      "hint": "Transakcie z vašich bánk, z importov aj tie, ktoré zadáte, sa tu zobrazia na kontrolu."
+    },
+    "emptyFilter": {
+      "uncategorized": "Všetky transakcie tohto mesiaca majú kategóriu.",
+      "other": "Tomuto filtru nič nezodpovedá."
+    },
+    "filterLabel": "Filtrovať podľa pôvodu kategórie",
+    "filters": {
+      "uncategorized": "Bez kategórie",
+      "automatic": "Automatické",
+      "manual": "Ručné",
+      "all": "Všetky"
+    },
+    "searchPlaceholder": "Hľadať popis, príjemcu alebo kategóriu",
+    "unknownHint_one": "{{count}} transakcia bola zaradená skôr, než Securo začal zaznamenávať pôvod kategórií, preto sa zobrazuje len vo Všetky.",
+    "unknownHint_few": "{{count}} transakcie boli zaradené skôr, než Securo začal zaznamenávať pôvod kategórií, preto sa zobrazujú len vo Všetky.",
+    "unknownHint_many": "{{count}} transakcie bolo zaradených skôr, než Securo začal zaznamenávať pôvod kategórií, preto sa zobrazujú len vo Všetky.",
+    "unknownHint_other": "{{count}} transakcií bolo zaradených skôr, než Securo začal zaznamenávať pôvod kategórií, preto sa zobrazujú len vo Všetky.",
+    "totals": {
+      "title": "Podľa kategórie"
+    },
+    "rowCount_one": "{{count}} transakcia",
+    "rowCount_few": "{{count}} transakcie",
+    "rowCount_many": "{{count}} transakcie",
+    "rowCount_other": "{{count}} transakcií",
+    "uncategorized": "Bez kategórie",
+    "split": "Rozdelená medzi kategórie",
+    "splitHint": "Rozdelenie upravte v Transakciách",
+    "categoryOf": "Kategória {{description}}: {{category}}",
+    "source": {
+      "rule": "Pravidlo",
+      "ruleNamed": "Pravidlo: {{name}}",
+      "provider": "Banka",
+      "import": "Import",
+      "recurring": "Opakovaná",
+      "manual": "Ručná",
+      "suggestion": "Prijatý návrh",
+      "unknown": "Pôvod nezaznamenaný",
+      "uncategorized": "Bez kategórie"
+    },
+    "suggestion": "Návrh:",
+    "suggestionBasis": {
+      "payee_one": "{{count}}× pre tohto príjemcu",
+      "payee_few": "{{count}}× pre tohto príjemcu",
+      "payee_many": "{{count}}× pre tohto príjemcu",
+      "payee_other": "{{count}}× pre tohto príjemcu",
+      "description_one": "{{count}}× pre tento popis",
+      "description_few": "{{count}}× pre tento popis",
+      "description_many": "{{count}}× pre tento popis",
+      "description_other": "{{count}}× pre tento popis"
+    },
+    "accept": "Prijať",
+    "acceptLabel": "Prijať {{category}} pre {{description}}",
+    "ruleName": "{{name}} → {{category}}",
+    "followUp": {
+      "movedTo": "do",
+      "dismiss": "Zavrieť",
+      "samePayee": "Ďalšie transakcie od {{name}}",
+      "sameDescription": "Ďalšie transakcie s popisom „{{name}}“",
+      "applyMonth_one": "Použiť na ďalšiu {{count}} v tomto mesiaci",
+      "applyMonth_few": "Použiť na ďalšie {{count}} v tomto mesiaci",
+      "applyMonth_many": "Použiť na ďalších {{count}} v tomto mesiaci",
+      "applyMonth_other": "Použiť na ďalších {{count}} v tomto mesiaci",
+      "applyAll_one": "Použiť na {{count}} z iného mesiaca",
+      "applyAll_few": "Použiť na všetky {{count}} zo všetkých mesiacov",
+      "applyAll_many": "Použiť na všetkých {{count}} zo všetkých mesiacov",
+      "applyAll_other": "Použiť na všetkých {{count}} zo všetkých mesiacov",
+      "noneMonth": "Žiadna iná transakcia tohto mesiaca to nepotrebuje.",
+      "createRule": "Vytvoriť pravidlo pre ďalšie",
+      "error": "Podobné transakcie sa nepodarilo vyhľadať.",
+      "applied_one": "{{count}} transakcia prekategorizovaná",
+      "applied_few": "{{count}} transakcie prekategorizované",
+      "applied_many": "{{count}} transakcie prekategorizovaných",
+      "applied_other": "{{count}} transakcií prekategorizovaných"
+    }
   }
 }

@@ -7,6 +7,8 @@ from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING
 
+from app.models.transaction import stamp_category_source
+
 if TYPE_CHECKING:
     from app.models.transaction import Transaction
 
@@ -229,6 +231,7 @@ def apply_rule_actions(
     skip_description: bool = False,
     assignable_category_ids: Collection[uuid.UUID] | None = None,
     existing_payee_ids: Collection[uuid.UUID] | None = None,
+    rule_id: uuid.UUID | None = None,
 ) -> bool:
     """Apply actions in-place and return the updated category-set flag.
 
@@ -247,6 +250,8 @@ def apply_rule_actions(
     `set_payee` keeps its payee id the same way and can outlive the payee, so
     it only writes an id in `existing_payee_ids`. Passing nothing skips that
     check too.
+
+    A category written here is recorded as the rule's, under `rule_id`.
     """
     for action in actions:
         op = action.get("op")
@@ -260,6 +265,7 @@ def apply_rule_actions(
             if assignable_category_ids is not None and category_id not in assignable_category_ids:
                 continue
             tx.category_id = category_id
+            stamp_category_source(tx, "rule", rule_id)
             category_already_set = True
 
         elif op == "set_description":

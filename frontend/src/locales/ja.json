@@ -125,6 +125,7 @@
     "recurring": "定期取引",
     "assets": "資産",
     "investments": "投資",
+    "categorization": "分類の確認",
     "payees": "取引相手",
     "splitGroups": "グループ",
     "goals": "目標",
@@ -3594,5 +3595,74 @@
     "hiddenFromTotal_one": "非表示のカード{{count}}枚を除く",
     "hiddenFromTotal_other": "非表示のカード{{count}}枚を除く",
     "updateError": "Could not update the card"
+  },
+  "categorization": {
+    "subtitle": "今月のすべてのカテゴリ（自動で付いたものも含む）と、それぞれの由来。間違っているものはここで直せます。",
+    "uncategorizedCount_one": "未分類 {{count}} 件",
+    "uncategorizedCount_other": "未分類 {{count}} 件",
+    "error": "今月の取引を読み込めませんでした。",
+    "empty": {
+      "title": "今月の取引はありません",
+      "hint": "銀行からの取引、インポートした取引、手入力した取引がここに表示され、確認できます。"
+    },
+    "emptyFilter": {
+      "uncategorized": "今月の取引はすべて分類済みです。",
+      "other": "このフィルターに一致するものはありません。"
+    },
+    "filterLabel": "カテゴリの由来で絞り込む",
+    "filters": {
+      "uncategorized": "未分類",
+      "automatic": "自動",
+      "manual": "手動",
+      "all": "すべて"
+    },
+    "searchPlaceholder": "説明、支払先、カテゴリを検索",
+    "unknownHint_one": "{{count}} 件の取引は Securo がカテゴリの由来を記録する前に分類されたため、「すべて」にのみ表示されます。",
+    "unknownHint_other": "{{count}} 件の取引は Securo がカテゴリの由来を記録する前に分類されたため、「すべて」にのみ表示されます。",
+    "totals": {
+      "title": "カテゴリ別"
+    },
+    "rowCount_one": "{{count}} 件",
+    "rowCount_other": "{{count}} 件",
+    "uncategorized": "未分類",
+    "split": "複数カテゴリに分割",
+    "splitHint": "分割は取引ページで編集してください",
+    "categoryOf": "{{description}} のカテゴリ: {{category}}",
+    "source": {
+      "rule": "ルール",
+      "ruleNamed": "ルール: {{name}}",
+      "provider": "銀行",
+      "import": "インポート",
+      "recurring": "定期",
+      "manual": "手動",
+      "suggestion": "提案を採用",
+      "unknown": "由来の記録なし",
+      "uncategorized": "未分類"
+    },
+    "suggestion": "提案:",
+    "suggestionBasis": {
+      "payee_one": "この支払先で {{count}} 回",
+      "payee_other": "この支払先で {{count}} 回",
+      "description_one": "この説明で {{count}} 回",
+      "description_other": "この説明で {{count}} 回"
+    },
+    "accept": "採用",
+    "acceptLabel": "{{description}} に {{category}} を採用",
+    "ruleName": "{{name}} → {{category}}",
+    "followUp": {
+      "movedTo": "移動先",
+      "dismiss": "閉じる",
+      "samePayee": "{{name}} のほかの取引",
+      "sameDescription": "説明が「{{name}}」のほかの取引",
+      "applyMonth_one": "今月のほかの {{count}} 件にも適用",
+      "applyMonth_other": "今月のほかの {{count}} 件にも適用",
+      "applyAll_one": "別の月の {{count}} 件に適用",
+      "applyAll_other": "すべての月の {{count}} 件に適用",
+      "noneMonth": "今月ほかに対象の取引はありません。",
+      "createRule": "今後の取引用にルールを作成",
+      "error": "類似の取引を検索できませんでした。",
+      "applied_one": "{{count}} 件の取引を再分類しました",
+      "applied_other": "{{count}} 件の取引を再分類しました"
+    }
   }
 }

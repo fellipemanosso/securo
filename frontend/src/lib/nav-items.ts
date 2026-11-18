@@ -5,6 +5,7 @@ import {
   CalendarDays,
   CreditCard,
   Link2,
+  ListChecks,
   Plug,
   Landmark,
   PiggyBank,
@@ -45,6 +46,9 @@ export const navItems: NavItem[] = [
   // The questions matching could not answer, next to the money they are
   // about. The sidebar shows how many are waiting (see app-layout).
   { type: 'link', key: 'reconciliation', path: '/reconciliation', icon: Link2, module: 'transactions' },
+  // Every category of the month, the automatic ones too, to correct. The
+  // sidebar shows how many of this month's transactions have none.
+  { type: 'link', key: 'categorization', path: '/categorization', icon: ListChecks, module: 'transactions' },
   { type: 'link', key: 'accounts', path: '/accounts', icon: Building2, module: 'accounts' },
   { type: 'link', key: 'cards', path: '/cards', icon: CreditCard, module: 'accounts' },
   { type: 'link', key: 'connections', path: '/connections', icon: Plug, module: 'accounts' },

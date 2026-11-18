@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.app_clock import app_today
-from app.models.transaction import Transaction
+from app.models.transaction import CategorySource, Transaction, stamp_category_source
 from app.models.transaction_attachment import TransactionAttachment
 from app.models.account import Account
 from app.models.bank_connection import BankConnection
@@ -911,6 +911,7 @@ async def create_transaction(
         workspace_id=workspace_id,
         account_id=data.account_id,
         category_id=data.category_id,  # use provided category if given
+        category_source="manual" if data.category_id is not None else None,
         payee_id=data.payee_id,
         external_id=data.external_id,
         description=data.description,
@@ -940,6 +941,8 @@ async def create_transaction(
     # Lines first, so the rules below see a categorized row and leave its
     # category alone (they still rename, set the payee, and so on).
     await category_line_service.replace_lines(session, transaction, data.category_lines)
+    if splits_by_category:
+        stamp_category_source(transaction, "manual")
 
     # Apply rules only if no explicit category provided
     if not data.category_id:
@@ -1031,6 +1034,7 @@ async def create_installment_series(
             workspace_id=workspace_id,
             account_id=base.account_id,
             category_id=base.category_id,
+            category_source="manual" if base.category_id is not None else None,
             payee_id=base.payee_id,
             description=base.description,
             amount=base.amount,
@@ -1062,6 +1066,7 @@ async def create_installment_series(
     for tx in created:
         if splits_by_category:
             await category_line_service.replace_lines(session, tx, base.category_lines)
+            stamp_category_source(tx, "manual")
             await apply_rules_to_transaction(session, user_id, tx, skip_category_rules=True)
         elif not base.category_id:
             await apply_rules_to_transaction(session, user_id, tx)
@@ -1715,6 +1720,7 @@ async def _apply_update_to_row(
                 requested_cascade_fields -= {"amount", "date"}
             if should_cascade_category:
                 paired_tx.category_id = tx.category_id
+                stamp_category_source(paired_tx, "manual")
             # When the user typed both amounts, neither is a conversion of the
             # other: correcting one leg leaves the amount that actually landed
             # on the other account untouched. Re-converting here would throw
@@ -1928,6 +1934,9 @@ async def update_transaction(
             k: v for k, v in update_data.items() if k in installment_scoped_fields
         }
 
+    # Read before anything moves, to tell below which rows the user recategorized.
+    category_before = {row.id: (row.category_id, row.has_category_lines) for row in rows}
+
     # Validate every scoped row before any mutation, including unsplitting.
     # Mortgage principal entries remain owned by their payment breakdown.
     for row in rows:
@@ -2028,6 +2037,14 @@ async def update_transaction(
         await session.flush()
         await _resync_installment_series_total(session, workspace_id, transaction)
 
+    # The form sends the category back on every save, so only a category that
+    # actually changed, or a split the user sent, is recorded as theirs.
+    for row in rows:
+        if lines_payload is not None or category_before[row.id] != (
+            row.category_id, row.has_category_lines
+        ):
+            stamp_category_source(row, "manual")
+
     await session.commit()
     await session.refresh(transaction, ["category", "payee_entity", "splits", "category_lines"])
     return transaction
@@ -2055,7 +2072,13 @@ async def bulk_update_category(
     workspace_id: uuid.UUID,
     transaction_ids: list[uuid.UUID],
     category_id: Optional[uuid.UUID] = None,
+    source: CategorySource = "manual",
 ) -> int:
+    """Put every listed row in `category_id`, recording `source` as how.
+
+    A row already in that category keeps its provenance: the user confirmed
+    what a rule or the bank chose, which says nothing new about who chose it.
+    """
     await _ensure_category_in_workspace(session, workspace_id, category_id)
     # Principal entries keep no category, and a row split across categories
     # keeps its lines; skip both rather than fail the batch.
@@ -2087,8 +2110,18 @@ async def bulk_update_category(
         )
     if linked is not None:
         raise ValueError("Remove the mortgage breakdown before changing this payment")
+    if category_id is None:
+        provenance = {"category_source": None, "category_rule_id": None}
+    else:
+        unchanged = Transaction.category_id == category_id
+        provenance = {
+            "category_source": case((unchanged, Transaction.category_source), else_=source),
+            "category_rule_id": case((unchanged, Transaction.category_rule_id), else_=None),
+        }
     result = await session.execute(
-        update(Transaction).where(*target).values(category_id=category_id)
+        update(Transaction)
+        .where(*target)
+        .values(category_id=category_id, **provenance)
     )
     await session.commit()
     return cast(CursorResult, result).rowcount

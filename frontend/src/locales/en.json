@@ -125,6 +125,7 @@
     "recurring": "Recurring",
     "assets": "Assets",
     "investments": "Investments",
+    "categorization": "Categorizations",
     "payees": "Payees",
     "splitGroups": "Groups",
     "goals": "Goals",
@@ -3594,5 +3595,74 @@
     "hiddenFromTotal_one": "Excludes {{count}} hidden card",
     "hiddenFromTotal_other": "Excludes {{count}} hidden cards",
     "updateError": "Could not update the card"
+  },
+  "categorization": {
+    "subtitle": "Every category this month, automatic ones included, and where each one came from. Fix the wrong ones here.",
+    "uncategorizedCount_one": "{{count}} uncategorized",
+    "uncategorizedCount_other": "{{count}} uncategorized",
+    "error": "Could not load this month's transactions.",
+    "empty": {
+      "title": "No transactions this month",
+      "hint": "Transactions from your banks, from imports and the ones you add show up here to review."
+    },
+    "emptyFilter": {
+      "uncategorized": "Every transaction this month has a category.",
+      "other": "Nothing matches this filter."
+    },
+    "filterLabel": "Filter by how the category was set",
+    "filters": {
+      "uncategorized": "Uncategorized",
+      "automatic": "Automatic",
+      "manual": "Manual",
+      "all": "All"
+    },
+    "searchPlaceholder": "Search description, payee or category",
+    "unknownHint_one": "{{count}} transaction was categorized before Securo recorded where categories come from, so it only shows under All.",
+    "unknownHint_other": "{{count}} transactions were categorized before Securo recorded where categories come from, so they only show under All.",
+    "totals": {
+      "title": "By category"
+    },
+    "rowCount_one": "{{count}} transaction",
+    "rowCount_other": "{{count}} transactions",
+    "uncategorized": "Uncategorized",
+    "split": "Split across categories",
+    "splitHint": "Edit the split in Transactions",
+    "categoryOf": "Category of {{description}}: {{category}}",
+    "source": {
+      "rule": "Rule",
+      "ruleNamed": "Rule: {{name}}",
+      "provider": "Bank",
+      "import": "Import",
+      "recurring": "Recurring",
+      "manual": "Manual",
+      "suggestion": "Accepted suggestion",
+      "unknown": "Origin not recorded",
+      "uncategorized": "No category"
+    },
+    "suggestion": "Suggestion:",
+    "suggestionBasis": {
+      "payee_one": "{{count}} time for this payee",
+      "payee_other": "{{count}} times for this payee",
+      "description_one": "{{count}} time for this description",
+      "description_other": "{{count}} times for this description"
+    },
+    "accept": "Accept",
+    "acceptLabel": "Accept {{category}} for {{description}}",
+    "ruleName": "{{name}} → {{category}}",
+    "followUp": {
+      "movedTo": "moved to",
+      "dismiss": "Dismiss",
+      "samePayee": "Other transactions from {{name}}",
+      "sameDescription": "Other transactions described “{{name}}”",
+      "applyMonth_one": "Apply to {{count}} more this month",
+      "applyMonth_other": "Apply to {{count}} more this month",
+      "applyAll_one": "Apply to {{count}} in another month",
+      "applyAll_other": "Apply to {{count}} across every month",
+      "noneMonth": "No other transaction this month needs it.",
+      "createRule": "Create a rule for the next ones",
+      "error": "Could not look for similar transactions.",
+      "applied_one": "{{count}} transaction recategorized",
+      "applied_other": "{{count}} transactions recategorized"
+    }
   }
 }

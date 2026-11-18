@@ -125,6 +125,7 @@
     "recurring": "आवर्ती",
     "assets": "संपत्तियाँ",
     "investments": "निवेश",
+    "categorization": "वर्गीकरण",
     "payees": "प्राप्तकर्ता",
     "splitGroups": "समूह",
     "goals": "लक्ष्य",
@@ -3594,5 +3595,74 @@
     "hiddenFromTotal_one": "{{count}} छिपा हुआ कार्ड शामिल नहीं",
     "hiddenFromTotal_other": "{{count}} छिपे हुए कार्ड शामिल नहीं",
     "updateError": "Could not update the card"
+  },
+  "categorization": {
+    "subtitle": "महीने की सभी श्रेणियाँ, स्वचालित भी, और हर एक कहाँ से आई। गलत श्रेणियाँ यहीं ठीक करें।",
+    "uncategorizedCount_one": "{{count}} बिना श्रेणी",
+    "uncategorizedCount_other": "{{count}} बिना श्रेणी",
+    "error": "इस महीने के लेन-देन लोड नहीं हो सके।",
+    "empty": {
+      "title": "इस महीने कोई लेन-देन नहीं",
+      "hint": "आपके बैंकों से, इम्पोर्ट से और आपके जोड़े गए लेन-देन यहाँ जाँच के लिए दिखते हैं।"
+    },
+    "emptyFilter": {
+      "uncategorized": "इस महीने के सभी लेन-देन की श्रेणी है।",
+      "other": "इस फ़िल्टर से कुछ मेल नहीं खाता।"
+    },
+    "filterLabel": "श्रेणी के स्रोत से फ़िल्टर करें",
+    "filters": {
+      "uncategorized": "बिना श्रेणी",
+      "automatic": "स्वचालित",
+      "manual": "मैन्युअल",
+      "all": "सभी"
+    },
+    "searchPlaceholder": "विवरण, प्राप्तकर्ता या श्रेणी खोजें",
+    "unknownHint_one": "{{count}} लेन-देन को Securo द्वारा श्रेणियों का स्रोत दर्ज करने से पहले वर्गीकृत किया गया था, इसलिए वह केवल सभी में दिखता है।",
+    "unknownHint_other": "{{count}} लेन-देन को Securo द्वारा श्रेणियों का स्रोत दर्ज करने से पहले वर्गीकृत किया गया था, इसलिए वे केवल सभी में दिखते हैं।",
+    "totals": {
+      "title": "श्रेणी के अनुसार"
+    },
+    "rowCount_one": "{{count}} लेन-देन",
+    "rowCount_other": "{{count}} लेन-देन",
+    "uncategorized": "बिना श्रेणी",
+    "split": "कई श्रेणियों में बँटा",
+    "splitHint": "बँटवारा लेन-देन पेज पर बदलें",
+    "categoryOf": "{{description}} की श्रेणी: {{category}}",
+    "source": {
+      "rule": "नियम",
+      "ruleNamed": "नियम: {{name}}",
+      "provider": "बैंक",
+      "import": "इम्पोर्ट",
+      "recurring": "आवर्ती",
+      "manual": "मैन्युअल",
+      "suggestion": "स्वीकार किया गया सुझाव",
+      "unknown": "स्रोत दर्ज नहीं",
+      "uncategorized": "बिना श्रेणी"
+    },
+    "suggestion": "सुझाव:",
+    "suggestionBasis": {
+      "payee_one": "इस प्राप्तकर्ता के लिए {{count}} बार",
+      "payee_other": "इस प्राप्तकर्ता के लिए {{count}} बार",
+      "description_one": "इस विवरण के लिए {{count}} बार",
+      "description_other": "इस विवरण के लिए {{count}} बार"
+    },
+    "accept": "स्वीकार करें",
+    "acceptLabel": "{{description}} के लिए {{category}} स्वीकार करें",
+    "ruleName": "{{name}} → {{category}}",
+    "followUp": {
+      "movedTo": "में गया",
+      "dismiss": "बंद करें",
+      "samePayee": "{{name}} के अन्य लेन-देन",
+      "sameDescription": "“{{name}}” विवरण वाले अन्य लेन-देन",
+      "applyMonth_one": "इस महीने के {{count}} और पर लागू करें",
+      "applyMonth_other": "इस महीने के {{count}} और पर लागू करें",
+      "applyAll_one": "दूसरे महीने के {{count}} पर लागू करें",
+      "applyAll_other": "सभी महीनों के {{count}} पर लागू करें",
+      "noneMonth": "इस महीने किसी और लेन-देन को इसकी ज़रूरत नहीं।",
+      "createRule": "आगे के लिए नियम बनाएँ",
+      "error": "मिलते-जुलते लेन-देन नहीं खोजे जा सके।",
+      "applied_one": "{{count}} लेन-देन की श्रेणी बदली गई",
+      "applied_other": "{{count}} लेन-देन की श्रेणी बदली गई"
+    }
   }
 }

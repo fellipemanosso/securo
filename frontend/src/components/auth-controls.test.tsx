@@ -22,6 +22,7 @@ const state = vi.hoisted(() => ({
   workspace: { id: 'synthetic', name: 'Synthetic workspace', kind: 'personal', role: 'owner' },
   modules: [] as string[],
   pendingReconciliations: vi.fn(),
+  listTransactions: vi.fn(),
   auth: {
     oidcConfig: vi.fn(),
     listPasskeys: vi.fn(),
@@ -70,6 +71,7 @@ vi.mock('@/lib/api', () => ({
   workspaces: { create: vi.fn() },
   info: { get: async () => ({ features: {} }) },
   reconciliation: { suggestionCount: state.pendingReconciliations },
+  transactions: { list: state.listTransactions },
 }))
 vi.mock('@/lib/webauthn', () => ({
   passkeyBlocker: () => null,
@@ -99,6 +101,7 @@ beforeEach(() => {
   state.user = { ...state.user, is_2fa_enabled: true }
   state.modules = []
   state.pendingReconciliations.mockResolvedValue(0)
+  state.listTransactions.mockResolvedValue({ items: [], total: 0, page: 1, limit: 1 })
   state.auth.oidcConfig.mockResolvedValue({
     enabled: true,
     local_auth_enabled: false,
@@ -159,6 +162,32 @@ it('shows how many reconciliations are waiting on the sidebar link', async () =>
   })
   expect(link).toHaveAttribute('href', '/reconciliation')
   expect(within(link).getByTestId('nav-count-badge')).toHaveTextContent('3')
+})
+
+it("shows this month's uncategorized transactions on the Categorizações link", async () => {
+  state.modules = ['transactions']
+  state.listTransactions.mockResolvedValue({ items: [], total: 4, page: 1, limit: 1 })
+
+  renderWithProviders(<AppLayout />)
+
+  const link = await screen.findByRole('link', {
+    name: `${t('nav.categorization')}, ${t('categorization.uncategorizedCount', { count: 4 })}`,
+  })
+  expect(link).toHaveAttribute('href', '/categorization')
+  expect(within(link).getByTestId('nav-count-badge')).toHaveTextContent('4')
+  expect(state.listTransactions).toHaveBeenCalledWith(
+    expect.objectContaining({ uncategorized: true, exclude_transfers: true, exclude_ignored: true, limit: 1 }),
+  )
+})
+
+it('hides the Categorizações badge when nothing is left uncategorized', async () => {
+  state.modules = ['transactions']
+
+  renderWithProviders(<AppLayout />)
+
+  const link = await screen.findByRole('link', { name: t('nav.categorization') })
+  await waitFor(() => expect(state.listTransactions).toHaveBeenCalled())
+  expect(within(link).queryByTestId('nav-count-badge')).not.toBeInTheDocument()
 })
 
 it.each(['desktop', 'mobile'])(
