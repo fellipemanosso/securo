@@ -45,7 +45,8 @@ import type { AttachmentPreview } from '@/components/transaction-attachments'
 import { TransactionSplitsSection } from '@/components/transaction-splits-section'
 import { buildInstallmentSeriesInput, hasNonStatusChange, isManualInstallmentSeriesRow } from '@/lib/installment-series'
 import { usePrivacyMode } from '@/hooks/use-privacy-mode'
-import type { Transaction, RecurringTransaction, TransactionSplitsInput, TransactionEditPayload, InstallmentSeriesInput, TransactionApplyScope, CategoryGroup, Category, CategoryLineShareType, Rule, RuleCondition, RuleConditionNode } from '@/types'
+import { statementOptionLabel, useCreditCardTimeline } from '@/hooks/use-credit-card-timeline'
+import type { Transaction, RecurringTransaction, TransactionSplitsInput, TransactionEditPayload, InstallmentSeriesInput, TransactionApplyScope, CategoryGroup, Category, CategoryLineShareType, CreditCardTimelineItem, Rule, RuleCondition, RuleConditionNode } from '@/types'
 import { TransactionCategoryLinesSection } from '@/components/transaction-category-lines-section'
 import {
   buildLinesPayload,
@@ -432,7 +433,7 @@ function TransactionForm({
   activePreviewId: string | null
   hasPreview: boolean
 }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const queryClient = useQueryClient()
   const { user } = useAuth()
   const { privacyMode, MASK } = usePrivacyMode()
@@ -474,6 +475,20 @@ function TransactionForm({
   // Manual CC bucketing override (issue #92). Empty = auto. Visible only
   // when the selected account is a credit card.
   const [effectiveBillDate, setEffectiveBillDate] = useState(seed?.effective_bill_date ?? '')
+  // The bills a card charge can be moved to: the card's statements, newest
+  // first, each standing for its due date, which is what the override stores.
+  const billAccountIsCard = accounts.find(a => a.id === accountId)?.type === 'credit_card'
+  const { data: billTimeline } = useCreditCardTimeline(accountId || undefined, billAccountIsCard)
+  const billOptions = useMemo(() => {
+    const seen = new Set<string>()
+    const options: (CreditCardTimelineItem & { due_date: string })[] = []
+    for (const item of billTimeline?.[0]?.items ?? []) {
+      if (!item.cycle_key || !item.due_date || seen.has(item.due_date)) continue
+      seen.add(item.due_date)
+      options.push({ ...item, due_date: item.due_date })
+    }
+    return options.reverse()
+  }, [billTimeline])
   const [convertedAmount, setConvertedAmount] = useState(
     seed?.amount_primary != null ? formatAmountInput(seed.amount_primary, displayLocale, 8) : ''
   )
@@ -1381,43 +1396,41 @@ function TransactionForm({
         </label>
       )}
 
-      {/* Manual bill-cycle override (issue #92). CC accounts only. Empty
-          input = use auto bucketing (Pluggy bill_id when available, cycle
-          math otherwise). Setting the date forces this tx into the bill
-          whose due_date matches. */}
-      {(() => {
-        const selectedAcc = accounts.find(a => a.id === accountId)
-        if (selectedAcc?.type !== 'credit_card') return null
-        return (
-          <div className="space-y-2">
-            <Label>
-              {t('transactions.effectiveBillDate', 'Effective bill date')}{' '}
-              <span className="text-muted-foreground font-normal text-xs">
-                ({seed?.effective_bill_date_source === 'provider' && effectiveBillDate === seed.effective_bill_date
-                  ? t('transactions.effectiveBillDateForecastHint', 'bank forecast, change it to override manually')
-                  : t('transactions.effectiveBillDateHint', 'manual, overrides the automatic cycle')})
-              </span>
-            </Label>
-            <div className="inline-flex items-center gap-1">
-              <DatePickerInput
-                value={effectiveBillDate}
-                onChange={setEffectiveBillDate}
-                placeholder={t('transactions.effectiveBillDatePlaceholder', 'Bill due date (optional)')}
-              />
-              {effectiveBillDate && (
-                <button
-                  type="button"
-                  className="h-9 w-9 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors shrink-0"
-                  onClick={() => setEffectiveBillDate('')}
-                  title={t('transactions.clearOverride', 'Remover sobrescrição')}
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-          </div>
-        )
-      })()}
+      {/* Manual bill-cycle override (issue #92). CC accounts only. Automatic
+          = bank bill_id when available, cycle math otherwise. Choosing a
+          statement stores its due date, which forces this tx into it. */}
+      {billAccountIsCard && (
+        <div className="space-y-2">
+          <Label htmlFor="effective-bill-date">
+            {t('transactions.effectiveBillDate', 'Effective bill date')}{' '}
+            <span className="text-muted-foreground font-normal text-xs">
+              ({seed?.effective_bill_date_source === 'provider' && effectiveBillDate === seed.effective_bill_date
+                ? t('transactions.effectiveBillDateForecastHint', 'bank forecast, change it to override manually')
+                : t('transactions.effectiveBillDateHint', 'manual, overrides the automatic cycle')})
+            </span>
+          </Label>
+          <select
+            id="effective-bill-date"
+            className="w-full border border-border rounded-md px-3 py-2 text-sm bg-card focus:outline-none focus-visible:ring-ring/30 focus-visible:ring-[2px]"
+            value={effectiveBillDate}
+            onChange={(e) => setEffectiveBillDate(e.target.value)}
+          >
+            <option value="">{t('transactions.effectiveBillDateAuto')}</option>
+            {/* A date outside the card's timeline (an old override, a bank
+                forecast Securo has no statement for) stays selectable. */}
+            {effectiveBillDate && !billOptions.some(item => item.due_date === effectiveBillDate) && (
+              <option value={effectiveBillDate}>
+                {t('accounts.billHeader.due', { date: new Date(effectiveBillDate + 'T00:00:00').toLocaleDateString(dateLocale) })}
+              </option>
+            )}
+            {billOptions.map(item => (
+              <option key={item.due_date} value={item.due_date}>
+                {statementOptionLabel(item, t, i18n.resolvedLanguage ?? i18n.language, dateLocale)}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* A settlement-sourced transaction *is* the movement clearing a
           group debt; splitting it would create circular accounting

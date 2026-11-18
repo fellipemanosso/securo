@@ -55,6 +55,9 @@ vi.mock('@/contexts/workspace-context', () => ({
   useWorkspace: () => ({ canWrite: true }),
 }))
 
+const viewport = vi.hoisted(() => ({ mobile: false }))
+vi.mock('@/hooks/use-mobile', () => ({ useIsMobile: () => viewport.mobile }))
+
 // Which transaction the page opens is what these tests check; the dialog's
 // own form, and the APIs it loads, have their own tests.
 vi.mock('@/components/transaction-dialog', () => ({
@@ -119,6 +122,7 @@ function txCalls() {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  viewport.mobile = false
   vi.setSystemTime(new Date('2026-09-08T12:00:00'))
   api.accounts.get.mockResolvedValue(account)
   api.accounts.creditCardTimeline.mockResolvedValue(timeline)
@@ -175,6 +179,7 @@ describe('credit card cycle window', () => {
     await waitFor(() => expect(txCalls().at(-1)!.cycle_key).toBe('bill:bill-may'))
 
     await user.click(cycleHeader())
+    await user.click(await screen.findByRole('button', { name: 'Custom range…' }))
     await user.click(await screen.findByRole('button', { name: '4/29/2026' }))
     await user.click(screen.getByRole('button', { name: 'April 2026' }))
     await user.click(screen.getByRole('button', { name: 'May' }))
@@ -192,6 +197,7 @@ describe('credit card cycle window', () => {
 
     await user.click(await screen.findByTitle('Previous cycle'))
     await user.click(cycleHeader())
+    await user.click(await screen.findByRole('button', { name: 'Custom range…' }))
     await user.click(await screen.findByRole('button', { name: '4/29/2026' }))
     await user.click(screen.getByRole('button', { name: 'April 2026' }))
     await user.click(screen.getByRole('button', { name: 'May' }))
@@ -236,6 +242,23 @@ describe('credit card cycle window', () => {
     // earlier, named by its dates instead of a statement month.
     expect(previous).toBeDisabled()
     expect(screen.getByTitle('Next cycle')).toBeEnabled()
+  })
+
+  it('jumps to the statement chosen from the selector\'s list', async () => {
+    const { user } = await renderPage()
+
+    await user.click(cycleHeader())
+    const list = await screen.findByRole('list', { name: 'Bills' })
+    // Newest first, the selected bill marked.
+    const options = within(list).getAllByRole('button')
+    expect(options.map((option) => option.textContent?.slice(0, 8))).toEqual(['Oct 2026', 'May 2026', 'Apr 2026'])
+    expect(options[0]).toHaveAttribute('aria-current', 'true')
+
+    await user.click(within(list).getByRole('button', { name: /^Apr 2026/ }))
+
+    await waitFor(() => expect(txCalls().at(-1)!.cycle_key).toBe('bill:bill-apr'))
+    expect(screen.queryByRole('list', { name: 'Bills' })).not.toBeInTheDocument()
+    expect(await screen.findByRole('region', { name: 'April bill' })).toBeInTheDocument()
   })
 
   it('lists the installments the bank will bill on the open statement', async () => {
@@ -290,12 +313,16 @@ describe('bill total provenance', () => {
     expect(screen.queryByText('Payments and adjustments')).not.toBeInTheDocument()
   })
 
-  it('credits a closed bank statement to the bank, with its closing date', async () => {
+  it('credits a closed bank statement to the bank, without repeating the closing date', async () => {
     const { user } = await renderPage()
 
     await user.click(await screen.findByTitle('Previous cycle'))
 
-    expect(await screen.findByText('Bank · closed 04/30')).toBeInTheDocument()
+    const header = await screen.findByRole('region', { name: 'May bill' })
+    expect(await within(header).findByText('Bank')).toBeInTheDocument()
+    // The state and the date are said once, in the line under the title.
+    expect(within(header).getByText('Closed Thu, 4/30')).toBeInTheDocument()
+    expect(within(header).queryByText(/04\/30/)).not.toBeInTheDocument()
     expect(screen.queryByText('Securo estimate')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: "What's included?" })).not.toBeInTheDocument()
   })
@@ -595,7 +622,7 @@ describe('months without a statement', () => {
     await user.click(previous)
     await waitFor(() => expect(txCalls().at(-1)!.cycle_key).toBe('cycle:2026-06-30'))
     expect(await screen.findByText('Securo estimate')).toBeInTheDocument()
-    expect(screen.queryByText(/^Bank ·/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Bank')).not.toBeInTheDocument()
 
     await user.click(previous)
     await waitFor(() => expect(txCalls().at(-1)!.cycle_key).toBe('bill:bill-jun'))
@@ -634,6 +661,8 @@ describe('keyboard and screen reader access', () => {
     const nav = screen.getByRole('navigation', { name: 'Bills' })
     const selected = await within(nav).findByRole('button', { name: /^Oct 2026, / })
     await waitFor(() => expect(selected).toHaveAttribute('aria-current', 'true'))
+    // The open bill is Securo's number; a statement the bank closed is not.
+    expect(selected).toHaveAccessibleName(/Securo estimate$/)
     const may = within(nav).getByRole('button', { name: 'May 2026, R$280.00' })
     expect(may).not.toHaveAttribute('aria-current')
 
@@ -659,5 +688,45 @@ describe('keyboard and screen reader access', () => {
     const help = await screen.findByRole('dialog')
     expect(help).toHaveTextContent('Installment plan — 10 charges totaling R$1,000.00')
     expect(screen.getAllByRole('dialog')).toHaveLength(1)
+  })
+})
+
+describe('row markers', () => {
+  it.each([['desktop table', false], ['phone list', true]])('marks rows with the same words in the %s', async (_, mobile) => {
+    viewport.mobile = mobile
+    api.transactions.list.mockResolvedValue({
+      items: [
+        cardTx('Sofa', {
+          date: '2026-09-02', type: 'debit', amount: 100, status: 'pending',
+          recurring_transaction_id: 'rec-1', installment_number: 3, total_installments: 10,
+          effective_bill_date: '2026-10-10',
+        }),
+        cardTx('Card payment', {
+          date: '2026-09-03', type: 'credit', amount: 50,
+          category: category({ id: 'cat-pay', name: 'Transfers', treat_as_transfer: true }),
+        }),
+      ],
+      total: 2,
+    })
+    api.accounts.installmentForecasts.mockResolvedValue([{
+      key: 'tx-1:7', description: 'THIAGO PEREIRA', amount: 720, currency: 'BRL', type: 'debit',
+      purchase_date: '2026-05-06', due_date: '2026-10-10', installment_number: 7,
+      total_installments: 10, category_id: null, card_last4: '9984',
+    }])
+    await renderPage()
+    const rowOf = async (description: string) =>
+      (await screen.findByText(description)).closest<HTMLElement>('tr, div.border-b')!
+
+    const sofa = await rowOf('Sofa')
+    for (const marker of ['Recurring', '3/10', 'Bill Oct', 'Pending']) {
+      expect(within(sofa).getByText(marker)).toBeInTheDocument()
+    }
+    expect(within(sofa).queryByText('R')).not.toBeInTheDocument()
+    expect(within(await rowOf('Card payment')).getByText('Transfer')).toBeInTheDocument()
+    const forecastRow = await rowOf('THIAGO PEREIRA')
+    expect(within(forecastRow).getByText('Projected')).toBeInTheDocument()
+    expect(within(forecastRow).getByText('7/10')).toBeInTheDocument()
+    // A forecast is already marked as one, not also as pending.
+    expect(within(forecastRow).queryByText('Pending')).not.toBeInTheDocument()
   })
 })

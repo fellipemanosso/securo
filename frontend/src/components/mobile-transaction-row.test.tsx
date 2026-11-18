@@ -114,22 +114,22 @@ function renderRow(tx: Transaction) {
   )
 }
 
-describe('MobileTransactionRow transfer indicator', () => {
-  it('shows the transfer icon for a treat_as_transfer category without a pair (#993)', () => {
+describe('MobileTransactionRow transfer marker', () => {
+  it('marks a treat_as_transfer category without a pair as a transfer (#993)', () => {
     const category = makeCategory({ treat_as_transfer: true })
     renderRow(makeTx({ category_id: category.id, category }))
-    expect(screen.getByLabelText('transactions.transfer')).toBeInTheDocument()
+    expect(screen.getByText('transactions.transfer')).toBeInTheDocument()
   })
 
-  it('shows the transfer icon for a linked transfer pair', () => {
+  it('marks a linked transfer pair as a transfer', () => {
     renderRow(makeTx({ transfer_pair_id: 'pair-1' }))
-    expect(screen.getByLabelText('transactions.transfer')).toBeInTheDocument()
+    expect(screen.getByText('transactions.transfer')).toBeInTheDocument()
   })
 
-  it('hides the transfer icon for a normal row', () => {
+  it('leaves a normal row unmarked', () => {
     const category = makeCategory({ treat_as_transfer: false })
     renderRow(makeTx({ category_id: category.id, category }))
-    expect(screen.queryByLabelText('transactions.transfer')).not.toBeInTheDocument()
+    expect(screen.queryByText('transactions.transfer')).not.toBeInTheDocument()
   })
 })
 

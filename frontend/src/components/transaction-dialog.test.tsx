@@ -2,7 +2,7 @@ import { screen, within } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 
 import { TransactionDialog } from '@/components/transaction-dialog'
-import { assets, currencies, groups, mortgagePayments, payees, transactions } from '@/lib/api'
+import { accounts, assets, currencies, groups, mortgagePayments, payees, transactions } from '@/lib/api'
 import { renderWithProviders, t } from '@/test/utils'
 import type { Account, RecurringTransaction, Transaction } from '@/types'
 
@@ -152,6 +152,57 @@ it('forgets a save variant the browser blocked, so a later plain Save just saves
 
   expect(onSave).toHaveBeenCalledTimes(1)
   expect(onSave.mock.calls[0][4]).toBe('save')
+})
+
+it('moves a card charge onto the bill picked from the card\'s statements', async () => {
+  vi.spyOn(currencies, 'list').mockResolvedValue([])
+  vi.spyOn(payees, 'list').mockResolvedValue([])
+  vi.spyOn(groups, 'list').mockResolvedValue([])
+  const statement = (dueDate: string, kind: 'statement' | 'projection') => ({
+    account_id: 'card-1', due_month: dueDate.slice(0, 7), kind,
+    cycle_key: `cycle:${dueDate}`, start: null, end: null, closing_date: null, due_date: dueDate,
+    amount: null, primary_amount: null, source: null, record_id: null, status: null,
+    editable: false, unavailable_reason: null,
+  })
+  vi.spyOn(accounts, 'creditCardTimeline').mockResolvedValue([{
+    account_id: 'card-1',
+    default_key: 'cycle:2026-11-10',
+    items: [statement('2026-11-10', 'statement'), statement('2026-12-10', 'projection')],
+  }])
+  const onSave = vi.fn()
+  const card = { id: 'card-1', name: 'Card', type: 'credit_card', currency: 'USD' } as Account
+  const { user } = renderWithProviders(
+    <TransactionDialog
+      open
+      onClose={vi.fn()}
+      transaction={null}
+      categories={[]}
+      categoryGroups={[]}
+      accounts={[card]}
+      defaultAccountId="card-1"
+      onSave={onSave}
+      loading={false}
+      error={null}
+    />,
+  )
+
+  const billSelect = screen.getByRole('combobox', { name: new RegExp(t('transactions.effectiveBillDate')) })
+  // Newest bill first, each named by its month and due date.
+  await screen.findByRole('option', { name: 'Dec 2026 · Due 12/10' })
+  expect(Array.from((billSelect as HTMLSelectElement).options).map(option => option.textContent)).toEqual([
+    t('transactions.effectiveBillDateAuto'),
+    'Dec 2026 · Due 12/10',
+    'Nov 2026 · Due 11/10',
+  ])
+  await user.selectOptions(billSelect, 'Dec 2026 · Due 12/10')
+  const form = billSelect.closest('form') as HTMLFormElement
+  const [description, amount] = Array.from(form.querySelectorAll<HTMLInputElement>('input[required]'))
+  await user.type(description, 'Sofa')
+  await user.type(amount, '120')
+  await user.click(screen.getByRole('button', { name: t('common.save') }))
+
+  expect(onSave).toHaveBeenCalledTimes(1)
+  expect(onSave.mock.calls[0][0].effective_bill_date).toBe('2026-12-10')
 })
 
 function transferLegFixture(pairId: string, over: Partial<Transaction> = {}): Transaction {

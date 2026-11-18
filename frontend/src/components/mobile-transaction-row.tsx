@@ -1,6 +1,8 @@
 import { getAccountName } from '@/lib/account-utils'
 import { AccountIcon } from '@/components/account-icon'
 import { CategorySplitBadge, TransactionCategoryIcon } from '@/components/category-lines-display'
+import { ProjectedTransactionBadge } from '@/components/projected-transaction-badge'
+import { TransactionChip, billChipLabel } from '@/components/transaction-chip'
 import { isSplitByCategory } from '@/lib/category-lines'
 import type { Transaction, Account } from '@/types'
 import { AlertTriangle, ArrowLeftRight, CalendarClock, ChartNoAxesColumn, Clock, EyeClosed, Paperclip } from 'lucide-react'
@@ -55,7 +57,7 @@ export function MobileTransactionRow({
   localizeOpeningBalance = false,
 }: MobileTransactionRowProps) {
   const { mask } = usePrivacyMode()
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const description = localizeOpeningBalance
     ? transactionDescription(tx.description, tx.source, t)
     : tx.description
@@ -137,8 +139,10 @@ export function MobileTransactionRow({
 
         {/* Content */}
         <div className="min-w-0 flex-1">
-          {/* Description row */}
-          <div className="flex items-center gap-1.5">
+          {/* Description row. The markers are the desktop row's chips, word
+              for word; they wrap under a long description instead of
+              squeezing it. */}
+          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
             <p className={`text-sm font-semibold text-foreground leading-tight min-w-0 ${hasWordBreaks(description) ? 'break-words whitespace-normal' : 'truncate'}`}>
               {description}
             </p>
@@ -149,40 +153,37 @@ export function MobileTransactionRow({
             )}
             {isSplitByCategory(tx) && <CategorySplitBadge tx={tx} compact className="shrink-0 text-[10px] px-1" />}
             {isTransferTransaction(tx) && (
-              <ArrowLeftRight
-                className="h-3 w-3 text-blue-600 shrink-0"
-                aria-label={t('transactions.transfer')}
-              />
-            )}
-            {virtual && (
-              <CalendarClock className="h-3 w-3 text-primary shrink-0" role="img" aria-label={t('transactions.projected')} />
+              <TransactionChip>
+                <ArrowLeftRight aria-hidden="true" />
+                {t('transactions.transfer')}
+              </TransactionChip>
             )}
             {tx.is_ignored && (
-              <EyeClosed className="h-3 w-3 text-gray-500 shrink-0" role="img" aria-label={t('transactions.ignored')} />
+              <TransactionChip>
+                <EyeClosed aria-hidden="true" />
+                {t('transactions.ignored')}
+              </TransactionChip>
+            )}
+            {virtual && <ProjectedTransactionBadge />}
+            {tx.recurring_transaction_id != null && !virtual && (
+              <TransactionChip>{t('transactions.recurringBadge')}</TransactionChip>
+            )}
+            {tx.installment_number != null && tx.total_installments != null && (
+              <TransactionChip className="tabular-nums">
+                {tx.installment_number}/{tx.total_installments}
+              </TransactionChip>
+            )}
+            {tx.effective_bill_date && (
+              <TransactionChip>
+                <CalendarClock aria-hidden="true" />
+                {billChipLabel(tx.effective_bill_date, t, i18n.resolvedLanguage ?? i18n.language)}
+              </TransactionChip>
             )}
             {tx.exclude_from_pnl && !tx.is_ignored && (
               <ChartNoAxesColumn
                 className="h-3 w-3 text-slate-500 shrink-0"
                 aria-label={t('transactions.excludedFromReports')}
               />
-            )}
-            {tx.recurring_transaction_id != null && !virtual && (
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-primary bg-primary/5 border border-primary/10 px-1 py-0.5 rounded-full shrink-0">
-                R
-              </span>
-            )}
-            {tx.installment_number != null && tx.total_installments != null && (
-              <span className="text-[10px] font-bold tabular-nums text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-500/20 border border-amber-200 dark:border-amber-500/30 px-1 py-0.5 rounded-full shrink-0">
-                {tx.installment_number}/{tx.total_installments}
-              </span>
-            )}
-            {shouldShowPendingBadge(tx) && (
-              <span
-                title={t('transactions.pending')}
-                className="shrink-0 inline-flex items-center justify-center rounded-full border border-amber-200 bg-amber-50 p-0.5 dark:border-amber-500/30 dark:bg-amber-500/10"
-              >
-                <Clock size={12} className="text-amber-500" role="img" aria-label={t('transactions.pending')} />
-              </span>
             )}
             {(tx.attachment_count ?? 0) > 0 && (
               <Paperclip size={11} className="text-muted-foreground shrink-0" role="img" aria-label={t('transactions.attachments')} />
@@ -216,11 +217,18 @@ export function MobileTransactionRow({
           )}
         </div>
 
-        {/* Amount */}
+        {/* Amount, and whether it has settled: said in words, not only by
+            an icon. A projection is already marked as one. */}
         <div className="shrink-0 text-right">
           <span className={`text-sm font-bold tabular-nums ${amountColor}`}>
             {mask(amountText)}
           </span>
+          {shouldShowPendingBadge(tx) && !virtual && (
+            <div className="mt-0.5 flex items-center justify-end gap-1 text-[11px] font-medium text-muted-foreground">
+              <Clock size={11} aria-hidden="true" />
+              {t('transactions.pending')}
+            </div>
+          )}
           {tx.amount_primary != null && tx.currency !== userCurrency && (
             <div className="flex items-center justify-end gap-0.5 mt-0.5">
               {tx.fx_fallback && (

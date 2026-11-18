@@ -4,7 +4,7 @@ import { useParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useDisplayLocale, useDateLocale } from '@/hooks/use-display-locale'
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { format, addMonths, endOfMonth, formatDistanceToNow, parseISO, startOfMonth, subMonths } from 'date-fns'
+import { format, addMonths, formatDistanceToNow, parseISO } from 'date-fns'
 import { accounts, connections, dashboard, transactions, categories as categoriesApi, categoryGroups as categoryGroupsApi } from '@/lib/api'
 import { localDateString } from '@/lib/date-utils'
 import { applyTransactionToBalance, billContribution, excludeMaterializedProjections, mergeRunningBalances, runningBalanceChartFrom } from '@/lib/account-detail-utils'
@@ -16,6 +16,8 @@ import type { Account, CreditCardTimelineItem, ProjectedTransaction, Transaction
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft, ArrowLeftRight, CalendarClock, Check, ChevronDown, ChevronLeft, ChevronRight, Clock, EyeClosed, HelpCircle, Loader2, Paperclip, Pencil, Plus, ReceiptText, X } from 'lucide-react'
+import { TransactionChip, billChipLabel, transactionChipClass } from '@/components/transaction-chip'
+import { formatDayMonth, statementMonthLabel, useCreditCardTimeline } from '@/hooks/use-credit-card-timeline'
 import { MobileTransactionRow } from '@/components/mobile-transaction-row'
 import { AccountCardsControl } from '@/components/account-cards-control'
 import { transactionDescription } from '@/lib/transaction-description'
@@ -85,15 +87,6 @@ function daysUntil(dateStr: string): number {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   return Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-}
-
-/** Day and month only ("24/10" or "10/24", following the regional setting):
- *  enough to place a closing date next to the bill it belongs to. */
-function formatDayMonth(dateStr: string, dateLocale: string) {
-  return new Date(dateStr + 'T00:00:00').toLocaleDateString(dateLocale, {
-    day: '2-digit',
-    month: '2-digit',
-  })
 }
 
 /** Label a window that belongs to no bill and is not the open cycle, which is
@@ -180,13 +173,7 @@ export default function AccountDetailPage() {
     onError: (err) => toast.error(extractApiError(err, t('accountCards.updateError'))),
   })
 
-  const timelineFrom = format(startOfMonth(subMonths(new Date(), 24)), 'yyyy-MM-dd')
-  const timelineTo = format(endOfMonth(addMonths(new Date(), 12)), 'yyyy-MM-dd')
-  const { data: timelineData } = useQuery({
-    queryKey: ['credit-card-timeline', id, timelineFrom, timelineTo],
-    queryFn: () => accounts.creditCardTimeline([id!], timelineFrom, timelineTo),
-    enabled: !!id && isCreditCard,
-  })
+  const { data: timelineData } = useCreditCardTimeline(id, isCreditCard)
   // The card's history starts at its first bill. A connected card's months
   // before the bank's first statement are not missing statements, just time
   // before the connection; a manual card has no statement unless one is
@@ -244,13 +231,23 @@ export default function AccountDetailPage() {
   }
   const hasTimeline = timelineItems.length > 0
 
+  // Open one statement: the arrows, the strip and the selector's list all
+  // land here.
+  const selectCycle = (period: { cycle_key: string; start: string; end: string }) => {
+    setFilterTouched(true)
+    setActiveCycleKey(period.cycle_key)
+    setFilterFrom(period.start)
+    setFilterTo(period.end)
+  }
+  // The selector lists the statements to jump to; a hand-picked date range
+  // is the secondary way in, folded until asked for.
+  const [cyclePickerOpen, setCyclePickerOpen] = useState(false)
+  const [customRangeOpen, setCustomRangeOpen] = useState(false)
+
   const shiftCycleBy = (direction: -1 | 1) => {
     const next = neighbourCycle(direction)
     if (next) {
-      setFilterTouched(true)
-      setActiveCycleKey(next.cycle_key)
-      setFilterFrom(next.start)
-      setFilterTo(next.end)
+      selectCycle(next)
       return
     }
     if (hasTimeline) return
@@ -858,18 +855,33 @@ export default function AccountDetailPage() {
   const isLoading = accountLoading || summaryLoading
 
   if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-32" />
-        <Skeleton className="h-64" />
-      </div>
-    )
+    // Before the account arrives, the accounts list may already say what it
+    // is, so the placeholder takes the shape the page is about to have.
+    const loadingType = account?.type ?? accountsList?.find((item) => item.id === id)?.type
+    return <AccountDetailSkeleton creditCard={loadingType === 'credit_card'} compact={isMobile} />
   }
 
   if (!account) {
     return <p className="text-muted-foreground">{t('accounts.notFound')}</p>
   }
+
+  const uiLanguage = i18n.resolvedLanguage ?? i18n.language
+  const todayKey = format(new Date(), 'yyyy-MM-dd')
+  // A statement's number as the bill navigation shows it: the selected one
+  // reads the bill header's total, any other one the timeline's amount.
+  const statementTotal = (item: CreditCardTimelineItem) =>
+    item.cycle_key != null && item.cycle_key === activeCycleKey && billTotalSettled && !primaryShown
+      ? billTotal
+      : item.amount != null ? Number(item.amount) : null
+  // Only a statement the bank has closed, or one entered by hand, carries a
+  // settled amount; open and future statements are Securo's estimate.
+  const statementEstimated = (item: CreditCardTimelineItem) =>
+    item.kind !== 'statement'
+    || (item.source !== 'manual' && !(item.source === 'bank' && !!item.closing_date && item.closing_date < todayKey))
+  const missingStatementText = (item: CreditCardTimelineItem) =>
+    item.unavailable_reason === 'past_statement_missing' && account.connection_id
+      ? t('accounts.billSlot.bankMissing')
+      : t('accounts.billSlot.noStatement')
 
   // Choosing the period. A card steps between statements and keeps these
   // controls with the strip, under the bill they select; any other account
@@ -890,7 +902,14 @@ export default function AccountDetailPage() {
           >
             <ChevronLeft size={16} aria-hidden="true" />
           </button>
-          <Popover>
+          <Popover
+            open={cyclePickerOpen}
+            onOpenChange={(open) => {
+              setCyclePickerOpen(open)
+              // A hand-picked range reopens on its dates.
+              if (open) setCustomRangeOpen(!activeCycle)
+            }}
+          >
             <PopoverTrigger asChild>
               <button
                 type="button"
@@ -899,28 +918,92 @@ export default function AccountDetailPage() {
               >
                 {cycleSwitching && <Loader2 size={14} className="animate-spin motion-reduce:animate-none text-muted-foreground" aria-hidden="true" />}
                 {activeCycle?.due_date
-                  ? format(parseISO(activeCycle.due_date + 'T00:00:00'), 'MMM yyyy', {
-                      locale: resolveDateFnsLocale(i18n.resolvedLanguage ?? i18n.language),
-                    })
-                  : cycleRangeLabel(filterFrom, filterTo, i18n.resolvedLanguage ?? i18n.language)}
+                  ? statementMonthLabel(activeCycle, uiLanguage)
+                  : cycleRangeLabel(filterFrom, filterTo, uiLanguage)}
+                <ChevronDown size={14} className="text-muted-foreground" aria-hidden="true" />
               </button>
             </PopoverTrigger>
-            <PopoverContent align="center" className="w-auto p-3 space-y-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">{t('transactions.from')}</Label>
-                <DatePickerInput
-                  value={filterFrom}
-                  onChange={handleFilterFromChange}
-                  placeholder={t('transactions.from')}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">{t('transactions.to')}</Label>
-                <DatePickerInput
-                  value={filterTo}
-                  onChange={handleFilterToChange}
-                  placeholder={t('transactions.to')}
-                />
+            <PopoverContent align="center" className="w-72 p-0">
+              {hasTimeline && (
+                <ul aria-label={t('accounts.billNav')} className="max-h-72 overflow-y-auto overscroll-contain p-1">
+                  {[...timelineItems].reverse().map((item) => {
+                    const selected = item.cycle_key === activeCycleKey
+                    const total = statementTotal(item)
+                    const credit = total != null && total < -0.005
+                    const detail = item.kind === 'unavailable' && !selected
+                      ? missingStatementText(item)
+                      : total != null ? mask(formatCurrency(Math.abs(total), account.currency, locale)) : null
+                    return (
+                      <li key={item.cycle_key}>
+                        <button
+                          type="button"
+                          aria-current={selected ? 'true' : undefined}
+                          // The list opens on the selected bill, not on the
+                          // furthest projection at its top.
+                          ref={selected ? (node) => node?.scrollIntoView?.({ block: 'nearest' }) : undefined}
+                          onClick={() => {
+                            selectCycle(item)
+                            setCyclePickerOpen(false)
+                          }}
+                          className={`flex min-h-11 w-full items-center justify-between gap-3 rounded-md px-2.5 py-1.5 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring pointer-fine:sm:min-h-0 ${selected ? 'bg-muted' : ''}`}
+                        >
+                          <span className="min-w-0">
+                            <span className={`block text-sm text-foreground ${selected ? 'font-semibold' : ''}`}>
+                              {statementMonthLabel(item, uiLanguage)}
+                            </span>
+                            {item.due_date && (
+                              <span className="block text-xs text-muted-foreground">
+                                {t('accounts.billHeader.due', { date: formatDayMonth(item.due_date, dateLocale) })}
+                              </span>
+                            )}
+                          </span>
+                          {detail && (
+                            <span className={`shrink-0 text-xs tabular-nums ${credit ? 'text-emerald-700 dark:text-emerald-400' : 'text-muted-foreground'}`}>
+                              {detail}
+                            </span>
+                          )}
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+              <div className={hasTimeline ? 'border-t border-border p-1' : 'p-1'}>
+                {hasTimeline && (
+                  <button
+                    type="button"
+                    aria-expanded={customRangeOpen}
+                    onClick={() => setCustomRangeOpen((open) => !open)}
+                    className="flex min-h-11 w-full items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-left text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring pointer-fine:sm:min-h-0"
+                  >
+                    {t('transactions.filtersBar.customRange')}
+                    <ChevronDown
+                      size={14}
+                      aria-hidden="true"
+                      className={`shrink-0 transition-transform motion-reduce:transition-none ${customRangeOpen ? 'rotate-180' : ''}`}
+                    />
+                  </button>
+                )}
+                {(customRangeOpen || !hasTimeline) && (
+                  <div className="space-y-3 p-2">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">{t('transactions.from')}</Label>
+                      <DatePickerInput
+                        value={filterFrom}
+                        onChange={handleFilterFromChange}
+                        placeholder={t('transactions.from')}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">{t('transactions.to')}</Label>
+                      <DatePickerInput
+                        value={filterTo}
+                        onChange={handleFilterToChange}
+                        placeholder={t('transactions.to')}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </PopoverContent>
           </Popover>
@@ -1160,7 +1243,6 @@ export default function AccountDetailPage() {
           how to pay it. Everything below it is navigation and support. */}
       {isCreditCard && (() => {
         const dfLocale = resolveDateFnsLocale(i18n.resolvedLanguage ?? i18n.language)
-        const uiLanguage = i18n.resolvedLanguage ?? i18n.language
         const today = format(new Date(), 'yyyy-MM-dd')
         const isDefaultCycle = activeCycleKey === timelineData?.[0]?.default_key
         const closingDate = activeCycle?.closing_date ?? null
@@ -1219,14 +1301,14 @@ export default function AccountDetailPage() {
         const prevCycleLabel = prevCycleMonth
           ? prevCycleMonth.charAt(0).toUpperCase() + prevCycleMonth.slice(1)
           : null
-        const provenance = billSource === 'bank' && closingDate
-          ? {
-              label: t('accounts.billConfidence.bank', { date: formatDayMonth(closingDate, dateLocale) }),
-              className: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
-            }
+        // The line above already says the bill closed and when, so the bank
+        // chip only says whose number it is. An estimate takes the forecast
+        // hue the rows' PREVISTA chip uses: Securo's number, not a warning.
+        const provenance = billSource === 'bank'
+          ? { label: t('accounts.billConfidence.bank'), className: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' }
           : billSource === 'manual'
             ? { label: t('accounts.billConfidence.manual'), className: 'bg-foreground/5 text-foreground' }
-            : { label: t('accounts.billConfidence.estimated'), className: 'bg-amber-500/10 text-amber-700 dark:text-amber-400' }
+            : { label: t('accounts.billConfidence.estimated'), className: 'bg-violet-500/10 text-violet-700 dark:text-violet-300' }
         const money = (value: number) => mask(formatCurrency(value, displayCurrency, locale))
         // Purchases and credits side by side once both exist, so a refund
         // that shrinks the bill is visible next to the number it shrank.
@@ -1417,22 +1499,18 @@ export default function AccountDetailPage() {
       {/* Bill navigation: the cycle selector and the strip of statements
           around the selected one, under the bill they select. */}
       {isCreditCard && (() => {
-        const dfLocale = resolveDateFnsLocale(i18n.resolvedLanguage ?? i18n.language)
         const slots = timelineCycles.map((item) => {
           const period = item.cycle_key && item.start && item.end
             ? { cycle_key: item.cycle_key, start: item.start, end: item.end }
             : null
-          // The selected bill shows the card's own number, so a bank amount
-          // still moving (an open statement) or a cycle Securo estimates
-          // reads the same in both places.
-          const total = period?.cycle_key === activeCycleKey && billTotalSettled && !primaryShown
-            ? billTotal
-            : item.amount != null ? Number(item.amount) : null
           return {
             item,
             period,
             isCurrent: !!period && period.start === filterFrom && period.end === filterTo,
-            total,
+            // The selected bill shows the card's own number, so a bank amount
+            // still moving (an open statement) or a cycle Securo estimates
+            // reads the same in both places.
+            total: statementTotal(item),
           }
         })
         const max = Math.max(1, ...slots.map(s => s.total ?? 0))
@@ -1444,21 +1522,37 @@ export default function AccountDetailPage() {
                 const missing = item.kind === 'unavailable'
                 const credit = total != null && total < -0.005
                 const heightPct = total != null && total > 0 ? Math.max(8, (total / max) * 100) : 4
-                const label = format(parseISO((item.due_date ?? `${item.due_month}-01`) + 'T00:00:00'), 'MMM yyyy', { locale: dfLocale })
+                const label = statementMonthLabel(item, uiLanguage)
                 const amountText = total != null && (!missing || isCurrent)
                   ? mask(formatCurrency(Math.abs(total), account.currency, locale))
                   : null
-                const missingText = missing
-                  ? item.unavailable_reason === 'past_statement_missing' && account.connection_id
-                    ? t('accounts.billSlot.bankMissing')
-                    : t('accounts.billSlot.noStatement')
-                  : null
+                // An open or future bill is drawn as an outline, a settled one
+                // solid: the same estimate-or-bank split the header's chip makes.
+                const estimated = !!amountText && statementEstimated(item)
+                const missingText = missing ? missingStatementText(item) : null
                 // Month, then amount or state, as the cell reads: "Oct 2026,
-                // R$970.00" or "Jul 2026, Bank didn't send".
-                const slotName = [label, amountText, credit ? t('accounts.creditBalance') : null, missingText]
+                // R$970.00, Securo estimate" or "Jul 2026, Bank didn't send".
+                const slotName = [
+                  label,
+                  amountText,
+                  credit ? t('accounts.creditBalance') : null,
+                  estimated ? t('accounts.billConfidence.estimated') : null,
+                  missingText,
+                ]
                   .filter(Boolean)
                   .join(', ')
                 const slotClass = `group flex-1 flex flex-col items-center gap-1.5 px-1 py-2 rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${missing ? 'border-dashed border-border' : 'border-transparent'} ${isCurrent ? 'bg-rose-50 dark:bg-rose-500/10' : period ? 'hover:bg-muted/50' : ''}`
+                const barClass = total == null || Math.abs(total) <= 0.005
+                  ? 'bg-muted-foreground/20'
+                  : credit
+                    ? estimated ? 'border border-emerald-500 bg-emerald-500/20' : 'bg-emerald-500/70'
+                    : estimated
+                      ? isCurrent
+                        ? 'border border-rose-500 bg-rose-500/35'
+                        : 'border border-rose-400 bg-rose-500/10 group-hover:bg-rose-500/25 dark:border-rose-400/70'
+                      : isCurrent
+                        ? 'bg-rose-500'
+                        : 'bg-rose-300 dark:bg-rose-500/40 group-hover:bg-rose-400'
                 const content = (
                   <>
                     <div className="h-12 w-full flex items-end justify-center" aria-hidden="true">
@@ -1466,7 +1560,7 @@ export default function AccountDetailPage() {
                         <div className="w-6 h-full rounded-sm border border-dashed border-muted-foreground/40" />
                       ) : (
                         <div
-                          className={`w-6 rounded-sm transition-colors ${credit ? 'bg-emerald-500/70' : isCurrent ? 'bg-rose-500' : total != null && total > 0 ? 'bg-rose-300 dark:bg-rose-500/40 group-hover:bg-rose-400' : 'bg-muted-foreground/20'}`}
+                          className={`w-6 rounded-sm transition-colors ${barClass}`}
                           style={{ height: `${heightPct}%` }}
                         />
                       )}
@@ -1495,18 +1589,13 @@ export default function AccountDetailPage() {
                   </>
                 )
                 return (
-                  <li key={item.due_month} className="flex min-w-[64px] flex-1">
+                  <li key={item.cycle_key ?? item.due_month} className="flex min-w-[64px] flex-1">
                     {period ? (
                       <button
                         type="button"
                         aria-label={slotName}
                         aria-current={isCurrent ? 'true' : undefined}
-                        onClick={() => {
-                          setFilterTouched(true)
-                          setActiveCycleKey(period.cycle_key)
-                          setFilterFrom(period.start)
-                          setFilterTo(period.end)
-                        }}
+                        onClick={() => selectCycle(period)}
                         className={slotClass}
                       >
                         {content}
@@ -1638,8 +1727,10 @@ export default function AccountDetailPage() {
                     {account.card_brand}
                   </span>
                 )}
+                {/* The card's tier is a fact about it, not a warning: neutral,
+                    outlined so it reads apart from the brand beside it. */}
                 {account.card_level && (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 text-[10px] sm:text-xs font-bold tracking-wide uppercase">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-md border border-border text-foreground/75 text-[10px] sm:text-xs font-bold tracking-wide uppercase">
                     {account.card_level}
                   </span>
                 )}
@@ -1965,6 +2056,9 @@ export default function AccountDetailPage() {
                       setEditingTx(tx)
                       setDialogOpen(true)
                     }
+                    const billChipText = tx.effective_bill_date
+                      ? billChipLabel(tx.effective_bill_date, t, uiLanguage)
+                      : null
                     const billDateHelp = tx.effective_bill_date
                       ? t('transactions.billOverrideTooltip', 'Movida para a fatura com vencimento em {{date}}', { date: formatDateStr(tx.effective_bill_date, dateLocale) })
                       : null
@@ -2001,36 +2095,32 @@ export default function AccountDetailPage() {
                             <span className="font-semibold text-foreground text-sm truncate">{transactionDescription(tx.description, tx.source, t)}</span>
                             <div className="flex items-center gap-1 shrink-0">
                             {isTransfer && (
-                              <span className="ml-2 inline-flex items-center gap-1 text-xs text-blue-600 font-normal bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5">
-                                <ArrowLeftRight className="h-3 w-3" aria-hidden="true" />
+                              <TransactionChip>
+                                <ArrowLeftRight aria-hidden="true" />
                                 {t('transactions.transfer')}
                                 <RowHelp label={t('transactions.moreInfo')} help={t('transactions.transferTooltip')} className="rounded-full">
-                                  <HelpCircle className="h-3 w-3 text-blue-400" aria-hidden="true" />
+                                  <HelpCircle className="text-muted-foreground" aria-hidden="true" />
                                 </RowHelp>
-                              </span>
+                              </TransactionChip>
                             )}
                             {isIgnored && (
-                              <span className="ml-2 inline-flex items-center gap-1 text-xs text-gray-600 font-normal bg-gray-100 border border-gray-200 rounded px-1.5 py-0.5">
-                                <EyeClosed className="h-3 w-3" aria-hidden="true" />
+                              <TransactionChip>
+                                <EyeClosed aria-hidden="true" />
                                 {t('transactions.ignored')}
                                 <RowHelp label={t('transactions.moreInfo')} help={t('transactions.ignoreTransferHint')} className="rounded-full">
-                                  <HelpCircle className="h-3 w-3 text-blue-400" aria-hidden="true" />
+                                  <HelpCircle className="text-muted-foreground" aria-hidden="true" />
                                 </RowHelp>
-                              </span>
+                              </TransactionChip>
                             )}
                             {isVirtual && (
                               <ProjectedTransactionBadge />
                             )}
                             {tx.recurring_transaction_id != null && !isVirtual && (
-                              <span
-                                className="text-[10px] font-semibold uppercase tracking-wide text-primary bg-primary/5 border border-primary/10 px-1.5 py-0.5 rounded-full shrink-0"
-                                title={t('transactions.recurringLinkedTooltip')}
-                              >
+                              <TransactionChip title={t('transactions.recurringLinkedTooltip')}>
                                 {t('transactions.recurringBadge')}
-                              </span>
+                              </TransactionChip>
                             )}
                             {tx.installment_number != null && tx.total_installments != null && (() => {
-                              const chipClass = 'ml-2 inline-flex items-center text-[10px] font-bold tabular-nums text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-500/20 border border-amber-200 dark:border-amber-500/30 px-1.5 py-0.5 rounded-full'
                               const chip = `${tx.installment_number}/${tx.total_installments}`
                               return tx.installment_total_amount != null ? (
                                 <RowHelp
@@ -2039,34 +2129,26 @@ export default function AccountDetailPage() {
                                     count: tx.total_installments,
                                     total: mask(formatCurrency(Number(tx.installment_total_amount), tx.currency, locale)),
                                   })}
-                                  className={chipClass}
+                                  className={`${transactionChipClass()} tabular-nums`}
                                 >
                                   {chip}
                                 </RowHelp>
                               ) : (
-                                <span className={chipClass}>{chip}</span>
+                                <TransactionChip className="tabular-nums">{chip}</TransactionChip>
                               )
                             })()}
-                            {shouldShowPendingBadge(tx) && (
-                              <span
-                                title={t('transactions.pending')}
-                                className="shrink-0 inline-flex items-center justify-center rounded-full border border-amber-200 bg-amber-50 p-0.5 dark:border-amber-500/30 dark:bg-amber-500/10"
-                              >
-                                <Clock size={12} className="text-amber-500" role="img" aria-label={t('transactions.pending')} />
-                              </span>
-                            )}
-                            {tx.effective_bill_date && billDateHelp && (
+                            {billChipText && billDateHelp && (
                               <RowHelp
-                                label={billDateHelp}
+                                label={`${billChipText}, ${billDateHelp}`}
                                 help={billDateHelp}
-                                className="ml-2 inline-flex items-center gap-1 text-xs text-violet-600 dark:text-violet-400 font-normal bg-violet-50 dark:bg-violet-500/10 border border-violet-200 dark:border-violet-500/30 rounded px-1.5 py-0.5"
+                                className={transactionChipClass()}
                               >
-                                <CalendarClock className="h-3 w-3" aria-hidden="true" />
-                                {formatDateStr(tx.effective_bill_date, dateLocale)}
+                                <CalendarClock aria-hidden="true" />
+                                {billChipText}
                               </RowHelp>
                             )}
                             {(tx.attachment_count ?? 0) > 0 && (
-                              <Paperclip size={12} className="ml-2 inline text-muted-foreground" role="img" aria-label={t('transactions.attachments')} />
+                              <Paperclip size={12} className="text-muted-foreground" role="img" aria-label={t('transactions.attachments')} />
                             )}
                             </div>
                           </div>
@@ -2096,6 +2178,14 @@ export default function AccountDetailPage() {
                         </td>
                         <td className={`px-2 sm:px-4 py-3 text-right text-xs sm:text-sm font-semibold tabular-nums whitespace-nowrap ${tx.is_ignored ? 'text-gray-500' : tx.type === 'credit' ? 'text-emerald-600' : 'text-rose-500'}`}>
                           {amountText}
+                          {/* Not settled yet, said in words beside the amount it
+                              qualifies. A projection is already marked as one. */}
+                          {shouldShowPendingBadge(tx) && !isVirtual && (
+                            <span className="mt-0.5 flex items-center justify-end gap-1 text-[11px] font-medium text-muted-foreground">
+                              <Clock size={11} aria-hidden="true" />
+                              {t('transactions.pending')}
+                            </span>
+                          )}
                           {tx.currency !== userCurrency && tx.amount_primary != null && (
                             <span className="block text-[10px] text-muted-foreground tabular-nums">
                               {mask(formatCurrency(Math.abs(tx.amount_primary), userCurrency, locale))}
@@ -2216,6 +2306,83 @@ function RowHelp({ label, help, className, children }: {
         {help}
       </PopoverContent>
     </Popover>
+  )
+}
+
+const SKELETON_BARS = [45, 70, 55, 85, 35, 20]
+const SKELETON_ROWS = ['row-1', 'row-2', 'row-3', 'row-4', 'row-5']
+
+/** First load in the shape of the page it stands in for: a card's bill
+ *  header, bill navigation and limit, or an account's stat cards and chart,
+ *  then the transaction list, so nothing jumps when the data lands. */
+function AccountDetailSkeleton({ creditCard, compact }: { creditCard: boolean; compact: boolean }) {
+  const panel = 'rounded-xl border border-border bg-card shadow-sm'
+  return (
+    <div aria-busy="true">
+      <div className="mb-6 space-y-4">
+        <Skeleton className="h-4 w-20" />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-4 w-24" />
+          </div>
+          <Skeleton className="h-9 w-48" />
+        </div>
+      </div>
+      {creditCard ? (
+        <>
+          <div className={`${panel} mb-3 space-y-3 p-4 sm:p-6`}>
+            <Skeleton className="h-6 w-56 max-w-full" />
+            <Skeleton className="h-4 w-72 max-w-full" />
+            <Skeleton className="h-10 w-40" />
+            <Skeleton className="h-5 w-28" />
+          </div>
+          <div className={`${panel} mb-6 space-y-3 p-3 sm:p-4`}>
+            <Skeleton className="h-11 w-56 pointer-fine:sm:h-8" />
+            <div className="flex gap-2 sm:gap-3">
+              {SKELETON_BARS.slice(0, compact ? 4 : 6).map((height) => (
+                <div key={height} className="flex flex-1 flex-col items-center gap-1.5 py-2">
+                  <div className="flex h-12 w-full items-end justify-center">
+                    <Skeleton className="w-6 rounded-sm" style={{ height: `${height}%` }} />
+                  </div>
+                  <Skeleton className="h-3 w-12" />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className={`${panel} mb-6 space-y-3 p-4 sm:p-5`}>
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="h-7 w-36" />
+            <Skeleton className="h-2 w-full" />
+          </div>
+          {!compact && <Skeleton className="mb-6 h-[340px] rounded-xl" />}
+        </>
+      ) : (
+        <>
+          <div className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-4">
+            {SKELETON_ROWS.slice(0, 4).map((key) => <Skeleton key={key} className="h-20 rounded-xl" />)}
+          </div>
+          <Skeleton className="mb-6 h-[360px] rounded-xl" />
+        </>
+      )}
+      <div className={`${panel} overflow-hidden`}>
+        <div className="border-b border-border px-5 py-4">
+          <Skeleton className="h-5 w-32" />
+        </div>
+        <div className="divide-y divide-border">
+          {SKELETON_ROWS.map((key) => (
+            <div key={key} className="flex items-center gap-3 px-4 py-3">
+              <Skeleton className="size-8 shrink-0 rounded-full" />
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <Skeleton className="h-4 w-2/3" />
+                <Skeleton className="h-3 w-1/3" />
+              </div>
+              <Skeleton className="h-4 w-16" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   )
 }
 
