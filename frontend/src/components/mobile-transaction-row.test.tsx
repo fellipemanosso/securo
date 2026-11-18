@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MobileTransactionRow } from './mobile-transaction-row'
 import type { Account, Category, Transaction } from '@/types'
 
@@ -129,5 +130,39 @@ describe('MobileTransactionRow transfer indicator', () => {
     const category = makeCategory({ treat_as_transfer: false })
     renderRow(makeTx({ category_id: category.id, category }))
     expect(screen.queryByLabelText('transactions.transfer')).not.toBeInTheDocument()
+  })
+})
+
+describe('MobileTransactionRow keyboard access', () => {
+  function renderClickableRow(tx: Transaction, onClick = vi.fn()) {
+    render(
+      <MobileTransactionRow
+        tx={tx} account={makeAccount()} groupName={undefined} selected={false}
+        selectable={false} canWrite={true} highlighted={false} locale="en-US"
+        userCurrency="USD" onSelect={() => {}} onClick={onClick}
+      />,
+    )
+    return onClick
+  }
+
+  it('opens an editable row from the keyboard', async () => {
+    const tx = makeTx()
+    const onClick = renderClickableRow(tx)
+
+    const row = screen.getByRole('button', { name: 'transactions.editRowLabel' })
+    row.focus()
+    await userEvent.keyboard('{Enter}')
+    await userEvent.keyboard(' ')
+
+    expect(onClick).toHaveBeenCalledTimes(2)
+    expect(onClick).toHaveBeenCalledWith(tx)
+  })
+
+  it('leaves a projection and the opening balance out of the tab order', () => {
+    renderClickableRow(makeTx({ id: 'virtual', virtual: true, source: 'projected' }))
+    renderClickableRow(makeTx({ id: 'opening', source: 'opening_balance' }))
+
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+    expect(document.querySelector('[tabindex]')).toBeNull()
   })
 })

@@ -26,6 +26,8 @@ interface MobileTransactionRowProps {
   highlighted: boolean
   highlightedRowRef?: React.Ref<HTMLDivElement>
   locale: string
+  /** Regional date format for the row's accessible name; defaults to `locale`. */
+  dateLocale?: string
   userCurrency: string
   onSelect: (id: string, shiftKey: boolean) => void
   onClick: (tx: Transaction) => void
@@ -45,6 +47,7 @@ export function MobileTransactionRow({
   highlighted,
   highlightedRowRef,
   locale,
+  dateLocale = locale,
   userCurrency,
   onSelect,
   onClick,
@@ -68,6 +71,14 @@ export function MobileTransactionRow({
       : 'text-rose-500'
 
   const virtual = tx.virtual === true
+  // Projections, rows shared from a group, a read-only workspace and the
+  // synthetic opening balance have nothing to edit.
+  const interactive = !virtual && !tx.is_shared && canWrite && tx.source !== 'opening_balance'
+  const amountText = `${tx.is_ignored ? ' ' : tx.type === 'credit' ? '+' : '\u2212'}${formatCurrency(
+    Math.abs(displayAmount),
+    tx.currency,
+    locale,
+  )}`
 
   return (
     <div
@@ -77,13 +88,10 @@ export function MobileTransactionRow({
       } ${highlighted ? 'securo-highlight-flash' : ''} ${
         virtual ? 'opacity-80' : ''
       } ${
-        virtual || tx.is_shared || !canWrite ? 'cursor-default' : 'cursor-pointer active:bg-muted/60'
+        interactive ? 'cursor-pointer active:bg-muted/60' : 'cursor-default'
       }`}
       onClick={() => {
-        if (virtual) return
-        if (tx.is_shared) return
-        if (!canWrite) return
-        onClick(tx)
+        if (interactive) onClick(tx)
       }}
     >
       {/* Checkbox */}
@@ -101,114 +109,129 @@ export function MobileTransactionRow({
           />
         </div>
       )}
+      {/* The row's content is the edit control: the checkbox beside it stays
+          its own control instead of nesting inside a button. */}
+      <div
+        role={interactive ? 'button' : undefined}
+        tabIndex={interactive ? 0 : undefined}
+        aria-label={interactive
+          ? t('transactions.editRowLabel', {
+              description,
+              date: new Date(tx.date + 'T00:00:00').toLocaleDateString(dateLocale),
+              amount: mask(amountText),
+            })
+          : undefined}
+        onKeyDown={interactive
+          ? (event) => {
+              if (event.key !== 'Enter' && event.key !== ' ') return
+              event.preventDefault()
+              onClick(tx)
+            }
+          : undefined}
+        className="flex min-w-0 flex-1 items-center gap-3 rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+      >
+        {/* Category Icon */}
+        <div className="shrink-0">
+          <TransactionCategoryIcon tx={tx} size="md" />
+        </div>
 
-      {/* Category Icon */}
-      <div className="shrink-0">
-        <TransactionCategoryIcon tx={tx} size="md" />
-      </div>
+        {/* Content */}
+        <div className="min-w-0 flex-1">
+          {/* Description row */}
+          <div className="flex items-center gap-1.5">
+            <p className={`text-sm font-semibold text-foreground leading-tight min-w-0 ${hasWordBreaks(description) ? 'break-words whitespace-normal' : 'truncate'}`}>
+              {description}
+            </p>
+            {tx.group_id && (
+              <span className="inline-flex items-center text-[10px] font-semibold uppercase tracking-wide text-violet-700 bg-violet-50 border border-violet-200 dark:bg-violet-950/40 dark:text-violet-300 dark:border-violet-900 px-1 py-0.5 rounded-full shrink-0">
+                {tx.is_shared && tx.parent_owner_name ? tx.parent_owner_name : t('splitGroups.ownerRowBadge', { group: groupName ?? '' })}
+              </span>
+            )}
+            {isSplitByCategory(tx) && <CategorySplitBadge tx={tx} compact className="shrink-0 text-[10px] px-1" />}
+            {isTransferTransaction(tx) && (
+              <ArrowLeftRight
+                className="h-3 w-3 text-blue-600 shrink-0"
+                aria-label={t('transactions.transfer')}
+              />
+            )}
+            {virtual && (
+              <CalendarClock className="h-3 w-3 text-primary shrink-0" role="img" aria-label={t('transactions.projected')} />
+            )}
+            {tx.is_ignored && (
+              <EyeClosed className="h-3 w-3 text-gray-500 shrink-0" role="img" aria-label={t('transactions.ignored')} />
+            )}
+            {tx.exclude_from_pnl && !tx.is_ignored && (
+              <ChartNoAxesColumn
+                className="h-3 w-3 text-slate-500 shrink-0"
+                aria-label={t('transactions.excludedFromReports')}
+              />
+            )}
+            {tx.recurring_transaction_id != null && !virtual && (
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-primary bg-primary/5 border border-primary/10 px-1 py-0.5 rounded-full shrink-0">
+                R
+              </span>
+            )}
+            {tx.installment_number != null && tx.total_installments != null && (
+              <span className="text-[10px] font-bold tabular-nums text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-500/20 border border-amber-200 dark:border-amber-500/30 px-1 py-0.5 rounded-full shrink-0">
+                {tx.installment_number}/{tx.total_installments}
+              </span>
+            )}
+            {shouldShowPendingBadge(tx) && (
+              <span
+                title={t('transactions.pending')}
+                className="shrink-0 inline-flex items-center justify-center rounded-full border border-amber-200 bg-amber-50 p-0.5 dark:border-amber-500/30 dark:bg-amber-500/10"
+              >
+                <Clock size={12} className="text-amber-500" role="img" aria-label={t('transactions.pending')} />
+              </span>
+            )}
+            {(tx.attachment_count ?? 0) > 0 && (
+              <Paperclip size={11} className="text-muted-foreground shrink-0" role="img" aria-label={t('transactions.attachments')} />
+            )}
+          </div>
 
-      {/* Content */}
-      <div className="min-w-0 flex-1">
-        {/* Description row */}
-        <div className="flex items-center gap-1.5">
-          <p className={`text-sm font-semibold text-foreground leading-tight min-w-0 ${hasWordBreaks(description) ? 'break-words whitespace-normal' : 'truncate'}`}>
-            {description}
-          </p>
-          {tx.group_id && (
-            <span className="inline-flex items-center text-[9px] font-semibold uppercase tracking-wide text-violet-700 bg-violet-50 border border-violet-200 dark:bg-violet-950/40 dark:text-violet-300 dark:border-violet-900 px-1 py-0.5 rounded-full shrink-0">
-              {tx.is_shared && tx.parent_owner_name ? tx.parent_owner_name : t('splitGroups.ownerRowBadge', { group: groupName ?? '' })}
-            </span>
-          )}
-          {isSplitByCategory(tx) && <CategorySplitBadge tx={tx} compact className="shrink-0 text-[9px] px-1" />}
-          {isTransferTransaction(tx) && (
-            <ArrowLeftRight
-              className="h-3 w-3 text-blue-600 shrink-0"
-              aria-label={t('transactions.transfer')}
-            />
-          )}
-          {virtual && (
-            <CalendarClock className="h-3 w-3 text-primary shrink-0" />
-          )}
-          {tx.is_ignored && (
-            <EyeClosed className="h-3 w-3 text-gray-500 shrink-0" />
-          )}
-          {tx.exclude_from_pnl && !tx.is_ignored && (
-            <ChartNoAxesColumn
-              className="h-3 w-3 text-slate-500 shrink-0"
-              aria-label={t('transactions.excludedFromReports')}
-            />
-          )}
-          {tx.recurring_transaction_id != null && !virtual && (
-            <span className="text-[9px] font-semibold uppercase tracking-wide text-primary bg-primary/5 border border-primary/10 px-1 py-0.5 rounded-full shrink-0">
-              R
-            </span>
-          )}
-          {tx.installment_number != null && tx.total_installments != null && (
-            <span className="text-[9px] font-bold tabular-nums text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-500/20 border border-amber-200 dark:border-amber-500/30 px-1 py-0.5 rounded-full shrink-0">
-              {tx.installment_number}/{tx.total_installments}
-            </span>
-          )}
-          {shouldShowPendingBadge(tx) && (
-            <span
-              title={t('transactions.pending')}
-              className="shrink-0 inline-flex items-center justify-center rounded-full border border-amber-200 bg-amber-50 p-0.5 dark:border-amber-500/30 dark:bg-amber-500/10"
-            >
-              <Clock size={12} className="text-amber-500" role="img" aria-label={t('transactions.pending')} />
-            </span>
-          )}
-          {(tx.attachment_count ?? 0) > 0 && (
-            <Paperclip size={11} className="text-muted-foreground shrink-0" />
+          {/* Account row or payee row */}
+          {showPayee ? (
+            (tx.payee_name || tx.payee) && (tx.payee_name || tx.payee) !== tx.description ? (
+              <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                {tx.payee_name || tx.payee}
+              </p>
+            ) : null
+          ) : (
+            account && (
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <AccountIcon account={account} size="xs" />
+                <span className="text-xs text-muted-foreground truncate">
+                  {getAccountName(account)}
+                </span>
+                {tx.transfer_counterpart && (
+                  <>
+                    <ArrowLeftRight className="h-3 w-3 text-blue-600 shrink-0" aria-hidden="true" />
+                    <span className="text-xs text-muted-foreground truncate">
+                      {tx.transfer_counterpart.account_name}
+                    </span>
+                  </>
+                )}
+              </div>
+            )
           )}
         </div>
 
-        {/* Account row or payee row */}
-        {showPayee ? (
-          (tx.payee_name || tx.payee) && (tx.payee_name || tx.payee) !== tx.description ? (
-            <p className="text-xs text-muted-foreground mt-0.5 truncate">
-              {tx.payee_name || tx.payee}
-            </p>
-          ) : null
-        ) : (
-          account && (
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <AccountIcon account={account} size="xs" />
-              <span className="text-xs text-muted-foreground truncate">
-                {getAccountName(account)}
-              </span>
-              {tx.transfer_counterpart && (
-                <>
-                  <ArrowLeftRight className="h-3 w-3 text-blue-600 shrink-0" aria-hidden="true" />
-                  <span className="text-xs text-muted-foreground truncate">
-                    {tx.transfer_counterpart.account_name}
-                  </span>
-                </>
+        {/* Amount */}
+        <div className="shrink-0 text-right">
+          <span className={`text-sm font-bold tabular-nums ${amountColor}`}>
+            {mask(amountText)}
+          </span>
+          {tx.amount_primary != null && tx.currency !== userCurrency && (
+            <div className="flex items-center justify-end gap-0.5 mt-0.5">
+              {tx.fx_fallback && (
+                <AlertTriangle size={10} className="text-amber-500 shrink-0" />
               )}
+              <span className="text-[10px] text-muted-foreground tabular-nums">
+                {mask(formatCurrency(Math.abs(tx.amount_primary), userCurrency, locale))}
+              </span>
             </div>
-          )
-        )}
-      </div>
-
-      {/* Amount */}
-      <div className="shrink-0 text-right">
-        <span className={`text-sm font-bold tabular-nums ${amountColor}`}>
-          {mask(
-            `${tx.is_ignored ? ' ' : tx.type === 'credit' ? '+' : '\u2212'}${formatCurrency(
-              Math.abs(displayAmount),
-              tx.currency,
-              locale,
-            )}`,
           )}
-        </span>
-        {tx.amount_primary != null && tx.currency !== userCurrency && (
-          <div className="flex items-center justify-end gap-0.5 mt-0.5">
-            {tx.fx_fallback && (
-              <AlertTriangle size={10} className="text-amber-500 shrink-0" />
-            )}
-            <span className="text-[10px] text-muted-foreground tabular-nums">
-              {mask(formatCurrency(Math.abs(tx.amount_primary), userCurrency, locale))}
-            </span>
-          </div>
-        )}
+        </div>
       </div>
     </div>
   )

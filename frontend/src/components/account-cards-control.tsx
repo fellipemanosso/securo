@@ -13,6 +13,9 @@ interface Props {
   onRename: (card: AccountCard, alias: string) => void
 }
 
+// Icon-only actions: a 32px square for a mouse, 44px for a finger.
+const iconButtonClass = 'inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:size-11'
+
 export function AccountCardsControl({ cards, canWrite, onToggleHidden, onRename }: Props) {
   const { t } = useTranslation()
   const [editing, setEditing] = useState<string | null>(null)
@@ -32,7 +35,7 @@ export function AccountCardsControl({ cards, canWrite, onToggleHidden, onRename 
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="inline-flex items-center gap-1.5 border border-border rounded-lg px-3 py-1.5 text-sm bg-card text-foreground hover:bg-muted/50 transition-all cursor-pointer"
+          className="inline-flex items-center gap-1.5 border border-border rounded-lg px-3 py-1.5 text-sm bg-card text-foreground hover:bg-muted/50 transition-all cursor-pointer pointer-coarse:min-h-11"
         >
           <CreditCard className="h-4 w-4 text-muted-foreground" />
           {t('accountCards.title')} ({cards.length})
@@ -49,7 +52,7 @@ export function AccountCardsControl({ cards, canWrite, onToggleHidden, onRename 
                   maxLength={100}
                   placeholder={`•••• ${card.last4}`}
                   aria-label={t('accountCards.aliasLabel')}
-                  className="h-7 text-sm"
+                  className="h-8 text-sm pointer-coarse:h-11"
                   onChange={(e) => setDraft(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') commit(card)
@@ -60,7 +63,7 @@ export function AccountCardsControl({ cards, canWrite, onToggleHidden, onRename 
                   type="button"
                   title={t('accountCards.save')}
                   aria-label={t('accountCards.save')}
-                  className="text-muted-foreground hover:text-foreground"
+                  className={iconButtonClass}
                   onClick={() => commit(card)}
                 >
                   <Check className="h-4 w-4" />
@@ -69,7 +72,7 @@ export function AccountCardsControl({ cards, canWrite, onToggleHidden, onRename 
                   type="button"
                   title={t('accountCards.cancel')}
                   aria-label={t('accountCards.cancel')}
-                  className="text-muted-foreground hover:text-foreground"
+                  className={iconButtonClass}
                   onClick={() => setEditing(null)}
                 >
                   <X className="h-4 w-4" />
@@ -87,7 +90,7 @@ export function AccountCardsControl({ cards, canWrite, onToggleHidden, onRename 
                       type="button"
                       title={t('accountCards.editAlias')}
                       aria-label={t('accountCards.editAlias')}
-                      className="text-muted-foreground hover:text-foreground"
+                      className={iconButtonClass}
                       onClick={() => startEdit(card)}
                     >
                       <Pencil className="h-4 w-4" />
@@ -96,7 +99,7 @@ export function AccountCardsControl({ cards, canWrite, onToggleHidden, onRename 
                       type="button"
                       title={card.is_hidden ? t('accountCards.show') : t('accountCards.hide')}
                       aria-label={card.is_hidden ? t('accountCards.show') : t('accountCards.hide')}
-                      className="text-muted-foreground hover:text-foreground"
+                      className={iconButtonClass}
                       onClick={() => onToggleHidden(card)}
                     >
                       {card.is_hidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}

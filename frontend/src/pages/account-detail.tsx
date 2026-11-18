@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, type MouseEvent, type ReactNode } from 'react'
 import { accountCardLabel, getAccountName } from '@/lib/account-utils'
 import { useParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -15,7 +15,7 @@ import { toast } from 'sonner'
 import type { Account, CreditCardTimelineItem, ProjectedTransaction, Transaction } from '@/types'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, ArrowLeftRight, CalendarClock, Check, ChevronLeft, ChevronRight, Clock, EyeClosed, HelpCircle, Loader2, Paperclip, Pencil, Plus, ReceiptText, X } from 'lucide-react'
+import { ArrowLeft, ArrowLeftRight, CalendarClock, Check, ChevronDown, ChevronLeft, ChevronRight, Clock, EyeClosed, HelpCircle, Loader2, Paperclip, Pencil, Plus, ReceiptText, X } from 'lucide-react'
 import { MobileTransactionRow } from '@/components/mobile-transaction-row'
 import { AccountCardsControl } from '@/components/account-cards-control'
 import { transactionDescription } from '@/lib/transaction-description'
@@ -467,6 +467,8 @@ export default function AccountDetailPage() {
     onError: () => toast.error(t('common.error')),
   })
 
+  // Whether a phone shows the bill's running-total chart (folded by default).
+  const [chartOpen, setChartOpen] = useState(false)
   const [ccSettingsOpen, setCcSettingsOpen] = useState(false)
   const ccSettingsMutation = useMutation({
     mutationFn: (data: { credit_limit?: number | null; statement_close_day?: number | null; payment_due_day?: number | null }) =>
@@ -528,7 +530,7 @@ export default function AccountDetailPage() {
   const txLoading = isCreditCard ? cycleTxLoading : ledger.isLoading
   const chartLoading = isCreditCard ? cycleTxLoading : runningBalanceLoading
   const cycleSwitching = isCreditCard && (summarySwitching || cycleTxSwitching)
-  const cycleSectionClass = `transition-opacity duration-200 ${cycleSwitching ? 'opacity-50' : ''}`
+  const cycleSectionClass = `transition-opacity duration-200 motion-reduce:transition-none ${cycleSwitching ? 'opacity-50' : ''}`
 
   // Pseudo-transaction rows for non-materialized recurring projections.
   // Virtual: rendered with a "Previsão" badge, non-clickable, and merged
@@ -873,26 +875,29 @@ export default function AccountDetailPage() {
   // controls with the strip, under the bill they select; any other account
   // keeps a plain date range in the page header.
   const periodControls = (
-    <div className="flex items-center gap-2 sm:gap-3">
+    <div className="flex flex-wrap items-center gap-2 sm:gap-3">
       {isCreditCard ? (
         <div className="flex items-center gap-1">
+          {/* A finger gets 44px targets; a mouse on a wider screen keeps the
+              compact 32px controls. */}
           <button
             type="button"
-            className="h-8 w-8 flex items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:border-border hover:text-foreground transition-all disabled:opacity-40 disabled:pointer-events-none"
+            className="size-11 pointer-fine:sm:size-8 flex shrink-0 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:border-border hover:text-foreground transition-all disabled:opacity-40 disabled:pointer-events-none"
             onClick={() => shiftCycleBy(-1)}
             disabled={hasTimeline && !neighbourCycle(-1)}
             title={t('accounts.previousCycle')}
+            aria-label={t('accounts.previousCycle')}
           >
-            <ChevronLeft size={16} />
+            <ChevronLeft size={16} aria-hidden="true" />
           </button>
           <Popover>
             <PopoverTrigger asChild>
               <button
                 type="button"
                 aria-busy={cycleSwitching}
-                className="inline-flex items-center justify-center gap-2 min-w-[140px] border border-border rounded-lg px-3 py-1.5 text-sm bg-card text-foreground hover:bg-muted/50 transition-all cursor-pointer capitalize"
+                className="inline-flex h-11 pointer-fine:sm:h-8 items-center justify-center gap-2 min-w-[140px] border border-border rounded-lg px-3 text-sm bg-card text-foreground hover:bg-muted/50 transition-all cursor-pointer capitalize"
               >
-                {cycleSwitching && <Loader2 size={14} className="animate-spin text-muted-foreground" aria-hidden="true" />}
+                {cycleSwitching && <Loader2 size={14} className="animate-spin motion-reduce:animate-none text-muted-foreground" aria-hidden="true" />}
                 {activeCycle?.due_date
                   ? format(parseISO(activeCycle.due_date + 'T00:00:00'), 'MMM yyyy', {
                       locale: resolveDateFnsLocale(i18n.resolvedLanguage ?? i18n.language),
@@ -921,12 +926,13 @@ export default function AccountDetailPage() {
           </Popover>
           <button
             type="button"
-            className="h-8 w-8 flex items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:border-border hover:text-foreground transition-all disabled:opacity-40 disabled:pointer-events-none"
+            className="size-11 pointer-fine:sm:size-8 flex shrink-0 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:border-border hover:text-foreground transition-all disabled:opacity-40 disabled:pointer-events-none"
             onClick={() => shiftCycleBy(1)}
             disabled={hasTimeline && !neighbourCycle(1)}
             title={t('accounts.nextCycle')}
+            aria-label={t('accounts.nextCycle')}
           >
-            <ChevronRight size={16} />
+            <ChevronRight size={16} aria-hidden="true" />
           </button>
         </div>
       ) : (
@@ -975,15 +981,17 @@ export default function AccountDetailPage() {
         <div className="ml-auto inline-flex rounded-lg border border-border bg-muted p-0.5 text-xs font-medium">
           <button
             onClick={() => setShowPrimary(false)}
-            className={`px-3 py-1.5 rounded-md transition-colors ${!primaryShown ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+            aria-pressed={!primaryShown}
+            className={`min-h-11 pointer-fine:sm:min-h-0 px-3 py-1.5 rounded-md transition-colors ${!primaryShown ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
           >
             {account.currency}
           </button>
           <button
             onClick={() => setShowPrimary(true)}
             disabled={fxFallback}
+            aria-pressed={primaryShown}
             title={fxFallback ? t('transactions.fxFallbackBanner') : undefined}
-            className={`px-3 py-1.5 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${primaryShown ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+            className={`min-h-11 pointer-fine:sm:min-h-0 px-3 py-1.5 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${primaryShown ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
           >
             {userCurrency}
           </button>
@@ -1060,10 +1068,10 @@ export default function AccountDetailPage() {
                     aria-label={t('accounts.displayName')}
                     variant="ghost"
                     size="sm"
-                    className="h-8 shrink-0 gap-1.5 text-muted-foreground"
+                    className="h-11 min-w-11 pointer-fine:sm:h-8 pointer-fine:sm:min-w-0 shrink-0 gap-1.5 text-muted-foreground"
                     onClick={startPrincipalCardRename}
                   >
-                    <Pencil size={14} />
+                    <Pencil size={14} aria-hidden="true" />
                     <span className="hidden sm:inline">{t('accounts.displayName')}</span>
                   </Button>
                 )}
@@ -1306,7 +1314,7 @@ export default function AccountDetailPage() {
                       <PopoverTrigger asChild>
                         <button
                           type="button"
-                          className="rounded-sm text-xs font-medium text-muted-foreground underline decoration-dotted underline-offset-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          className="relative rounded-sm text-xs font-medium text-muted-foreground underline decoration-dotted underline-offset-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring after:absolute after:-inset-x-1 after:-inset-y-3.5 after:content-['']"
                         >
                           {t('accounts.billBreakdown.toggle')}
                         </button>
@@ -1384,7 +1392,7 @@ export default function AccountDetailPage() {
                           {' · '}
                           <button
                             type="button"
-                            className="rounded-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            className="relative rounded-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring after:absolute after:-inset-x-1 after:-inset-y-3.5 after:content-['']"
                             onClick={() => hiddenCardLast4.forEach(last4 => cardUpdateMutation.mutate({ last4, payload: { is_hidden: false } }))}
                           >
                             {t('accountCards.showAll')}
@@ -1431,16 +1439,29 @@ export default function AccountDetailPage() {
         return (
           <nav aria-label={t('accounts.billNav')} className="bg-card rounded-xl border border-border shadow-sm p-3 sm:p-4 mb-6 space-y-3">
             {periodControls}
-            <div className="flex items-stretch gap-2 sm:gap-3 overflow-x-auto pb-1 empty:hidden">
+            <ol className="flex items-stretch gap-2 sm:gap-3 overflow-x-auto pb-1 empty:hidden">
               {slots.map(({ item, period, isCurrent, total }) => {
                 const missing = item.kind === 'unavailable'
                 const credit = total != null && total < -0.005
                 const heightPct = total != null && total > 0 ? Math.max(8, (total / max) * 100) : 4
                 const label = format(parseISO((item.due_date ?? `${item.due_month}-01`) + 'T00:00:00'), 'MMM yyyy', { locale: dfLocale })
-                const slotClass = `group flex-1 min-w-[60px] flex flex-col items-center gap-1.5 px-1 py-2 rounded-lg border transition-colors ${missing ? 'border-dashed border-border' : 'border-transparent'} ${isCurrent ? 'bg-rose-50 dark:bg-rose-500/10' : period ? 'hover:bg-muted/50' : ''}`
+                const amountText = total != null && (!missing || isCurrent)
+                  ? mask(formatCurrency(Math.abs(total), account.currency, locale))
+                  : null
+                const missingText = missing
+                  ? item.unavailable_reason === 'past_statement_missing' && account.connection_id
+                    ? t('accounts.billSlot.bankMissing')
+                    : t('accounts.billSlot.noStatement')
+                  : null
+                // Month, then amount or state, as the cell reads: "Oct 2026,
+                // R$970.00" or "Jul 2026, Bank didn't send".
+                const slotName = [label, amountText, credit ? t('accounts.creditBalance') : null, missingText]
+                  .filter(Boolean)
+                  .join(', ')
+                const slotClass = `group flex-1 flex flex-col items-center gap-1.5 px-1 py-2 rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${missing ? 'border-dashed border-border' : 'border-transparent'} ${isCurrent ? 'bg-rose-50 dark:bg-rose-500/10' : period ? 'hover:bg-muted/50' : ''}`
                 const content = (
                   <>
-                    <div className="h-12 w-full flex items-end justify-center">
+                    <div className="h-12 w-full flex items-end justify-center" aria-hidden="true">
                       {missing && !isCurrent ? (
                         <div className="w-6 h-full rounded-sm border border-dashed border-muted-foreground/40" />
                       ) : (
@@ -1453,9 +1474,9 @@ export default function AccountDetailPage() {
                     <p className={`text-[10px] sm:text-xs font-medium capitalize ${isCurrent ? 'text-rose-700 dark:text-rose-400' : 'text-muted-foreground'}`}>
                       {label}
                     </p>
-                    {total != null && (!missing || isCurrent) && (
-                      <p className={`text-[10px] sm:text-xs font-semibold tabular-nums ${credit ? 'text-emerald-700 dark:text-emerald-400' : isCurrent ? 'text-foreground' : 'text-muted-foreground'}`}>
-                        {mask(formatCurrency(Math.abs(total), account.currency, locale))}
+                    {amountText && (
+                      <p className={`max-w-full text-center text-[10px] sm:text-xs font-semibold tabular-nums leading-tight [overflow-wrap:anywhere] ${credit ? 'text-emerald-700 dark:text-emerald-400' : isCurrent ? 'text-foreground' : 'text-muted-foreground'}`}>
+                        {amountText}
                       </p>
                     )}
                     {credit && (
@@ -1466,36 +1487,41 @@ export default function AccountDetailPage() {
                     {/* A missing statement is a normal state: the bank sends
                         nothing for some months, a manual card has no
                         statement unless one is entered. */}
-                    {missing && (
+                    {missingText && (
                       <p className="text-[10px] sm:text-xs leading-tight text-center text-muted-foreground">
-                        {item.unavailable_reason === 'past_statement_missing' && account.connection_id
-                          ? t('accounts.billSlot.bankMissing')
-                          : t('accounts.billSlot.noStatement')}
+                        {missingText}
                       </p>
                     )}
                   </>
                 )
-                return period ? (
-                  <button
-                    key={item.due_month}
-                    type="button"
-                    onClick={() => {
-                      setFilterTouched(true)
-                      setActiveCycleKey(period.cycle_key)
-                      setFilterFrom(period.start)
-                      setFilterTo(period.end)
-                    }}
-                    className={slotClass}
-                  >
-                    {content}
-                  </button>
-                ) : (
-                  <div key={item.due_month} className={slotClass}>
-                    {content}
-                  </div>
+                return (
+                  <li key={item.due_month} className="flex min-w-[64px] flex-1">
+                    {period ? (
+                      <button
+                        type="button"
+                        aria-label={slotName}
+                        aria-current={isCurrent ? 'true' : undefined}
+                        onClick={() => {
+                          setFilterTouched(true)
+                          setActiveCycleKey(period.cycle_key)
+                          setFilterFrom(period.start)
+                          setFilterTo(period.end)
+                        }}
+                        className={slotClass}
+                      >
+                        {content}
+                      </button>
+                    ) : (
+                      // No cycle to open: the cell reads as text, month and
+                      // state, with nothing to select.
+                      <div className={slotClass}>
+                        {content}
+                      </div>
+                    )}
+                  </li>
                 )
               })}
-            </div>
+            </ol>
           </nav>
         )
       })()}
@@ -1622,11 +1648,11 @@ export default function AccountDetailPage() {
                 <button
                   type="button"
                   onClick={() => setCcSettingsOpen(true)}
-                  className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  className="relative p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring after:absolute after:-inset-2.5 after:content-['']"
                   title={t('common.edit')}
                   aria-label={t('common.edit')}
                 >
-                  <Pencil size={13} />
+                  <Pencil size={13} aria-hidden="true" />
                 </button>
               )}
             </div>
@@ -1651,7 +1677,7 @@ export default function AccountDetailPage() {
                     className="mt-3 h-2 bg-muted rounded-full overflow-hidden"
                   >
                     <div
-                      className={`h-full rounded-full transition-[width] ${tone.bar}`}
+                      className={`h-full rounded-full transition-[width] motion-reduce:transition-none ${tone.bar}`}
                       style={{ width: `${Math.min(100, utilization)}%` }}
                     />
                   </div>
@@ -1719,19 +1745,40 @@ export default function AccountDetailPage() {
         const strokeSplitFrac = flat ? 1 : Math.min(1, strokeSplit + 0.01)
         const strokeSolid = dataMin >= 0 ? '#10B981' : '#F43F5E'
         const lastBalance = balances.length > 0 ? balances[balances.length - 1] : 0
+        const chartTitle = isCreditCard ? t('accounts.billRunningTotal') : t('dashboard.balanceFlow')
+        // On a phone the bill's chart folds away, so the transactions come
+        // right after the bill; it repeats the total the header already shows.
+        const chartCollapsible = isCreditCard && isMobile
+        const chartShown = !chartCollapsible || chartOpen
         return (
       <div className={`bg-card rounded-xl border border-border shadow-sm mb-6 ${cycleSectionClass}`} aria-busy={cycleSwitching}>
-        <div className="px-5 pt-5 pb-3">
-          <p className="text-base font-bold text-foreground">
-            {isCreditCard ? t('accounts.billRunningTotal') : t('dashboard.balanceFlow')}
-          </p>
+        <div className={`px-5 pt-5 ${chartShown ? 'pb-3' : 'pb-5'}`}>
+          {chartCollapsible ? (
+            <button
+              type="button"
+              aria-expanded={chartOpen}
+              aria-controls={chartOpen ? 'account-chart-body' : undefined}
+              onClick={() => setChartOpen((open) => !open)}
+              className="relative flex w-full items-center justify-between gap-2 rounded-sm text-left text-base font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring after:absolute after:-inset-x-2 after:-inset-y-3 after:content-['']"
+            >
+              {chartTitle}
+              <ChevronDown
+                size={18}
+                aria-hidden="true"
+                className={`shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none ${chartOpen ? 'rotate-180' : ''}`}
+              />
+            </button>
+          ) : (
+            <p className="text-base font-bold text-foreground">{chartTitle}</p>
+          )}
           {isCreditCard && billResidual !== 0 && series.length > 0 && (
             <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
               {t('accounts.billChartAdjustments', { amount: mask(formatCurrency(billResidual, displayCurrency, locale)) })}
             </p>
           )}
         </div>
-        <div className="px-1 pb-4 h-[280px]">
+        {chartShown && (
+        <div id="account-chart-body" className={`px-1 pb-4 ${isCreditCard ? 'h-[220px] sm:h-[280px]' : 'h-[280px]'}`}>
           {chartLoading ? (
             <Skeleton className="h-full w-full" />
           ) : cycleEmpty ? (
@@ -1836,6 +1883,7 @@ export default function AccountDetailPage() {
             <p className="text-muted-foreground text-sm text-center py-12">{t('dashboard.noData')}</p>
           )}
         </div>
+        )}
       </div>
         )
       })()}
@@ -1879,18 +1927,14 @@ export default function AccountDetailPage() {
                       canWrite={canWrite}
                       highlighted={false}
                       locale={locale}
+                      dateLocale={dateLocale}
                       userCurrency={userCurrency}
                       onSelect={() => {}}
                       showPayee
                       localizeOpeningBalance
                       onClick={(clickedTx) => {
-                        // The opening-balance row is synthetic; the desktop
-                        // table makes it non-clickable and mobile must match.
-                        if (clickedTx.source === 'opening_balance') return
-                        if (!clickedTx.is_shared && canWrite) {
-                          setEditingTx(clickedTx)
-                          setDialogOpen(true)
-                        }
+                        setEditingTx(clickedTx)
+                        setDialogOpen(true)
                       }}
                     />
                   ))}
@@ -1915,16 +1959,39 @@ export default function AccountDetailPage() {
                     const isTransfer = isTransferTransaction(tx)
                     const isIgnored = tx.is_ignored
                     const isVirtual = tx.virtual === true
+                    const editable = !isOpening && !isVirtual && canWrite
+                    const amountText = mask(`${tx.is_ignored ? ' ' : tx.type === 'credit' ? '+' : '-'}${formatCurrency(Math.abs(Number(tx.amount)), tx.currency, locale)}`)
+                    const openEdit = () => {
+                      setEditingTx(tx)
+                      setDialogOpen(true)
+                    }
+                    const billDateHelp = tx.effective_bill_date
+                      ? t('transactions.billOverrideTooltip', 'Movida para a fatura com vencimento em {{date}}', { date: formatDateStr(tx.effective_bill_date, dateLocale) })
+                      : null
+                    // An editable row is one focus stop that Enter or Space
+                    // opens, named by what it is; projections and the opening
+                    // balance stay plain rows. It keeps its table semantics.
                     return (
                       <tr
                         key={tx.id}
-                        className={`border-b last:border-0 transition-colors ${isOpening ? 'bg-muted/60' : (canWrite && !isVirtual) ? 'hover:bg-muted cursor-pointer' : ''} ${isVirtual ? 'opacity-80' : ''}`}
-                        onClick={() => {
-                          if (!isOpening && !isVirtual && canWrite) {
-                            setEditingTx(tx)
-                            setDialogOpen(true)
-                          }
-                        }}
+                        tabIndex={editable ? 0 : undefined}
+                        aria-label={editable
+                          ? t('transactions.editRowLabel', {
+                              description: transactionDescription(tx.description, tx.source, t),
+                              date: formatDateStr(tx.date, dateLocale),
+                              amount: amountText,
+                            })
+                          : undefined}
+                        className={`border-b last:border-0 transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring ${isOpening ? 'bg-muted/60' : editable ? 'hover:bg-muted cursor-pointer' : ''} ${isVirtual ? 'opacity-80' : ''}`}
+                        onClick={editable ? openEdit : undefined}
+                        onKeyDown={editable
+                          ? (event) => {
+                              if (event.target !== event.currentTarget) return
+                              if (event.key !== 'Enter' && event.key !== ' ') return
+                              event.preventDefault()
+                              openEdit()
+                            }
+                          : undefined}
                       >
                         <td className="px-3 sm:px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
                           {formatDateStr(tx.date, dateLocale)}
@@ -1935,16 +2002,20 @@ export default function AccountDetailPage() {
                             <div className="flex items-center gap-1 shrink-0">
                             {isTransfer && (
                               <span className="ml-2 inline-flex items-center gap-1 text-xs text-blue-600 font-normal bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5">
-                                <ArrowLeftRight className="h-3 w-3" />
+                                <ArrowLeftRight className="h-3 w-3" aria-hidden="true" />
                                 {t('transactions.transfer')}
-                                <span title={t('transactions.transferTooltip')}><HelpCircle className="h-3 w-3 text-blue-400" /></span>
+                                <RowHelp label={t('transactions.moreInfo')} help={t('transactions.transferTooltip')} className="rounded-full">
+                                  <HelpCircle className="h-3 w-3 text-blue-400" aria-hidden="true" />
+                                </RowHelp>
                               </span>
                             )}
                             {isIgnored && (
                               <span className="ml-2 inline-flex items-center gap-1 text-xs text-gray-600 font-normal bg-gray-100 border border-gray-200 rounded px-1.5 py-0.5">
-                                <EyeClosed className="h-3 w-3" />
+                                <EyeClosed className="h-3 w-3" aria-hidden="true" />
                                 {t('transactions.ignored')}
-                                <span title={t('transactions.ignoreTransferHint')}><HelpCircle className="h-3 w-3 text-blue-400" /></span>
+                                <RowHelp label={t('transactions.moreInfo')} help={t('transactions.ignoreTransferHint')} className="rounded-full">
+                                  <HelpCircle className="h-3 w-3 text-blue-400" aria-hidden="true" />
+                                </RowHelp>
                               </span>
                             )}
                             {isVirtual && (
@@ -1958,16 +2029,24 @@ export default function AccountDetailPage() {
                                 {t('transactions.recurringBadge')}
                               </span>
                             )}
-                            {tx.installment_number != null && tx.total_installments != null && (
-                              <span
-                                className="ml-2 inline-flex items-center text-[10px] font-bold tabular-nums text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-500/20 border border-amber-200 dark:border-amber-500/30 px-1.5 py-0.5 rounded-full"
-                                title={tx.installment_total_amount != null
-                                  ? t('transactions.installmentTooltip', { count: tx.total_installments, total: tx.installment_total_amount })
-                                  : undefined}
-                              >
-                                {tx.installment_number}/{tx.total_installments}
-                              </span>
-                            )}
+                            {tx.installment_number != null && tx.total_installments != null && (() => {
+                              const chipClass = 'ml-2 inline-flex items-center text-[10px] font-bold tabular-nums text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-500/20 border border-amber-200 dark:border-amber-500/30 px-1.5 py-0.5 rounded-full'
+                              const chip = `${tx.installment_number}/${tx.total_installments}`
+                              return tx.installment_total_amount != null ? (
+                                <RowHelp
+                                  label={t('transactions.installmentNumber', { number: tx.installment_number, total: tx.total_installments })}
+                                  help={t('transactions.installmentTooltip', {
+                                    count: tx.total_installments,
+                                    total: mask(formatCurrency(Number(tx.installment_total_amount), tx.currency, locale)),
+                                  })}
+                                  className={chipClass}
+                                >
+                                  {chip}
+                                </RowHelp>
+                              ) : (
+                                <span className={chipClass}>{chip}</span>
+                              )
+                            })()}
                             {shouldShowPendingBadge(tx) && (
                               <span
                                 title={t('transactions.pending')}
@@ -1976,17 +2055,18 @@ export default function AccountDetailPage() {
                                 <Clock size={12} className="text-amber-500" role="img" aria-label={t('transactions.pending')} />
                               </span>
                             )}
-                            {tx.effective_bill_date && (
-                              <span
+                            {tx.effective_bill_date && billDateHelp && (
+                              <RowHelp
+                                label={billDateHelp}
+                                help={billDateHelp}
                                 className="ml-2 inline-flex items-center gap-1 text-xs text-violet-600 dark:text-violet-400 font-normal bg-violet-50 dark:bg-violet-500/10 border border-violet-200 dark:border-violet-500/30 rounded px-1.5 py-0.5"
-                                title={t('transactions.billOverrideTooltip', 'Movida para a fatura com vencimento em {{date}}', { date: formatDateStr(tx.effective_bill_date, dateLocale) })}
                               >
-                                <CalendarClock className="h-3 w-3" />
+                                <CalendarClock className="h-3 w-3" aria-hidden="true" />
                                 {formatDateStr(tx.effective_bill_date, dateLocale)}
-                              </span>
+                              </RowHelp>
                             )}
                             {(tx.attachment_count ?? 0) > 0 && (
-                              <Paperclip size={12} className="ml-2 inline text-muted-foreground" />
+                              <Paperclip size={12} className="ml-2 inline text-muted-foreground" role="img" aria-label={t('transactions.attachments')} />
                             )}
                             </div>
                           </div>
@@ -2015,7 +2095,7 @@ export default function AccountDetailPage() {
                           )}
                         </td>
                         <td className={`px-2 sm:px-4 py-3 text-right text-xs sm:text-sm font-semibold tabular-nums whitespace-nowrap ${tx.is_ignored ? 'text-gray-500' : tx.type === 'credit' ? 'text-emerald-600' : 'text-rose-500'}`}>
-                          {mask(`${tx.is_ignored ? ' ' : tx.type === 'credit' ? '+' : '-'}${formatCurrency(Math.abs(Number(tx.amount)), tx.currency, locale)}`)}
+                          {amountText}
                           {tx.currency !== userCurrency && tx.amount_primary != null && (
                             <span className="block text-[10px] text-muted-foreground tabular-nums">
                               {mask(formatCurrency(Math.abs(tx.amount_primary), userCurrency, locale))}
@@ -2105,6 +2185,37 @@ export default function AccountDetailPage() {
         />
       )}
     </div>
+  )
+}
+
+/** Help that a `title` alone kept from keyboard and touch: a focusable
+ *  trigger that opens it on a click, a tap or Enter, and still shows it on
+ *  hover. It sits inside clickable rows, so its clicks (the popover's too,
+ *  which bubble through the portal) stop here instead of opening the row. */
+function RowHelp({ label, help, className, children }: {
+  label: string
+  help: string
+  className?: string
+  children: ReactNode
+}) {
+  const stop = (event: MouseEvent) => event.stopPropagation()
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label={label}
+          title={help}
+          onClick={stop}
+          className={`cursor-help focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${className ?? ''}`}
+        >
+          {children}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent side="top" className="max-w-xs p-3 text-xs leading-relaxed" onClick={stop}>
+        {help}
+      </PopoverContent>
+    </Popover>
   )
 }
 

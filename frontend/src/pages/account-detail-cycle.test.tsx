@@ -55,6 +55,13 @@ vi.mock('@/contexts/workspace-context', () => ({
   useWorkspace: () => ({ canWrite: true }),
 }))
 
+// Which transaction the page opens is what these tests check; the dialog's
+// own form, and the APIs it loads, have their own tests.
+vi.mock('@/components/transaction-dialog', () => ({
+  TransactionDialog: ({ open, transaction }: { open: boolean; transaction: Transaction | null }) =>
+    open ? <div role="dialog" aria-label={`Editing ${transaction?.description ?? ''}`} /> : null,
+}))
+
 // Closes on the 30th, bills due on the 10th. The newest bill is due
 // 2026-05-10, so the cycle that is still open starts on 2026-04-30.
 const account = {
@@ -572,6 +579,8 @@ describe('months without a statement', () => {
     const bankMissing = (await screen.findByText("Bank didn't send")).parentElement!
     expect(bankMissing.tagName).toBe('BUTTON')
     expect(within(bankMissing).queryByText(/R\$/)).not.toBeInTheDocument()
+    // Its name says the state, not just the month.
+    expect(bankMissing).toHaveAccessibleName("Jul 2026, Bank didn't send")
     // A month Securo cannot even place in a cycle is shown but not selectable.
     const noBill = screen.getByText('No bill').parentElement!
     expect(noBill.tagName).toBe('DIV')
@@ -591,5 +600,64 @@ describe('months without a statement', () => {
     await user.click(previous)
     await waitFor(() => expect(txCalls().at(-1)!.cycle_key).toBe('bill:bill-jun'))
     expect(previous).toBeDisabled()
+  })
+})
+
+describe('keyboard and screen reader access', () => {
+  const forecast = {
+    key: 'tx-1:7', description: 'THIAGO PEREIRA', amount: 720, currency: 'BRL', type: 'debit',
+    purchase_date: '2026-05-06', due_date: '2026-10-10', installment_number: 7,
+    total_installments: 10, category_id: null, card_last4: '9984',
+  }
+
+  it('opens a transaction from the keyboard and keeps forecast rows out of the tab order', async () => {
+    api.transactions.list.mockResolvedValue({
+      items: [cardTx('Market', { date: '2026-09-02', type: 'debit', amount: 300 })],
+      total: 1,
+    })
+    api.accounts.installmentForecasts.mockResolvedValue([forecast])
+    const { user } = await renderPage()
+
+    await screen.findByText('THIAGO PEREIRA')
+    expect(screen.getByText('THIAGO PEREIRA').closest('tr')).not.toHaveAttribute('tabindex')
+
+    const row = screen.getByRole('row', { name: 'Edit Market, 9/2/2026, -R$300.00' })
+    row.focus()
+    await user.keyboard('{Enter}')
+
+    expect(await screen.findByRole('dialog', { name: 'Editing Market' })).toBeInTheDocument()
+  })
+
+  it('marks the selected bill in the strip and names each cell by month and amount', async () => {
+    const { user } = await renderPage()
+
+    const nav = screen.getByRole('navigation', { name: 'Bills' })
+    const selected = await within(nav).findByRole('button', { name: /^Oct 2026, / })
+    await waitFor(() => expect(selected).toHaveAttribute('aria-current', 'true'))
+    const may = within(nav).getByRole('button', { name: 'May 2026, R$280.00' })
+    expect(may).not.toHaveAttribute('aria-current')
+
+    await user.click(within(nav).getByRole('button', { name: 'Previous cycle' }))
+
+    await waitFor(() => expect(within(nav).getByRole('button', { name: 'May 2026, R$280.00' })).toHaveAttribute('aria-current', 'true'))
+    expect(within(nav).getByRole('button', { name: /^Oct 2026, / })).not.toHaveAttribute('aria-current')
+  })
+
+  it('opens a row\'s help on a click or tap without opening the row', async () => {
+    api.transactions.list.mockResolvedValue({
+      items: [cardTx('Sofa', {
+        date: '2026-09-02', type: 'debit', amount: 100,
+        installment_number: 3, total_installments: 10, installment_total_amount: 1000,
+      })],
+      total: 1,
+    })
+    const { user } = await renderPage()
+
+    await user.click(await screen.findByRole('button', { name: 'Installment 3 of 10' }))
+
+    // The help popover is the only dialog: the row's edit dialog stays shut.
+    const help = await screen.findByRole('dialog')
+    expect(help).toHaveTextContent('Installment plan — 10 charges totaling R$1,000.00')
+    expect(screen.getAllByRole('dialog')).toHaveLength(1)
   })
 })
