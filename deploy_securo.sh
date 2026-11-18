@@ -6,6 +6,9 @@
 # Fluxo completo a cada atualização:
 #   (local)    git push origin main && gh workflow run release.yml --ref main
 #   (servidor) ./deploy_securo.sh
+#
+# Sem GitHub Actions: LOCAL_BUILD=1 ./deploy_securo.sh constrói as duas
+# imagens aqui, a partir do main no GitHub, em vez de puxá-las do registry.
 set -euo pipefail
 
 STACK=${STACK:-securo}
@@ -14,10 +17,30 @@ BACKEND_IMAGE=$REGISTRY/securo-backend:latest
 FRONTEND_IMAGE=$REGISTRY/securo-frontend:latest
 BACKEND_SERVICES=("${STACK}_backend" "${STACK}_celery-worker" "${STACK}_celery-beat")
 FRONTEND_SERVICE="${STACK}_frontend"
+LOCAL_BUILD=${LOCAL_BUILD:-0}
+SRC_DIR=${SRC_DIR:-/root/securo-src}
+# A locally built tag must not be resolved against the registry, or Swarm
+# would run the older image published there under the same tag.
+RESOLVE=()
 
-echo "[1/5] Baixando imagens..."
-docker pull "$BACKEND_IMAGE"
-docker pull "$FRONTEND_IMAGE"
+if [ "$LOCAL_BUILD" = "1" ]; then
+  echo "[1/5] Construindo imagens a partir do main..."
+  if [ -d "$SRC_DIR/.git" ]; then
+    git -C "$SRC_DIR" fetch --depth 1 origin main
+    git -C "$SRC_DIR" reset --hard FETCH_HEAD
+  else
+    git clone --depth 1 https://github.com/fellipemanosso/securo.git "$SRC_DIR"
+  fi
+  docker build -t "$BACKEND_IMAGE" -f "$SRC_DIR/backend/Dockerfile" "$SRC_DIR/backend"
+  docker build -t "$FRONTEND_IMAGE" \
+    --build-arg VITE_APP_VERSION="main-$(git -C "$SRC_DIR" rev-parse --short HEAD)" \
+    -f "$SRC_DIR/frontend/Dockerfile" "$SRC_DIR/frontend"
+  RESOLVE=(--no-resolve-image)
+else
+  echo "[1/5] Baixando imagens..."
+  docker pull "$BACKEND_IMAGE"
+  docker pull "$FRONTEND_IMAGE"
+fi
 
 echo "[2/5] Aplicando migrations antes dos serviços protegidos pelo schema head..."
 mapfile -t BACKEND_ENV < <(
@@ -43,6 +66,7 @@ cleanup_migration() {
 }
 trap cleanup_migration EXIT
 docker service create \
+  "${RESOLVE[@]}" \
   --detach \
   --name "$MIGRATION_SERVICE" \
   --mode replicated-job \
@@ -75,11 +99,11 @@ trap - EXIT
 
 echo "[3/5] Atualizando backend e workers..."
 for svc in "${BACKEND_SERVICES[@]}"; do
-  docker service update --force --image "$BACKEND_IMAGE" "$svc"
+  docker service update --force "${RESOLVE[@]}" --image "$BACKEND_IMAGE" "$svc"
 done
 
 echo "[4/5] Atualizando frontend..."
-docker service update --force --image "$FRONTEND_IMAGE" "$FRONTEND_SERVICE"
+docker service update --force "${RESOLVE[@]}" --image "$FRONTEND_IMAGE" "$FRONTEND_SERVICE"
 
 echo "[5/5] Verificando tarefas ativas..."
 for svc in "${BACKEND_SERVICES[@]}" "$FRONTEND_SERVICE"; do
