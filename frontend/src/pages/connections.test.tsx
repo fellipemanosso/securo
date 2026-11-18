@@ -143,4 +143,18 @@ describe('ConnectionsPage connection row actions', () => {
     expect(await screen.findByText('Healthy Checking')).toBeInTheDocument()
     expect(screen.getByText('Black Card')).toBeInTheDocument()
   })
+
+  it('syncs every connection that can sync, one after another', async () => {
+    api.connectionsList.mockResolvedValue([
+      makeConnection({ id: 'conn-ok', status: 'active' }),
+      makeConnection({ id: 'conn-err', status: 'error' }),
+      makeConnection({ id: 'conn-exp', status: 'expired' }),
+    ])
+    const { user } = renderWithProviders(<ConnectionsPage />, { route: '/connections' })
+
+    await user.click(await screen.findByRole('button', { name: t('accounts.syncAll') }))
+
+    await vi.waitFor(() => expect(api.sync).toHaveBeenCalledTimes(2))
+    expect(api.sync.mock.calls.map(([id]) => id)).toEqual(['conn-ok', 'conn-err'])
+  })
 })
