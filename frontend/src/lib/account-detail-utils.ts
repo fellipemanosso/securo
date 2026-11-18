@@ -1,6 +1,7 @@
 import { addDays, addYears, format, parseISO, subYears } from 'date-fns'
 
 import type { ProjectedTransaction, Transaction } from '../types'
+import { normalizeText } from './utils'
 
 type BalanceTransaction = Pick<
   Transaction,
@@ -169,4 +170,41 @@ export function runningBalanceChartFrom(from: string, to: string): string {
   if (addYears(earliest, RUNNING_BALANCE_MAX_YEARS) < end) earliest = addDays(earliest, 1)
   const earliestDay = format(earliest, 'yyyy-MM-dd')
   return from < earliestDay ? earliestDay : from
+}
+
+type SearchableTransaction = Pick<
+  Transaction,
+  'description' | 'original_description' | 'payee' | 'payee_name' | 'notes' | 'category' | 'card_last4' | 'amount'
+> & { category_lines?: Transaction['category_lines'] }
+
+/**
+ * Whether a listed transaction matches the card page's search box. Words
+ * match description, payee, notes, category and card digits, ignoring case
+ * and accents, and every word must match. A number also matches the amount,
+ * typed the Brazilian way ("113,95", "1.250") or with a decimal point.
+ */
+export function matchesTransactionSearch(tx: SearchableTransaction, query: string): boolean {
+  const words = normalizeText(query).split(/\s+/).filter(Boolean)
+  if (words.length === 0) return true
+  const amount = Math.abs(Number(tx.amount)).toFixed(2)
+  const haystack = normalizeText([
+    tx.description,
+    tx.original_description,
+    tx.payee_name ?? tx.payee,
+    tx.notes,
+    tx.category?.name,
+    ...(tx.category_lines ?? []).map((line) => line.category?.name),
+    tx.card_last4,
+  ].filter(Boolean).join(' '))
+  return words.every((word) => {
+    if (haystack.includes(word)) return true
+    if (!/^[\d.,]+$/.test(word)) return false
+    // "1.250,90" → "1250.90", "113,95" → "113.95", "1.250" → "1250",
+    // "113.95" → "113.95": a comma is the decimal mark; without one, a dot
+    // before one or two final digits is.
+    const asNumber = word.includes(',')
+      ? word.replace(/\./g, '').replace(',', '.')
+      : /\.\d{1,2}$/.test(word) ? word : word.replace(/\./g, '')
+    return /\d/.test(asNumber) && amount.startsWith(asNumber)
+  })
 }

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   applyTransactionToBalance,
   excludeMaterializedProjections,
+  matchesTransactionSearch,
   mergeRunningBalances,
   runningBalanceChartFrom,
 } from './account-detail-utils'
@@ -177,5 +178,38 @@ describe('runningBalanceChartFrom', () => {
 
   it('stays inside the cap when the range ends on Feb 29', () => {
     expect(runningBalanceChartFrom('2000-01-01', '2024-02-29')).toBe('2014-03-01')
+  })
+})
+
+describe('matchesTransactionSearch', () => {
+  const tx = {
+    description: 'PAG*Padaria São João',
+    original_description: null,
+    payee: null,
+    payee_name: 'Padaria São João',
+    notes: 'café da manhã',
+    category: null,
+    category_lines: [],
+    card_last4: '9984',
+    amount: 1250.9,
+  }
+
+  it('matches every word against description, payee, notes and card, ignoring case and accents', () => {
+    expect(matchesTransactionSearch(tx, 'padaria sao')).toBe(true)
+    expect(matchesTransactionSearch(tx, 'CAFE')).toBe(true)
+    expect(matchesTransactionSearch(tx, '9984')).toBe(true)
+    expect(matchesTransactionSearch(tx, 'padaria mercado')).toBe(false)
+  })
+
+  it('matches the amount typed the Brazilian way or with a decimal point', () => {
+    expect(matchesTransactionSearch(tx, '1.250,90')).toBe(true)
+    expect(matchesTransactionSearch(tx, '1250,9')).toBe(true)
+    expect(matchesTransactionSearch(tx, '1.250')).toBe(true)
+    expect(matchesTransactionSearch(tx, '1250.90')).toBe(true)
+    expect(matchesTransactionSearch(tx, '1250,80')).toBe(false)
+  })
+
+  it('lets an empty query through', () => {
+    expect(matchesTransactionSearch(tx, '   ')).toBe(true)
   })
 })

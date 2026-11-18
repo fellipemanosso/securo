@@ -565,6 +565,50 @@ describe('one bill total per statement', () => {
   })
 })
 
+describe('bill search', () => {
+  it('narrows the bill to the matches and sums what they add to it', async () => {
+    api.transactions.list.mockResolvedValue({
+      items: [
+        cardTx('Uber trip home', { date: '2026-09-05', type: 'debit', amount: 32.4 }),
+        cardTx('UBER refund', { date: '2026-09-04', type: 'credit', amount: 12.4 }),
+        cardTx('Market', { date: '2026-09-02', type: 'debit', amount: 300 }),
+      ],
+      total: 3,
+    })
+    const { user } = await renderPage()
+    await screen.findByText('Market')
+
+    await user.type(screen.getByRole('textbox', { name: 'Search this bill' }), 'úber')
+
+    // Accents and case aside, both Uber rows match; the refund comes off.
+    expect(await screen.findByText('Matches: 2 · total')).toBeInTheDocument()
+    expect(screen.getByText('R$20.00')).toBeInTheDocument()
+    expect(screen.queryByText('Market')).not.toBeInTheDocument()
+
+    await user.clear(screen.getByRole('textbox', { name: 'Search this bill' }))
+    await user.type(screen.getByRole('textbox', { name: 'Search this bill' }), '300,00')
+    expect(await screen.findByText('Matches: 1 · total')).toBeInTheDocument()
+    expect(screen.getByText('Market')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Clear search' }))
+    expect(screen.getByText('Uber trip home')).toBeInTheDocument()
+    expect(screen.queryByText(/Matches:/)).not.toBeInTheDocument()
+  })
+
+  it('says so when nothing on the bill matches', async () => {
+    api.transactions.list.mockResolvedValue({
+      items: [cardTx('Market', { date: '2026-09-02', type: 'debit', amount: 300 })],
+      total: 1,
+    })
+    const { user } = await renderPage()
+    await screen.findByText('Market')
+
+    await user.type(screen.getByRole('textbox', { name: 'Search this bill' }), 'pharmacy')
+
+    expect(await screen.findByText('Nothing on this bill matches “pharmacy”.')).toBeInTheDocument()
+  })
+})
+
 describe('months without a statement', () => {
   const missing = (overrides: Record<string, unknown>) => ({
     account_id: 'acc-1', kind: 'unavailable', closing_date: null, amount: null,

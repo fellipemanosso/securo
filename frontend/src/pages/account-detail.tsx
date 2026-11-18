@@ -7,7 +7,7 @@ import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tansta
 import { format, addMonths, formatDistanceToNow, parseISO } from 'date-fns'
 import { accounts, connections, dashboard, transactions, categories as categoriesApi, categoryGroups as categoryGroupsApi } from '@/lib/api'
 import { localDateString } from '@/lib/date-utils'
-import { applyTransactionToBalance, billContribution, excludeMaterializedProjections, mergeRunningBalances, runningBalanceChartFrom } from '@/lib/account-detail-utils'
+import { applyTransactionToBalance, billContribution, excludeMaterializedProjections, matchesTransactionSearch, mergeRunningBalances, runningBalanceChartFrom } from '@/lib/account-detail-utils'
 import { invalidateFinancialQueries } from '@/lib/invalidate-queries'
 import { shouldShowPendingBadge } from '@/lib/transaction-status'
 import { isTransferTransaction } from '@/lib/transaction-transfer'
@@ -15,7 +15,7 @@ import { toast } from 'sonner'
 import type { Account, CreditCardTimelineItem, ProjectedTransaction, Transaction } from '@/types'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, ArrowLeftRight, CalendarClock, Check, ChevronDown, ChevronLeft, ChevronRight, Clock, EyeClosed, HelpCircle, Loader2, Paperclip, Pencil, Plus, ReceiptText, X } from 'lucide-react'
+import { ArrowLeft, ArrowLeftRight, CalendarClock, Check, ChevronDown, ChevronLeft, ChevronRight, Clock, EyeClosed, HelpCircle, Loader2, Paperclip, Pencil, Plus, ReceiptText, Search, X } from 'lucide-react'
 import { TransactionChip, billChipLabel, transactionChipClass } from '@/components/transaction-chip'
 import { formatDayMonth, statementMonthLabel, useCreditCardTimeline } from '@/hooks/use-credit-card-timeline'
 import { MobileTransactionRow } from '@/components/mobile-transaction-row'
@@ -833,12 +833,29 @@ export default function AccountDetailPage() {
     ? Math.round(billTotal * 100) / 100
     : undefined
 
+  // The card's search box narrows the selected bill's rows and sums what the
+  // matches add to the bill, so "how much at Uber on this bill" is one word
+  // away. The bill's rows are all loaded, so the sum is the whole bill's.
+  const [txSearch, setTxSearch] = useState('')
+  const searching = isCreditCard && txSearch.trim() !== ''
+  const listRows = useMemo(
+    () => (searching ? displayRows.filter((tx) => matchesTransactionSearch(tx, txSearch)) : displayRows),
+    [searching, displayRows, txSearch],
+  )
+  const searchTotal = useMemo(() => {
+    let total = 0
+    if (searching) {
+      for (const tx of listRows) total += billContribution(tx, usePrimary, displayCurrency) ?? 0
+    }
+    return total
+  }, [searching, listRows, usePrimary, displayCurrency])
+
   // The mobile transaction view is intentionally grouped by day so the date
   // remains visible without spending a full column on every row.
   const groupedByDate = useMemo(() => {
     const groups: { date: string; label: string; items: TxWithBalance[] }[] = []
     let current: { date: string; label: string; items: TxWithBalance[] } | null = null
-    for (const tx of displayRows) {
+    for (const tx of listRows) {
       if (!current || current.date !== tx.date) {
         current = {
           date: tx.date,
@@ -855,7 +872,7 @@ export default function AccountDetailPage() {
       current.items.push(tx)
     }
     return groups
-  }, [displayRows, dateLocale])
+  }, [listRows, dateLocale])
 
   const isLoading = accountLoading || summaryLoading
 
@@ -1996,6 +2013,43 @@ export default function AccountDetailPage() {
             </p>
           )}
         </div>
+        {isCreditCard && displayRows.length > 0 && (
+          <div className="px-5 py-3 border-b border-border flex flex-wrap items-center gap-x-4 gap-y-2">
+            <div className="relative w-full sm:w-72">
+              <Search size={14} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="text"
+                enterKeyHint="search"
+                value={txSearch}
+                onChange={(event) => setTxSearch(event.target.value)}
+                onKeyDown={(event) => { if (event.key === 'Escape') setTxSearch('') }}
+                placeholder={t('accounts.billSearchPlaceholder')}
+                aria-label={t('accounts.billSearchPlaceholder')}
+                className="h-10 pl-9 pr-10"
+              />
+              {txSearch && (
+                <button
+                  type="button"
+                  onClick={() => setTxSearch('')}
+                  aria-label={t('accounts.billSearchClear')}
+                  className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted"
+                >
+                  <X size={14} aria-hidden="true" />
+                </button>
+              )}
+            </div>
+            {/* The sum of what the matches add to the bill, announced as it
+                changes so the number follows the typing. */}
+            <p className="text-sm tabular-nums" aria-live="polite">
+              {searching && (
+                <>
+                  <span className="text-muted-foreground">{t('accounts.billSearchResult', { count: listRows.length })}</span>{' '}
+                  <span className="font-semibold text-foreground">{mask(formatCurrency(searchTotal, displayCurrency, locale))}</span>
+                </>
+              )}
+            </p>
+          </div>
+        )}
         <div className="p-0">
           {txLoading ? (
             <div className="p-6 space-y-3">
@@ -2003,6 +2057,8 @@ export default function AccountDetailPage() {
             </div>
           ) : displayRows.length === 0 ? (
             <p className="p-6 text-center text-muted-foreground">{t('accounts.noTransactions')}</p>
+          ) : listRows.length === 0 ? (
+            <p className="p-6 text-center text-muted-foreground">{t('accounts.billSearchEmpty', { query: txSearch.trim() })}</p>
           ) : isMobile ? (
             <div>
               {groupedByDate.map((group) => (
@@ -2046,11 +2102,13 @@ export default function AccountDetailPage() {
                     <th className="px-2 sm:px-4 py-3 text-left font-medium">{t('transactions.description')}</th>
                     <th className="px-2 sm:px-4 py-3 text-left font-medium hidden md:table-cell">{t('transactions.category')}</th>
                     <th className="px-2 sm:px-4 py-3 text-right font-medium whitespace-nowrap">{t('transactions.amount')}</th>
-                    <th className="px-2 sm:px-4 py-3 text-right font-medium hidden sm:table-cell whitespace-nowrap">{isCreditCard ? t('accounts.billRunningTotal') : t('accounts.runningBalance')}</th>
+                    {!searching && (
+                      <th className="px-2 sm:px-4 py-3 text-right font-medium hidden sm:table-cell whitespace-nowrap">{isCreditCard ? t('accounts.billRunningTotal') : t('accounts.runningBalance')}</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
-                  {displayRows.map((tx) => {
+                  {listRows.map((tx) => {
                     const isOpening = tx.source === 'opening_balance'
                     const isTransfer = isTransferTransaction(tx)
                     const isIgnored = tx.is_ignored
@@ -2197,9 +2255,13 @@ export default function AccountDetailPage() {
                             </span>
                           )}
                         </td>
-                        <td className={`px-4 py-3 text-right tabular-nums text-sm hidden sm:table-cell whitespace-nowrap ${(account.type === 'credit_card' ? tx.runningBalance > 0 : tx.runningBalance < 0) ? 'text-rose-500' : 'text-muted-foreground'}`}>
-                          {mask(formatCurrency(tx.runningBalance, displayCurrency, locale))}
-                        </td>
+                        {/* The running total is the whole bill's; with a search
+                            on, the header's sum of the matches replaces it. */}
+                        {!searching && (
+                          <td className={`px-4 py-3 text-right tabular-nums text-sm hidden sm:table-cell whitespace-nowrap ${(account.type === 'credit_card' ? tx.runningBalance > 0 : tx.runningBalance < 0) ? 'text-rose-500' : 'text-muted-foreground'}`}>
+                            {mask(formatCurrency(tx.runningBalance, displayCurrency, locale))}
+                          </td>
+                        )}
                       </tr>
                     )
                   })}
