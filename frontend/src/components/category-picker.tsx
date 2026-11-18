@@ -16,6 +16,10 @@ import { normalizeText } from '@/lib/utils'
 const NEW_CATEGORY_ICON = 'circle-help'
 const NEW_CATEGORY_COLOR = '#6366f1'
 
+// cmdk highlights the first item whenever its highlighted value is empty, so
+// "nothing highlighted" is a controlled value that matches no item.
+const NO_HIGHLIGHT = '__no-highlight__'
+
 interface CategoryPickerProps {
   /** The current selection; `null` when there is none to show (e.g. a bulk action). */
   value: string | null
@@ -29,6 +33,12 @@ interface CategoryPickerProps {
   onCreated?: (category: Category) => void
   /** Focus the search field once mounted, for hosts that don't do it themselves. */
   autoFocus?: boolean
+  /**
+   * Highlight the first option when the list opens, so Enter picks it. Turn
+   * off where a pick is consequential: the user then arrows to an option, and
+   * typing in the search still highlights the first match.
+   */
+  autoHighlightFirst?: boolean
 }
 
 /**
@@ -44,8 +54,10 @@ export function CategoryPicker({
   creatable = false,
   onCreated,
   autoFocus = false,
+  autoHighlightFirst = true,
 }: CategoryPickerProps) {
   const [search, setSearch] = useState('')
+  const [highlighted, setHighlighted] = useState(NO_HIGHLIGHT)
   const rootRef = useRef<HTMLDivElement>(null)
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -92,6 +104,7 @@ export function CategoryPicker({
 
   return (
     <Command
+      {...(autoHighlightFirst ? {} : { value: highlighted, onValueChange: setHighlighted })}
       ref={rootRef}
       filter={(itemValue, search) => {
         return normalizeText(itemValue).includes(normalizeText(search)) ? 1 : 0

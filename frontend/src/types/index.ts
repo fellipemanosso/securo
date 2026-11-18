@@ -100,6 +100,8 @@ export interface Category {
   is_hidden: boolean
   treat_as_transfer: boolean
   is_ignored: boolean
+  /** Transactions that reference the category (direct and split lines). Only present when the list was requested with usage. */
+  transaction_count?: number | null
 }
 
 /** Active rules that assign a category, used when retiring one. */

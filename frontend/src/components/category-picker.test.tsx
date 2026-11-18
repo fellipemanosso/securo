@@ -64,4 +64,31 @@ describe('CategoryPicker', () => {
 
     expect(document.querySelector('svg.lucide-check')).toBeNull()
   })
+
+  it('highlights the first option on open by default, so Enter picks it', async () => {
+    const { user, onChange } = renderPicker()
+
+    expect(screen.getByRole('option', { name: 'Groceries' })).toHaveAttribute('aria-selected', 'true')
+    await user.click(screen.getByPlaceholderText(t('transactions.searchCategory')))
+    await user.keyboard('{Enter}')
+    expect(onChange).toHaveBeenCalledWith('cat-1')
+  })
+
+  it('can open with nothing highlighted, so Enter picks nothing until the user chooses', async () => {
+    const { user, onChange } = renderPicker({ autoHighlightFirst: false })
+    const input = screen.getByPlaceholderText(t('transactions.searchCategory'))
+
+    expect(screen.queryByRole('option', { selected: true })).toBeNull()
+    await user.click(input)
+    await user.keyboard('{Enter}')
+    expect(onChange).not.toHaveBeenCalled()
+
+    await user.keyboard('{ArrowDown}')
+    expect(screen.getByRole('option', { name: 'Groceries' })).toHaveAttribute('aria-selected', 'true')
+
+    await user.type(input, 'mov')
+    expect(screen.getByRole('option', { name: 'Movies' })).toHaveAttribute('aria-selected', 'true')
+    await user.keyboard('{Enter}')
+    expect(onChange).toHaveBeenCalledWith('cat-3')
+  })
 })

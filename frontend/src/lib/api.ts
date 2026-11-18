@@ -365,7 +365,9 @@ export const categories = {
     return data
   },
   listIncludingHidden: async (): Promise<Category[]> => {
-    const { data } = await api.get('/categories', { params: { include_hidden: true } })
+    const { data } = await api.get('/categories', {
+      params: { include_hidden: true, include_usage: true },
+    })
     return data
   },
   create: async (category: Partial<Category>): Promise<Category> => {
