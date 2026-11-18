@@ -213,13 +213,27 @@ async def open_for(
     return list(result.unique().scalars().all())
 
 
-async def count_open(session: AsyncSession, workspace_id: uuid.UUID) -> int:
+async def count_open(
+    session: AsyncSession, workspace_id: uuid.UUID, *, now: Optional[datetime] = None
+) -> int:
+    """How many questions are waiting, counted as the queue lists them.
+
+    One per question, so a payment offered against three invoices counts
+    once, and without the ones `expire_stale` would retire on the next read
+    of the queue. Read-only on purpose: this backs a badge on every page,
+    which must not write.
+    """
     from sqlalchemy import func
 
+    cutoff = (now or datetime.now(timezone.utc)) - timedelta(days=STALE_AFTER_DAYS)
+    question = func.coalesce(
+        ReconciliationSuggestion.group_id, ReconciliationSuggestion.id
+    )
     result = await session.execute(
-        select(func.count(ReconciliationSuggestion.id)).where(
+        select(func.count(func.distinct(question))).where(
             ReconciliationSuggestion.workspace_id == workspace_id,
             ReconciliationSuggestion.status == "pending",
+            ReconciliationSuggestion.created_at >= cutoff,
         )
     )
     return int(result.scalar_one() or 0)

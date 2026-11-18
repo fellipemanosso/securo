@@ -110,6 +110,7 @@
   "nav": {
     "dashboard": "Painel",
     "month": "Mês",
+    "reconciliation": "Conciliações",
     "transactions": "Transações",
     "invoices": "Cobranças",
     "accounts": "Contas",
@@ -1853,12 +1854,7 @@
     "importConfirmTitle": "Importar regras de categorização?",
     "importConfirmDescription": "O arquivo {{file}} contém {{count}} regras.",
     "importOverwriteWarning": "Importar vai substituir as suas regras de categorização atuais. Isso não pode ser desfeito.",
-    "confirmOverwriteImport": "Substituir e importar",
-    "tab": {
-      "rules": "Regras",
-      "queue": "Esperando você",
-      "history": "Histórico"
-    }
+    "confirmOverwriteImport": "Substituir e importar"
   },
   "categories": {
     "title": "Categorias",
@@ -3199,9 +3195,18 @@
       "setFee": "Admitir taxa de",
       "setFeeHint": "Uma parcela do valor das faturas, para pagamento que se move líquido de taxa. Zero significa que o total tem de ser exato."
     },
+    "page": {
+      "subtitle": "Pagamentos que as regras não conseguiram ligar sozinhas. Ligue ou descarte cada um; toda resposta fica no histórico.",
+      "pending": "Pendentes",
+      "history": "Histórico",
+      "adjustRules": "Ajustar regras",
+      "pendingCount": "Pendentes: {{count}}"
+    },
     "queue": {
       "title": "Esperando você",
       "hint": "Vínculos que precisam da sua confirmação.",
+      "emptyTitle": "Nada pendente",
+      "error": "Não foi possível carregar as conciliações pendentes.",
       "empty": "Nada para revisar. Tudo casou sozinho.",
       "aPayment": "Um pagamento",
       "maySettle": "pode quitar {{name}}",
@@ -3263,6 +3268,7 @@
         "expired": "Sugestão expirou: {{name}}",
         "unlinked": "Vínculo desfeito com {{name}}"
       },
+      "error": "Não foi possível carregar o histórico.",
       "empty": "Nada ainda. Isto se preenche conforme o vínculo automático liga, pergunta e é respondido."
     },
     "moveUp": "Tentar esta antes",

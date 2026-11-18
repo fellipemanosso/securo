@@ -55,6 +55,7 @@ from app.schemas.reconciliation import (
     ReconciliationOrder,
     ReconciliationRuleUpdate,
     HistoryEventRead,
+    SuggestionCountRead,
     SuggestionCovers,
     SuggestionRead,
 )
@@ -415,6 +416,21 @@ async def list_suggestions(
             seen.add(row.group_id)
         out.append(await _with_label(session, row))
     return out
+
+
+@router.get("/suggestions/count", response_model=SuggestionCountRead)
+async def count_suggestions(
+    ctx: WorkspaceContext = Depends(_read),
+    session: AsyncSession = Depends(get_async_session),
+):
+    """How many questions are waiting, for a badge outside the queue.
+
+    The same number the queue would list, without labelling every row or
+    retiring stale ones on the way: navigation reads this on every page.
+    """
+    return SuggestionCountRead(
+        pending=await suggestions.count_open(session, ctx.workspace.id)
+    )
 
 
 @router.post("/suggestions/{suggestion_id}/accept", response_model=SuggestionRead)

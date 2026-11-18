@@ -24,6 +24,7 @@ from app.services import (
     reconciliation_policy,
     reconciliation_rule_service,
     reconciliation_service,
+    reconciliation_suggestion_service as suggestion_service,
 )
 from app.services.recurring_transaction_service import create_recurring_transaction
 
@@ -655,3 +656,85 @@ async def test_a_single_bill_within_tolerance_is_not_suggested(
     await session.commit()
 
     assert await _pending_for(session, charge_id) == set()
+
+
+# ---------------------------------------------------------------------------
+# The badge: how many questions are waiting
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_the_pending_count_matches_the_queue_and_follows_answers(
+    client: AsyncClient, auth_headers, biz_headers, session: AsyncSession,
+    account, test_user,
+):
+    """One per question, as the queue lists them: a payment offered against
+    three bills counts once, answered and stale questions do not count, and
+    another workspace's questions stay there. Declining one takes it off."""
+    from datetime import datetime, timezone
+
+    from app.models.reconciliation import ReconciliationSuggestion
+
+    grouped_charge = await a_transaction(session, account, test_user, kind="debit")
+    single_charge = await a_transaction(session, account, test_user, kind="debit")
+    answered_charge = await a_transaction(session, account, test_user, kind="debit")
+    stale_charge = await a_transaction(session, account, test_user, kind="debit")
+    other_ws = await client.post(
+        "/api/workspaces",
+        headers=auth_headers,
+        json={"name": "Outra", "kind": "business", "self_membership": True},
+    )
+    assert other_ws.status_code == 201, other_ws.text
+    other_headers = {**auth_headers, "X-Workspace-Id": other_ws.json()["id"]}
+    other_account = Account(
+        id=uuid.uuid4(), user_id=test_user.id,
+        workspace_id=uuid.UUID(other_ws.json()["id"]),
+        name="Outra conta", type="checking", currency="USD", balance=Decimal("0"),
+    )
+    session.add(other_account)
+    await session.commit()
+    other_charge = await a_transaction(session, other_account, test_user, kind="debit")
+
+    def question(charge, **fields) -> ReconciliationSuggestion:
+        return ReconciliationSuggestion(
+            workspace_id=charge.workspace_id, transaction_id=charge.id,
+            expectation_kind="recurring", expectation_id=uuid.uuid4(),
+            strategy_id="same_account_exact",
+            node="reconciliation.match_recurring", amount=Decimal("1000.00"),
+            **fields,
+        )
+
+    group = uuid.uuid4()
+    single = question(single_charge)
+    session.add_all([
+        *(question(grouped_charge, group_id=group) for _ in range(3)),
+        single,
+        question(answered_charge, status="declined"),
+        question(
+            stale_charge,
+            created_at=datetime.now(timezone.utc)
+            - timedelta(days=suggestion_service.STALE_AFTER_DAYS + 1),
+        ),
+        question(other_charge),
+    ])
+    await session.commit()
+    single_id = single.id
+
+    count = await client.get("/api/reconciliation/suggestions/count", headers=biz_headers)
+    assert count.status_code == 200, count.text
+    assert count.json() == {"pending": 2}
+
+    queue = await client.get("/api/reconciliation/suggestions", headers=biz_headers)
+    assert queue.status_code == 200, queue.text
+    assert len(queue.json()) == 2
+
+    other = await client.get(
+        "/api/reconciliation/suggestions/count", headers=other_headers
+    )
+    assert other.json() == {"pending": 1}
+
+    declined = await client.post(
+        f"/api/reconciliation/suggestions/{single_id}/decline", headers=biz_headers
+    )
+    assert declined.status_code == 200, declined.text
+
+    after = await client.get("/api/reconciliation/suggestions/count", headers=biz_headers)
+    assert after.json() == {"pending": 1}

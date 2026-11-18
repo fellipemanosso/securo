@@ -110,6 +110,7 @@
   "nav": {
     "dashboard": "Tableau de bord",
     "month": "Mois",
+    "reconciliation": "Rapprochements",
     "transactions": "Transactions",
     "invoices": "Factures",
     "accounts": "Comptes",
@@ -1853,12 +1854,7 @@
     "importConfirmTitle": "Importer les règles de catégorisation ?",
     "importConfirmDescription": "Le fichier {{file}} contient {{count}} règles.",
     "importOverwriteWarning": "L'importation écrasera vos règles de catégorisation actuelles. Cette action est irréversible.",
-    "confirmOverwriteImport": "Écraser et importer",
-    "tab": {
-      "rules": "Règles",
-      "queue": "En attente de vous",
-      "history": "Historique"
-    }
+    "confirmOverwriteImport": "Écraser et importer"
   },
   "categories": {
     "title": "Catégories",
@@ -3199,9 +3195,18 @@
       "setFee": "Admettre des frais de",
       "setFeeHint": "Une part de la valeur des factures, pour un paiement qui circule net de commission. Zéro signifie que le total doit être exact."
     },
+    "page": {
+      "subtitle": "Les paiements que les règles n'ont pas pu rattacher seules. Rattachez ou écartez chacun ; chaque réponse reste dans l'historique.",
+      "pending": "En attente",
+      "history": "Historique",
+      "adjustRules": "Ajuster les règles",
+      "pendingCount": "En attente : {{count}}"
+    },
     "queue": {
       "title": "En attente de vous",
       "hint": "Correspondances qui attendent votre confirmation.",
+      "emptyTitle": "Rien en attente",
+      "error": "Impossible de charger les rapprochements en attente.",
       "empty": "Rien à vérifier. Tout a été rapproché tout seul.",
       "aPayment": "Un paiement",
       "maySettle": "règle peut-être {{name}}",
@@ -3263,6 +3268,7 @@
         "expired": "Suggestion expirée : {{name}}",
         "unlinked": "Détaché de {{name}}"
       },
+      "error": "Impossible de charger l'historique.",
       "empty": "Rien pour l'instant. Cela se remplit à mesure que la correspondance rattache, demande et reçoit une réponse."
     },
     "moveUp": "Essayer celle-ci plus tôt",

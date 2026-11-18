@@ -22,6 +22,8 @@ import { useDisplayLocale, useDateLocale } from '@/hooks/use-display-locale'
 import { usePrivacyMode } from '@/hooks/use-privacy-mode'
 import { useAuth } from '@/contexts/auth-context'
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import { ReconciliationPair, type PairSide } from '@/components/reconciliation-pair'
 
 function SectionCard({ children }: { children: React.ReactNode }) {
@@ -68,14 +70,16 @@ export function ReconciliationHistory() {
   const { user } = useAuth()
   const displayCurrency = user?.preferences?.currency_display ?? 'USD'
 
-  const { data: events } = useQuery<ReconciliationHistoryEvent[]>({
+  const {
+    data: events,
+    isError,
+    refetch,
+  } = useQuery<ReconciliationHistoryEvent[]>({
     queryKey: ['reconciliation-history'],
     queryFn: () => reconciliationApi.history(),
   })
 
-  if (!events) return null
-
-  const shown = expanded ? events : events.slice(0, SHOWN_AT_FIRST)
+  const shown = events ? (expanded ? events : events.slice(0, SHOWN_AT_FIRST)) : []
   // The event's own currency, never a guess: a workspace keeping invoices
   // in more than one is ordinary, and a hardcoded code would have read a
   // R$ 1.200,00 settlement back as $1,200.00.
@@ -100,10 +104,21 @@ export function ReconciliationHistory() {
         </p>
       </div>
 
-      {events.length === 0 ? (
-        // An empty state rather than nothing: as a card in a stack,
-        // rendering nothing was right. As a tab somebody clicked, a blank
-        // page reads as broken.
+      {isError && !events ? (
+        <div role="alert" className="px-5 py-8 text-center">
+          <p className="text-sm font-medium">{t('reconciliation.history.error')}</p>
+          <Button variant="outline" size="sm" className="mt-3" onClick={() => void refetch()}>
+            {t('common.retry')}
+          </Button>
+        </div>
+      ) : !events ? (
+        <div className="space-y-2 p-4 sm:p-5" aria-busy="true" aria-label={t('common.loading')}>
+          <Skeleton className="h-10 rounded-lg" />
+          <Skeleton className="h-10 rounded-lg" />
+          <Skeleton className="h-10 rounded-lg" />
+        </div>
+      ) : events.length === 0 ? (
+        // An empty state rather than nothing: a blank page reads as broken.
         <p className="text-sm text-muted-foreground text-center py-10">
           {t('reconciliation.history.empty')}
         </p>
@@ -170,7 +185,7 @@ export function ReconciliationHistory() {
       </div>
       )}
 
-      {events.length > SHOWN_AT_FIRST && (
+      {events && events.length > SHOWN_AT_FIRST && (
         <button
           className="w-full px-4 py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors border-t border-border"
           onClick={() => setExpanded((open) => !open)}

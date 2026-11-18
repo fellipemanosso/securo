@@ -110,6 +110,7 @@
   "nav": {
     "dashboard": "Dashboard",
     "month": "Monat",
+    "reconciliation": "Abgleich",
     "transactions": "Transaktionen",
     "invoices": "Rechnungen",
     "accounts": "Konten",
@@ -1850,12 +1851,7 @@
     "importConfirmTitle": "Kategorisierungsregeln importieren?",
     "importConfirmDescription": "Die Datei {{file}} enthält {{count}} Regeln.",
     "importOverwriteWarning": "Der Import überschreibt deine aktuellen Kategorisierungsregeln. Dies kann nicht rückgängig gemacht werden.",
-    "confirmOverwriteImport": "Überschreiben und importieren",
-    "tab": {
-      "rules": "Regeln",
-      "queue": "Wartet auf Sie",
-      "history": "Verlauf"
-    }
+    "confirmOverwriteImport": "Überschreiben und importieren"
   },
   "categories": {
     "title": "Kategorien",
@@ -3196,9 +3192,18 @@
       "setFee": "Gebühr zulassen von",
       "setFeeHint": "Ein Anteil am Rechnungswert, für eine Zahlung, die netto nach Abzug fließt. Null bedeutet, die Summe muss exakt sein."
     },
+    "page": {
+      "subtitle": "Zahlungen, die die Regeln nicht selbst verknüpfen konnten. Verknüpfen oder verwerfen Sie jede; jede Antwort bleibt im Verlauf.",
+      "pending": "Offen",
+      "history": "Verlauf",
+      "adjustRules": "Regeln anpassen",
+      "pendingCount": "Offen: {{count}}"
+    },
     "queue": {
       "title": "Wartet auf Sie",
       "hint": "Zuordnungen, die Ihre Bestätigung brauchen.",
+      "emptyTitle": "Nichts offen",
+      "error": "Die offenen Abgleiche konnten nicht geladen werden.",
       "empty": "Nichts zu prüfen. Alles hat von selbst gepasst.",
       "aPayment": "Eine Zahlung",
       "maySettle": "begleicht vielleicht {{name}}",
@@ -3260,6 +3265,7 @@
         "expired": "Vorschlag abgelaufen: {{name}}",
         "unlinked": "Von {{name}} getrennt"
       },
+      "error": "Der Verlauf konnte nicht geladen werden.",
       "empty": "Noch nichts. Das füllt sich, während der Abgleich verknüpft, fragt und beantwortet wird."
     },
     "moveUp": "Diese früher prüfen",

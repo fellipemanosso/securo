@@ -20,6 +20,8 @@ const state = vi.hoisted(() => ({
   theme: 'light',
   setTheme: vi.fn(),
   workspace: { id: 'synthetic', name: 'Synthetic workspace', kind: 'personal', role: 'owner' },
+  modules: [] as string[],
+  pendingReconciliations: vi.fn(),
   auth: {
     oidcConfig: vi.fn(),
     listPasskeys: vi.fn(),
@@ -47,7 +49,7 @@ vi.mock('@/contexts/workspace-context', () => ({
     workspaces: [state.workspace],
     switchWorkspace: vi.fn(),
     refresh: vi.fn(),
-    hasModule: () => false,
+    hasModule: (id: string) => state.modules.includes(id),
     canWrite: false,
     isLoading: false,
   }),
@@ -67,6 +69,7 @@ vi.mock('@/lib/api', () => ({
   accounts: { list: async () => [] },
   workspaces: { create: vi.fn() },
   info: { get: async () => ({ features: {} }) },
+  reconciliation: { suggestionCount: state.pendingReconciliations },
 }))
 vi.mock('@/lib/webauthn', () => ({
   passkeyBlocker: () => null,
@@ -94,6 +97,8 @@ beforeEach(() => {
   localStorage.removeItem('securo.sidebar.collapsed')
   state.theme = 'light'
   state.user = { ...state.user, is_2fa_enabled: true }
+  state.modules = []
+  state.pendingReconciliations.mockResolvedValue(0)
   state.auth.oidcConfig.mockResolvedValue({
     enabled: true,
     local_auth_enabled: false,
@@ -141,6 +146,19 @@ it('restores a collapsed desktop sidebar from local storage', () => {
 
   expect(screen.getByRole('button', { name: t('nav.expandSidebar') })).toHaveAttribute('aria-expanded', 'false')
   expect(document.querySelector('main')).toHaveClass('lg:ml-16')
+})
+
+it('shows how many reconciliations are waiting on the sidebar link', async () => {
+  state.modules = ['transactions']
+  state.pendingReconciliations.mockResolvedValue(3)
+
+  renderWithProviders(<AppLayout />)
+
+  const link = await screen.findByRole('link', {
+    name: `${t('nav.reconciliation')}, ${t('reconciliation.page.pendingCount', { count: 3 })}`,
+  })
+  expect(link).toHaveAttribute('href', '/reconciliation')
+  expect(within(link).getByTestId('nav-count-badge')).toHaveTextContent('3')
 })
 
 it.each(['desktop', 'mobile'])(

@@ -110,6 +110,7 @@
   "nav": {
     "dashboard": "Dashboard",
     "month": "Mese",
+    "reconciliation": "Riconciliazioni",
     "transactions": "Transazioni",
     "invoices": "Fatture",
     "accounts": "Conti",
@@ -1853,12 +1854,7 @@
     "importConfirmTitle": "Importare le regole di categorizzazione?",
     "importConfirmDescription": "Il file {{file}} contiene {{count}} regole.",
     "importOverwriteWarning": "L'importazione sostituirà le tue regole di categorizzazione attuali. Non si può annullare.",
-    "confirmOverwriteImport": "Sovrascrivi e importa",
-    "tab": {
-      "rules": "Regole",
-      "queue": "In attesa di te",
-      "history": "Cronologia"
-    }
+    "confirmOverwriteImport": "Sovrascrivi e importa"
   },
   "categories": {
     "title": "Categorie",
@@ -3199,9 +3195,18 @@
       "setFee": "Ammetti una commissione del",
       "setFeeHint": "Una quota del valore delle fatture, per un pagamento che si muove al netto di una commissione. Zero significa che il totale deve essere esatto."
     },
+    "page": {
+      "subtitle": "Pagamenti che le regole non sono riuscite a collegare da sole. Collega o scarta ciascuno; ogni risposta resta nella cronologia.",
+      "pending": "In attesa",
+      "history": "Cronologia",
+      "adjustRules": "Modifica regole",
+      "pendingCount": "In attesa: {{count}}"
+    },
     "queue": {
       "title": "In attesa di te",
       "hint": "Corrispondenze che aspettano una tua conferma.",
+      "emptyTitle": "Niente in attesa",
+      "error": "Impossibile caricare le riconciliazioni in attesa.",
       "empty": "Niente da rivedere. Ha combaciato tutto da solo.",
       "aPayment": "Un pagamento",
       "maySettle": "potrebbe saldare {{name}}",
@@ -3263,6 +3268,7 @@
         "expired": "Suggerimento scaduto: {{name}}",
         "unlinked": "Scollegato da {{name}}"
       },
+      "error": "Impossibile caricare la cronologia.",
       "empty": "Ancora niente. Si riempie man mano che la corrispondenza collega, chiede e riceve risposta."
     },
     "moveUp": "Provare questa prima",

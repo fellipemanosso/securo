@@ -110,6 +110,7 @@
   "nav": {
     "dashboard": "Přehled",
     "month": "Měsíc",
+    "reconciliation": "Párování",
     "transactions": "Transakce",
     "invoices": "Faktury",
     "accounts": "Účty",
@@ -1963,12 +1964,7 @@
     "importConfirmTitle": "Importovat pravidla kategorizace?",
     "importConfirmDescription": "Počet pravidel v souboru {{file}}: {{count}}.",
     "importOverwriteWarning": "Import přepíše vaše aktuální pravidla kategorizace. Tuto akci nelze vrátit.",
-    "confirmOverwriteImport": "Přepsat a importovat",
-    "tab": {
-      "rules": "Pravidla",
-      "queue": "Čeká na vás",
-      "history": "Historie"
-    }
+    "confirmOverwriteImport": "Přepsat a importovat"
   },
   "categories": {
     "title": "Kategorie",
@@ -3361,9 +3357,18 @@
       "setFee": "Povolit poplatek",
       "setFeeHint": "Podíl z hodnoty faktur, pro platbu, která přichází po odečtení poplatku. Nula znamená, že součet musí sedět přesně."
     },
+    "page": {
+      "subtitle": "Platby, které pravidla nedokázala spárovat sama. Každou spárujte, nebo zamítněte; každá odpověď zůstane v historii.",
+      "pending": "Čekající",
+      "history": "Historie",
+      "adjustRules": "Upravit pravidla",
+      "pendingCount": "Čekající: {{count}}"
+    },
     "queue": {
       "title": "Čeká na vás",
       "hint": "Párování, která čekají na vaše potvrzení.",
+      "emptyTitle": "Nic nečeká",
+      "error": "Čekající párování se nepodařilo načíst.",
       "empty": "Nic ke kontrole. Všechno se spárovalo samo.",
       "aPayment": "Platba",
       "maySettle": "může uhrazovat {{name}}",
@@ -3427,6 +3432,7 @@
         "expired": "Návrh vypršel: {{name}}",
         "unlinked": "Odpojeno od {{name}}"
       },
+      "error": "Historii se nepodařilo načíst.",
       "empty": "Zatím nic. Naplní se, jak párování spojuje, ptá se a dostává odpověď."
     },
     "moveUp": "Zkoušet toto dříve",

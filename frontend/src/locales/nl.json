@@ -110,6 +110,7 @@
   "nav": {
     "dashboard": "Dashboard",
     "month": "Maand",
+    "reconciliation": "Afletteren",
     "transactions": "Transacties",
     "invoices": "Facturen",
     "accounts": "Rekeningen",
@@ -1851,12 +1852,7 @@
     "importOverwriteWarning": "Als u importeert, worden uw huidige categorisatieregels overschreven. Dit kan niet ongedaan worden gemaakt.",
     "confirmOverwriteImport": "Overschrijven en importeren",
     "confirmDeleteTitle": "Regel verwijderen?",
-    "confirmDeleteDescription": "De regel \"{{name}}\" wordt permanent verwijderd en wordt niet meer uitgevoerd. Wijzigingen die al op bestaande transacties zijn toegepast, blijven behouden. Deze actie kan niet ongedaan worden gemaakt.",
-    "tab": {
-      "rules": "Regels",
-      "queue": "Wacht op jou",
-      "history": "Geschiedenis"
-    }
+    "confirmDeleteDescription": "De regel \"{{name}}\" wordt permanent verwijderd en wordt niet meer uitgevoerd. Wijzigingen die al op bestaande transacties zijn toegepast, blijven behouden. Deze actie kan niet ongedaan worden gemaakt."
   },
   "categories": {
     "title": "Categorieën",
@@ -3197,9 +3193,18 @@
       "setFee": "Sta een kosten toe van",
       "setFeeHint": "Een deel van de factuurwaarde, voor een betaling die netto na aftrek loopt. Nul betekent dat het totaal exact moet zijn."
     },
+    "page": {
+      "subtitle": "Betalingen die de regels niet zelf konden koppelen. Koppel of wijs ze één voor één af; elk antwoord blijft in de geschiedenis.",
+      "pending": "Open",
+      "history": "Geschiedenis",
+      "adjustRules": "Regels aanpassen",
+      "pendingCount": "Open: {{count}}"
+    },
     "queue": {
       "title": "Wacht op jou",
       "hint": "Koppelingen die je bevestiging nodig hebben.",
+      "emptyTitle": "Niets open",
+      "error": "De openstaande koppelingen konden niet worden geladen.",
       "empty": "Niets te beoordelen. Alles is vanzelf gekoppeld.",
       "aPayment": "Een betaling",
       "maySettle": "voldoet mogelijk {{name}}",
@@ -3261,6 +3266,7 @@
         "expired": "Voorstel verlopen: {{name}}",
         "unlinked": "Ontkoppeld van {{name}}"
       },
+      "error": "De geschiedenis kon niet worden geladen.",
       "empty": "Nog niets. Dit vult zich terwijl het afletteren koppelt, vraagt en antwoord krijgt."
     },
     "moveUp": "Deze eerder proberen",

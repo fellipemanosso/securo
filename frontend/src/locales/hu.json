@@ -110,6 +110,7 @@
   "nav": {
     "dashboard": "Áttekintés",
     "month": "Hónap",
+    "reconciliation": "Egyeztetés",
     "transactions": "Tranzakciók",
     "invoices": "Számlázás",
     "accounts": "Számlák",
@@ -1849,12 +1850,7 @@
     "importConfirmTitle": "Importálod a kategorizálási szabályokat?",
     "importConfirmDescription": "A fájl ({{file}}) {{count}} szabályt tartalmaz.",
     "importOverwriteWarning": "Az importálás felülírja a jelenlegi kategorizálási szabályaidat. Ez nem vonható vissza.",
-    "confirmOverwriteImport": "Felülírás és importálás",
-    "tab": {
-      "rules": "Szabályok",
-      "queue": "Rád vár",
-      "history": "Előzmények"
-    }
+    "confirmOverwriteImport": "Felülírás és importálás"
   },
   "categories": {
     "title": "Kategóriák",
@@ -3195,9 +3191,18 @@
       "setFee": "Megengedett díj",
       "setFeeHint": "A számlák értékének egy hányada olyan fizetéshez, amelyből levonnak egy jutalékot. A nulla azt jelenti, hogy a végösszegnek pontosan kell egyeznie."
     },
+    "page": {
+      "subtitle": "Fizetések, amelyeket a szabályok nem tudtak maguktól összekapcsolni. Mindegyiket kapcsold össze vagy vesd el; minden válasz megmarad az előzményekben.",
+      "pending": "Függőben",
+      "history": "Előzmények",
+      "adjustRules": "Szabályok módosítása",
+      "pendingCount": "Függőben: {{count}}"
+    },
     "queue": {
       "title": "Rád vár",
       "hint": "Megerősítésedre váró egyezések.",
+      "emptyTitle": "Nincs semmi függőben",
+      "error": "A függő egyeztetéseket nem sikerült betölteni.",
       "empty": "Nincs mit átnézni. Minden magától egyezett.",
       "aPayment": "Egy fizetés",
       "maySettle": "kiegyenlítheti ezt: {{name}}",
@@ -3259,6 +3264,7 @@
         "expired": "Javaslat lejárt: {{name}}",
         "unlinked": "Kapcsolat megszüntetve: {{name}}"
       },
+      "error": "Az előzményeket nem sikerült betölteni.",
       "empty": "Még nincs semmi. Ez a lista akkor telik meg, amikor az egyeztetés összekapcsol, kérdez, és választ kap."
     },
     "moveUp": "Próbáld korábban",

@@ -41,6 +41,8 @@ import { UpdateAvailableBanner } from '@/components/update-available-banner'
 import { UpdateAvailableDialog } from '@/components/update-available-dialog'
 import { WorkspaceSwitcher } from '@/components/workspace-switcher'
 import { isNavItemActive, navItems, visibleNavItems, type NavItem } from '@/lib/nav-items'
+import { NavCountBadge } from '@/components/nav-count-badge'
+import { usePendingReconciliationCount } from '@/hooks/use-pending-reconciliation-count'
 import {
   Menu,
   ChevronLeft,
@@ -253,6 +255,11 @@ export function AppLayout() {
     () => visibleNavItems(navItems, hasModule),
     [hasModule],
   )
+  // Work waiting behind a link. Only Conciliações has any today; the
+  // count is a separate cheap request so the sidebar never pays for
+  // labelling every question in the queue.
+  const { data: pendingReconciliations } = usePendingReconciliationCount(hasModule('transactions'))
+  const navBadges: Partial<Record<string, number>> = { reconciliation: pendingReconciliations }
   const isMac =
     typeof navigator !== 'undefined' &&
     /Mac|iPhone|iPad|iPod/.test(navigator.platform)
@@ -530,16 +537,22 @@ export function AppLayout() {
               const isActive = isNavItemActive(item, location.pathname, accountDetailType)
               const Icon = item.icon
               const showQuickAdd = item.key === 'transactions' && canWrite
+              const badge = navBadges[item.key]
+              // The badge is drawn for the eye; the label says it in words,
+              // so a screen reader hears "Conciliações, Pending: 3".
+              const label = badge
+                ? `${t(`nav.${item.key}`)}, ${t('reconciliation.page.pendingCount', { count: badge })}`
+                : t(`nav.${item.key}`)
               const link = (
                 <Link
                   key={item.key}
                   to={item.path}
                   data-tour={`nav-${item.key}`}
                   onClick={() => setSidebarOpen(false)}
-                  title={t(`nav.${item.key}`)}
-                  aria-label={t(`nav.${item.key}`)}
+                  title={label}
+                  aria-label={label}
                   className={cn(
-                    'flex items-center gap-3 text-[13px] font-medium transition-all rounded-lg px-3 py-2',
+                    'relative flex items-center gap-3 text-[13px] font-medium transition-all rounded-lg px-3 py-2',
                     isActive
                       ? 'bg-primary/[0.08] text-primary border-l-[3px] border-primary pl-[9px]'
                       : 'text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground',
@@ -555,6 +568,12 @@ export function AppLayout() {
                     )}
                   />
                   <span className={cn(desktopSidebarCollapsed && 'lg:hidden')}>{t(`nav.${item.key}`)}</span>
+                  <NavCountBadge count={badge} className={cn('ml-auto', desktopSidebarCollapsed && 'lg:hidden')} />
+                  {/* Collapsed to icons there is no room for a number, so
+                      the icon carries a dot: something is waiting. */}
+                  {!!badge && desktopSidebarCollapsed && (
+                    <span aria-hidden="true" className="absolute right-1.5 top-1.5 hidden h-2 w-2 rounded-full bg-amber-500 ring-2 ring-sidebar lg:block" />
+                  )}
                 </Link>
               )
               if (!showQuickAdd) return link

@@ -110,6 +110,7 @@
   "nav": {
     "dashboard": "Dashboard",
     "month": "Month",
+    "reconciliation": "Reconciliation",
     "transactions": "Transactions",
     "invoices": "Invoices",
     "accounts": "Accounts",
@@ -1849,12 +1850,7 @@
     "importConfirmTitle": "Import categorization rules?",
     "importConfirmDescription": "File {{file}} contains {{count}} rules.",
     "importOverwriteWarning": "Importing will overwrite your current categorization rules. This cannot be undone.",
-    "confirmOverwriteImport": "Overwrite and import",
-    "tab": {
-      "rules": "Rules",
-      "queue": "Waiting for you",
-      "history": "History"
-    }
+    "confirmOverwriteImport": "Overwrite and import"
   },
   "categories": {
     "title": "Categories",
@@ -3195,9 +3191,18 @@
       "setFee": "Allow for a fee of",
       "setFeeHint": "A share of what the invoices are worth, for a payment that moves net of a cut. Zero means the total must be exact."
     },
+    "page": {
+      "subtitle": "Payments the rules could not link on their own. Link or dismiss each one; every answer stays in the history.",
+      "pending": "Pending",
+      "history": "History",
+      "adjustRules": "Adjust rules",
+      "pendingCount": "Pending: {{count}}"
+    },
     "queue": {
       "title": "Waiting for you",
       "hint": "Matches that need your confirmation.",
+      "emptyTitle": "Nothing pending",
+      "error": "Could not load the pending matches.",
       "empty": "Nothing to review. Everything matched on its own.",
       "aPayment": "A payment",
       "maySettle": "may settle {{name}}",
@@ -3259,6 +3264,7 @@
         "expired": "Suggestion expired: {{name}}",
         "unlinked": "Unlinked from {{name}}"
       },
+      "error": "Could not load the history.",
       "empty": "Nothing yet. This fills in as matching links, asks and is answered."
     },
     "moveUp": "Try this one earlier",

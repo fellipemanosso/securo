@@ -1168,7 +1168,7 @@ export default function TransactionsPage() {
                 going somewhere you had no reason to go. */}
             {suggestionsByTransaction.get(tx.id) && (
               <Link
-                to="/rules?tab=queue"
+                to="/reconciliation"
                 onClick={(e) => e.stopPropagation()}
                 title={t('transactions.suggestionBadgeTooltip')}
                 className="inline-flex max-w-full items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700 bg-amber-50 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900 px-1.5 py-0.5 rounded-full hover:bg-amber-100 dark:hover:bg-amber-950/70 transition-colors"

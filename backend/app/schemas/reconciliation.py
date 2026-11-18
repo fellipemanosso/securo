@@ -158,6 +158,12 @@ class SuggestionRead(BaseModel):
     covers: list[SuggestionCovers] = []
 
 
+class SuggestionCountRead(BaseModel):
+    """How many questions are waiting, counted the way the queue lists them."""
+
+    pending: int
+
+
 class HistoryEventRead(BaseModel):
     """One thing that happened, as the stream shows it."""
 

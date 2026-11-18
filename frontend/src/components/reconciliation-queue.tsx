@@ -21,6 +21,7 @@ import { extractApiError } from '@/lib/api-errors'
 import { invalidateFinancialQueries } from '@/lib/invalidate-queries'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import type { Account, ReconciliationSuggestion } from '@/types'
 import { Check, X, CircleCheck } from 'lucide-react'
 import { ReconciliationPair, type PairSide } from '@/components/reconciliation-pair'
@@ -128,7 +129,11 @@ export function ReconciliationQueue({ canWrite }: { canWrite: boolean }) {
   const dateLocale = useDateLocale()
   const { mask } = usePrivacyMode()
 
-  const { data: suggestions } = useQuery<ReconciliationSuggestion[]>({
+  const {
+    data: suggestions,
+    isError,
+    refetch,
+  } = useQuery<ReconciliationSuggestion[]>({
     queryKey: ['reconciliation-suggestions'],
     queryFn: reconciliationApi.suggestions,
   })
@@ -154,28 +159,37 @@ export function ReconciliationQueue({ canWrite }: { canWrite: boolean }) {
   const showDate = (iso: string) =>
     new Date(`${iso}T00:00:00`).toLocaleDateString(dateLocale)
 
-  if (!suggestions) return null
-
   return (
     <SectionCard>
       <div className="px-4 sm:px-5 py-4 border-b border-border">
         <p className="text-sm font-semibold text-foreground">
           {t('reconciliation.queue.title')}
-          {suggestions.length > 0 && (
-            <span className="ml-2 text-[10px] font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300 px-1.5 py-0.5 rounded-full">
-              {suggestions.length}
-            </span>
-          )}
         </p>
         <p className="text-xs text-muted-foreground mt-0.5">
           {t('reconciliation.queue.hint')}
         </p>
       </div>
 
-      {suggestions.length === 0 ? (
-        <div className="py-10 text-center">
-          <CircleCheck size={20} className="mx-auto text-emerald-500 mb-2" />
-          <p className="text-sm text-muted-foreground">{t('reconciliation.queue.empty')}</p>
+      {isError && !suggestions ? (
+        <div role="alert" className="px-5 py-8 text-center">
+          <p className="text-sm font-medium">{t('reconciliation.queue.error')}</p>
+          <Button variant="outline" size="sm" className="mt-3" onClick={() => void refetch()}>
+            {t('common.retry')}
+          </Button>
+        </div>
+      ) : !suggestions ? (
+        <div className="space-y-3 p-4 sm:p-5" aria-busy="true" aria-label={t('common.loading')}>
+          <Skeleton className="h-14 rounded-lg" />
+          <Skeleton className="h-14 rounded-lg" />
+          <Skeleton className="h-14 rounded-lg" />
+        </div>
+      ) : suggestions.length === 0 ? (
+        <div className="px-5 py-10 text-center">
+          <CircleCheck size={20} className="mx-auto text-emerald-500 mb-2" aria-hidden="true" />
+          <p className="text-sm font-medium text-foreground">{t('reconciliation.queue.emptyTitle')}</p>
+          <p className="mx-auto mt-1 max-w-sm text-xs leading-5 text-muted-foreground">
+            {t('reconciliation.queue.empty')}
+          </p>
         </div>
       ) : (
         <div className="divide-y divide-border">
@@ -268,7 +282,8 @@ export function ReconciliationQueue({ canWrite }: { canWrite: boolean }) {
                       <Button
                         size="sm"
                         variant="outline"
-                        className="h-8 gap-1"
+                        className="h-9 min-w-9 gap-1 sm:h-8 sm:min-w-0"
+                        aria-label={t('reconciliation.queue.accept')}
                         onClick={() => accept.mutate(suggestion.id)}
                         disabled={accept.isPending || decline.isPending}
                       >
@@ -280,7 +295,8 @@ export function ReconciliationQueue({ canWrite }: { canWrite: boolean }) {
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="h-8 gap-1 text-muted-foreground"
+                        className="h-9 min-w-9 gap-1 text-muted-foreground sm:h-8 sm:min-w-0"
+                        aria-label={t('reconciliation.queue.declineHint')}
                         onClick={() => decline.mutate(suggestion.id)}
                         disabled={accept.isPending || decline.isPending}
                         title={t('reconciliation.queue.declineHint')}

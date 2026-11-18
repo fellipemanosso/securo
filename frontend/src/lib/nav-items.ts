@@ -4,6 +4,7 @@ import {
   Building2,
   CalendarDays,
   CreditCard,
+  Link2,
   Plug,
   Landmark,
   PiggyBank,
@@ -40,6 +41,9 @@ export const navItems: NavItem[] = [
   { type: 'separator', labelKey: 'nav.groupAccounts' },
   { type: 'link', key: 'transactions', path: '/transactions', icon: ArrowLeftRight, module: 'transactions' },
   { type: 'link', key: 'invoices', path: '/invoices', icon: Receipt, module: 'invoices' },
+  // The questions matching could not answer, next to the money they are
+  // about. The sidebar shows how many are waiting (see app-layout).
+  { type: 'link', key: 'reconciliation', path: '/reconciliation', icon: Link2, module: 'transactions' },
   { type: 'link', key: 'accounts', path: '/accounts', icon: Building2, module: 'accounts' },
   { type: 'link', key: 'cards', path: '/cards', icon: CreditCard, module: 'accounts' },
   { type: 'link', key: 'connections', path: '/connections', icon: Plug, module: 'accounts' },

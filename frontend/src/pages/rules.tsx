@@ -1,5 +1,5 @@
 import { useRef, useState, useMemo } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Navigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { categories as categoriesApi, categoryGroups as categoryGroupsApi, rules as rulesApi, accounts as accountsApi, payees as payeesApi } from '@/lib/api'
@@ -28,10 +28,6 @@ import { PageRefreshButton } from '@/components/page-refresh-button'
 import { useWorkspace } from '@/contexts/workspace-context'
 import { RuleDialog } from '@/components/rule-dialog'
 import { ReconciliationRules } from '@/components/reconciliation-rules'
-import { ReconciliationQueue } from '@/components/reconciliation-queue'
-import { ReconciliationHistory } from '@/components/reconciliation-history'
-import { Segmented } from '@/components/invoice-ui'
-import { reconciliation as reconciliationApi } from '@/lib/api'
 import { findCategoryReference, getRuleCategoryName } from '@/lib/category-reference-utils'
 
 function SectionCard({ children }: { children: React.ReactNode }) {
@@ -95,7 +91,19 @@ const ACTION_FILTERS = [
 
 const FILTER_CONTROL_CLASS = 'h-7 rounded-md border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus-visible:ring-ring/30 focus-visible:ring-[2px]'
 
+/** The queue and the history of matching used to be tabs here. They moved
+ *  to Conciliações, so links minted before the move (`?tab=queue`, the
+ *  badge on a transaction row; `?tab=history`) land there instead of on a
+ *  rules list that no longer has the tab they asked for. */
 export default function RulesPage() {
+  const [searchParams] = useSearchParams()
+  const legacyTab = searchParams.get('tab')
+  if (legacyTab === 'queue') return <Navigate to="/reconciliation" replace />
+  if (legacyTab === 'history') return <Navigate to="/reconciliation?tab=history" replace />
+  return <RulesSettings />
+}
+
+function RulesSettings() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { canWrite } = useWorkspace()
@@ -340,39 +348,6 @@ export default function RulesPage() {
     return list.sort((a, b) => dir * (a.priority - b.priority))
   }, [filteredRules, displayCategories, sortBy, sortDir])
 
-  // Three reasons to come here, not one. Rules is configuration: visited
-  // when somebody wants to change behaviour. The queue is *work*, visited
-  // when there is something pending. History is *audit*, visited to find
-  // out what happened. Burying work inside a configuration page meant only
-  // people who came to configure something ever discovered they had any.
-  // Matching used to serve only sets that belonged to a module, so a
-  // personal workspace had no rules here, no queue and no history, and
-  // the tabs were hidden rather than left empty. Transfer pairing
-  // changed that: it runs for everybody, it has always run, and it is
-  // now written down where its owner can read it. So there is no
-  // workspace without matching any more, and nothing left to hide.
-
-  // Addressable, because the queue is now linked to from elsewhere: a
-  // badge on a transaction row is a promise to land on the question, and
-  // landing on the rules list instead would break it.
-  const [searchParams, setSearchParams] = useSearchParams()
-  const requested = searchParams.get('tab')
-  const asked =
-    requested === 'queue' || requested === 'history' ? requested : 'rules'
-  const tab: 'rules' | 'queue' | 'history' = asked
-  const setTab = (next: 'rules' | 'queue' | 'history') => {
-    // `replace`, so the back button leaves the page rather than walking
-    // back through tabs somebody clicked on the way.
-    setSearchParams(next === 'rules' ? {} : { tab: next }, { replace: true })
-  }
-
-  // Fetched here rather than inside the queue so the count can sit on the
-  // tab: a queue nobody can see is not a queue.
-  const { data: pending } = useQuery({
-    queryKey: ['reconciliation-suggestions'],
-    queryFn: reconciliationApi.suggestions,
-  })
-
   return (
     <div>
       <PageHeader
@@ -386,41 +361,6 @@ export default function RulesPage() {
         }
       />
 
-      <div className="mb-4">
-        <Segmented
-          value={tab}
-          onChange={setTab}
-          testIdPrefix="automation-tab"
-          options={[
-            { value: 'rules', label: t('rules.tab.rules') },
-            {
-              value: 'queue' as const,
-              // The count is rendered here rather than through Segmented's
-              // own `count`, which is a muted figure beside a filter: the
-              // right weight for "Overdue 2" and the wrong one for work
-              // waiting on somebody. This is a nudge, so it looks like
-              // one; when there is nothing waiting it disappears entirely
-              // rather than announcing a zero.
-              label: (
-                <span className="inline-flex items-center gap-1.5">
-                  {t('rules.tab.queue')}
-                  {!!pending?.length && (
-                    <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-semibold tabular-nums">
-                      {pending.length}
-                    </span>
-                  )}
-                </span>
-              ),
-            },
-            { value: 'history' as const, label: t('rules.tab.history') },
-          ]}
-        />
-      </div>
-
-      {tab === 'queue' && <ReconciliationQueue canWrite={canWrite} />}
-      {tab === 'history' && <ReconciliationHistory />}
-
-      <div className={tab === 'rules' ? '' : 'hidden'}>
       <SectionCard>
         <SectionHeader
           title={t('rules.sectionTitle')}
@@ -643,7 +583,6 @@ export default function RulesPage() {
           every workspace has whether or not it ever asked for one. */}
       <div className="mt-6 space-y-6">
         <ReconciliationRules canWrite={canWrite} />
-      </div>
       </div>
 
       <DeleteConfirmationDialog

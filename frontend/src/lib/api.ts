@@ -1346,6 +1346,12 @@ export const reconciliation = {
     const { data } = await api.get('/reconciliation/suggestions')
     return data
   },
+  /** How many questions are waiting, counted as the queue lists them.
+   *  Cheap and read-only, for the navigation badge. */
+  suggestionCount: async (): Promise<number> => {
+    const { data } = await api.get<{ pending: number }>('/reconciliation/suggestions/count')
+    return data.pending
+  },
   accept: async (id: string): Promise<ReconciliationSuggestion> => {
     const { data } = await api.post(`/reconciliation/suggestions/${id}/accept`)
     return data

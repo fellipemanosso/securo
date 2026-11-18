@@ -110,6 +110,7 @@
   "nav": {
     "dashboard": "Inicio",
     "month": "Mes",
+    "reconciliation": "Conciliaciones",
     "transactions": "Transacciones",
     "invoices": "Facturas",
     "accounts": "Cuentas",
@@ -1853,12 +1854,7 @@
     "importConfirmTitle": "¿Importar reglas de categorización?",
     "importConfirmDescription": "El archivo {{file}} contiene {{count}} reglas.",
     "importOverwriteWarning": "Importar sustituirá tus reglas de categorización actuales. Esto no se puede deshacer.",
-    "confirmOverwriteImport": "Sobrescribir e importar",
-    "tab": {
-      "rules": "Reglas",
-      "queue": "Esperándote",
-      "history": "Historial"
-    }
+    "confirmOverwriteImport": "Sobrescribir e importar"
   },
   "categories": {
     "title": "Categorías",
@@ -3199,9 +3195,18 @@
       "setFee": "Admitir una comisión de",
       "setFeeHint": "Una parte del valor de las facturas, para un pago que se mueve neto de comisión. Cero significa que el total debe ser exacto."
     },
+    "page": {
+      "subtitle": "Pagos que las reglas no pudieron vincular solas. Vincula o descarta cada uno; cada respuesta queda en el historial.",
+      "pending": "Pendientes",
+      "history": "Historial",
+      "adjustRules": "Ajustar reglas",
+      "pendingCount": "Pendientes: {{count}}"
+    },
     "queue": {
       "title": "Esperándote",
       "hint": "Vínculos que necesitan tu confirmación.",
+      "emptyTitle": "Nada pendiente",
+      "error": "No se pudieron cargar las conciliaciones pendientes.",
       "empty": "Nada que revisar. Todo coincidió solo.",
       "aPayment": "Un pago",
       "maySettle": "puede saldar {{name}}",
@@ -3263,6 +3268,7 @@
         "expired": "Sugerencia caducada: {{name}}",
         "unlinked": "Desvinculado de {{name}}"
       },
+      "error": "No se pudo cargar el historial.",
       "empty": "Nada aún. Esto se llena a medida que el vínculo automático conecta, pregunta y se responde."
     },
     "moveUp": "Probar esta antes",

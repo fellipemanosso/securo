@@ -110,6 +110,7 @@
   "nav": {
     "dashboard": "Pulpit",
     "month": "Miesiąc",
+    "reconciliation": "Uzgodnienia",
     "transactions": "Transakcje",
     "invoices": "Faktury",
     "accounts": "Konta",
@@ -1928,12 +1929,7 @@
     "importConfirmTitle": "Zaimportować reguły kategoryzacji?",
     "importConfirmDescription": "Plik {{file}} zawiera {{count}} reguł.",
     "importOverwriteWarning": "Import zastąpi obecne reguły kategoryzacji. Tego nie można cofnąć.",
-    "confirmOverwriteImport": "Nadpisz i importuj",
-    "tab": {
-      "rules": "Reguły",
-      "queue": "Czeka na Ciebie",
-      "history": "Historia"
-    }
+    "confirmOverwriteImport": "Nadpisz i importuj"
   },
   "categories": {
     "title": "Kategorie",
@@ -3313,9 +3309,18 @@
       "setFee": "Dopuść prowizję",
       "setFeeHint": "Część wartości faktur, dla płatności, która przepływa po potrąceniu prowizji. Zero oznacza, że suma musi być dokładna."
     },
+    "page": {
+      "subtitle": "Płatności, których reguły nie zdołały powiązać same. Powiąż albo odrzuć każdą; każda odpowiedź zostaje w historii.",
+      "pending": "Oczekujące",
+      "history": "Historia",
+      "adjustRules": "Dostosuj reguły",
+      "pendingCount": "Oczekujące: {{count}}"
+    },
     "queue": {
       "title": "Czeka na Ciebie",
       "hint": "Dopasowania, które czekają na potwierdzenie.",
+      "emptyTitle": "Nic nie czeka",
+      "error": "Nie udało się wczytać oczekujących uzgodnień.",
       "empty": "Nic do sprawdzenia. Wszystko dopasowało się samo.",
       "aPayment": "Płatność",
       "maySettle": "może opłacać {{name}}",
@@ -3379,6 +3384,7 @@
         "expired": "Propozycja wygasła: {{name}}",
         "unlinked": "Rozłączono z {{name}}"
       },
+      "error": "Nie udało się wczytać historii.",
       "empty": "Jeszcze nic. Wypełni się, gdy dopasowanie powiąże, zapyta i otrzyma odpowiedź."
     },
     "moveUp": "Sprawdzaj tę wcześniej",
