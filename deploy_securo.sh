@@ -11,17 +11,9 @@
 set -euo pipefail
 
 STACK=${STACK:-securo}
-# The stack's services reference these registry tags; the images built here
-# reuse them so the stack definition needs no change.
-REGISTRY=ghcr.io/fellipemanosso
-BACKEND_IMAGE=$REGISTRY/securo-backend:latest
-FRONTEND_IMAGE=$REGISTRY/securo-frontend:latest
 BACKEND_SERVICES=("${STACK}_backend" "${STACK}_celery-worker" "${STACK}_celery-beat")
 FRONTEND_SERVICE="${STACK}_frontend"
 SRC_DIR=${SRC_DIR:-/root/securo-src}
-# Services and the migration job use --no-resolve-image: a locally built tag
-# must not be resolved against the registry, or Swarm would run whatever older
-# image is published there under the same tag.
 
 echo "[1/5] Construindo imagens a partir do main..."
 if [ -d "$SRC_DIR/.git" ]; then
@@ -40,9 +32,17 @@ if [ "${DEPLOY_SELF_UPDATED:-0}" != "1" ] && ! cmp -s "$SRC_DIR/deploy_securo.sh
 fi
 
 echo "main em $DEPLOY_COMMIT"
+# Images are tagged per commit under the `localhost/` registry. A Swarm task
+# pulls its image before starting even with --no-resolve-image; a tag that
+# also exists on a real registry (the old ghcr.io/...:latest) would be pulled
+# over the image built here. Nothing answers on localhost, so the pull fails
+# fast and the task runs the local image.
+SHA=$(git -C "$SRC_DIR" rev-parse --short HEAD)
+BACKEND_IMAGE=localhost/securo-backend:$SHA
+FRONTEND_IMAGE=localhost/securo-frontend:$SHA
 docker build -t "$BACKEND_IMAGE" -f "$SRC_DIR/backend/Dockerfile" "$SRC_DIR/backend"
 docker build -t "$FRONTEND_IMAGE" \
-  --build-arg VITE_APP_VERSION="main-$(git -C "$SRC_DIR" rev-parse --short HEAD)" \
+  --build-arg VITE_APP_VERSION="main-$SHA" \
   -f "$SRC_DIR/frontend/Dockerfile" "$SRC_DIR/frontend"
 
 echo "[2/5] Aplicando migrations antes dos serviços protegidos pelo schema head..."
@@ -112,6 +112,29 @@ echo "[5/5] Verificando tarefas ativas..."
 for svc in "${BACKEND_SERVICES[@]}" "$FRONTEND_SERVICE"; do
   docker service ps "$svc" --filter desired-state=running
 done
+
+# Fail loudly when a running container is not the image built above.
+check_running_image() {
+  local svc=$1 image=$2 want got
+  want=$(docker image inspect --format '{{.Id}}' "$image")
+  for _ in $(seq 1 30); do
+    got=$(docker ps --filter "label=com.docker.swarm.service.name=$svc" --format '{{.ID}}' \
+      | head -n1 | xargs -r docker inspect --format '{{.Image}}')
+    [ "$got" = "$want" ] && return 0
+    sleep 2
+  done
+  echo "ERRO: $svc não está rodando a imagem $image (rodando: ${got:-nenhuma})" >&2
+  return 1
+}
+check_running_image "${STACK}_backend" "$BACKEND_IMAGE"
+check_running_image "$FRONTEND_SERVICE" "$FRONTEND_IMAGE"
+
+# Keep only this commit's images; ones still held by stopped task containers
+# stay until Swarm drops those tasks.
+docker images --format '{{.Repository}}:{{.Tag}}' \
+  | grep -E '^localhost/securo-(backend|frontend):' \
+  | grep -v ":$SHA\$" \
+  | xargs -r docker rmi >/dev/null 2>&1 || true
 docker image prune -f
 
 echo
