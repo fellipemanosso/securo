@@ -124,6 +124,7 @@
     "settings": "Einstellungen",
     "recurring": "Wiederkehrend",
     "assets": "Vermögenswerte",
+    "investments": "Geldanlagen",
     "payees": "Zahlungsempfänger",
     "splitGroups": "Gruppen",
     "goals": "Ziele",
@@ -138,6 +139,78 @@
     "documentation": "Dokumentation",
     "collapseSidebar": "Seitenleiste einklappen",
     "expandSidebar": "Seitenleiste ausklappen"
+  },
+  "investments": {
+    "subtitle": "Was du angelegt hast, wie es verteilt ist und was es eingebracht hat.",
+    "import": "Importieren",
+    "manage": "In {{page}} verwalten",
+    "error": "Deine Geldanlagen konnten nicht geladen werden.",
+    "summary": {
+      "title": "Übersicht",
+      "value": "Aktueller Wert",
+      "valueHint": "Positionen im Gesamtwert: {{count}}",
+      "cost": "Kosten",
+      "costHint": "Was die Positionen mit bekannter Rendite gekostet haben",
+      "return": "Rendite",
+      "returnHint": "Nicht realisiert, auf die gehaltenen Positionen",
+      "returnCoverage": "Umfasst {{counted}} von {{total}} Positionen; für die übrigen sind keine Kosten erfasst."
+    },
+    "provenance": {
+      "valuesOn": "Werte vom {{date}}",
+      "valuesBetween": "Werte vom {{from}} bis {{to}}",
+      "synced": "Synchronisiert: {{count}}",
+      "manual": "Manuell: {{count}}",
+      "atCost": "Zum Kaufpreis: {{count}}"
+    },
+    "warnings": {
+      "noPrice": "Ohne Preis, nicht im Gesamtwert: {{names}}.",
+      "noFx": "Kein Wechselkurs von {{currency}} nach {{primary}}: {{amount}} nicht im Gesamtwert."
+    },
+    "allocation": {
+      "byClass": "Nach Klasse",
+      "byWallet": "Nach Depot oder Institut",
+      "noWallet": "Ohne Depot"
+    },
+    "class": {
+      "fixed_income": "Festverzinsliche Anlagen",
+      "stocks": "Aktien",
+      "real_estate_funds": "Immobilienfonds (FII)",
+      "etfs": "ETFs",
+      "funds": "Fonds",
+      "pension": "Altersvorsorge",
+      "structured": "Strukturierte Produkte (COE)",
+      "crypto": "Krypto",
+      "other": "Sonstiges"
+    },
+    "evolution": {
+      "title": "Wertentwicklung",
+      "hint": "Erfasste Werte in {{currency}}. Verkaufte Positionen zählen bis zum Verkauf; Positionen ohne Wechselkurs fehlen."
+    },
+    "positions": {
+      "title": "Positionen",
+      "asset": "Anlage",
+      "institution": "Institut",
+      "quantity": "Menge",
+      "price": "Preis",
+      "value": "Wert",
+      "return": "Rendite",
+      "share": "% des Portfolios",
+      "avgPrice": "Ø {{price}}",
+      "open": "{{name}} in {{page}} öffnen",
+      "noPrice": "Ohne Preis",
+      "noFx": "Kein Wechselkurs",
+      "synced": "Synchronisiert",
+      "manual": "Manuell",
+      "quote": "Kurs",
+      "atCost": "Zum Kaufpreis"
+    },
+    "empty": {
+      "title": "Noch keine Geldanlagen",
+      "body": "Verbinde eine Bank oder einen Broker, der Geldanlagen meldet, importiere deine Orders oder lege Positionen in {{page}} an.",
+      "connect": "Konto verbinden",
+      "import": "Orders importieren",
+      "add": "In {{page}} anlegen"
+    }
   },
   "month": {
     "subtitle": "Was eingegangen ist, was ausgegeben wurde und was diesen Monat noch fällig ist.",

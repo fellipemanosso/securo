@@ -24,6 +24,7 @@ from app.providers.market_price import (
 from app.schemas.asset import AssetCreate, AssetUpdate, AssetValueCreate, AssetRead, AssetValueRead
 from app.services.asset_group_service import ensure_group_in_workspace
 from app.services.fx_rate_service import convert, convert_or_none, has_rate, stamp_primary_amount
+from app.services.investment_class import investment_class_of
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +69,22 @@ def _compute_current_value(asset: Asset, latest_value: Optional[AssetValue]) -> 
             return float(asset.purchase_price)
         return None
     return float(latest_value.amount)
+
+
+def _value_as_of(asset: Asset, latest_value: Optional[AssetValue]) -> Optional[date]:
+    """Date the value from ``_compute_current_value`` refers to.
+
+    None when there is no valuation at all and the value is the purchase
+    price, so the UI can say the position is carried at cost.
+    """
+    if (
+        asset.valuation_method == "market_price"
+        and asset.last_price is not None
+        and asset.units is not None
+        and asset.last_price_at is not None
+    ):
+        return asset.last_price_at.date()
+    return latest_value.date if latest_value is not None else None
 
 
 def _generate_growth_values(
@@ -177,6 +194,8 @@ def _asset_to_read(
         total_invested=total_invested,
         realized_gain=float(asset.realized_gain) if asset.realized_gain is not None else None,
         transaction_count=transaction_count,
+        investment_class=investment_class_of(asset.type, asset.ticker, asset.external_metadata),
+        value_as_of=_value_as_of(asset, latest_value),
     )
 
 

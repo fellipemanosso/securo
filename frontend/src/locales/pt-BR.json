@@ -124,6 +124,7 @@
     "settings": "Configurações",
     "recurring": "Recorrentes",
     "assets": "Patrimônio",
+    "investments": "Investimentos",
     "payees": "Pessoas",
     "splitGroups": "Grupos",
     "goals": "Metas",
@@ -138,6 +139,78 @@
     "documentation": "Documentação",
     "collapseSidebar": "Recolher barra lateral",
     "expandSidebar": "Expandir barra lateral"
+  },
+  "investments": {
+    "subtitle": "Quanto você tem investido, como está dividido e quanto rendeu.",
+    "import": "Importar",
+    "manage": "Gerenciar em {{page}}",
+    "error": "Não foi possível carregar seus investimentos.",
+    "summary": {
+      "title": "Resumo",
+      "value": "Valor atual",
+      "valueHint": "Posições no total: {{count}}",
+      "cost": "Custo",
+      "costHint": "Quanto custaram as posições com rentabilidade conhecida",
+      "return": "Rentabilidade",
+      "returnHint": "Não realizada, das posições em carteira",
+      "returnCoverage": "Considera {{counted}} de {{total}} posições; as demais não têm custo registrado."
+    },
+    "provenance": {
+      "valuesOn": "Valores de {{date}}",
+      "valuesBetween": "Valores de {{from}} a {{to}}",
+      "synced": "Sincronizadas: {{count}}",
+      "manual": "Manuais: {{count}}",
+      "atCost": "Pelo custo de compra: {{count}}"
+    },
+    "warnings": {
+      "noPrice": "Sem preço, fora do total: {{names}}.",
+      "noFx": "Sem câmbio de {{currency}} para {{primary}}: {{amount}} fora do total."
+    },
+    "allocation": {
+      "byClass": "Por classe",
+      "byWallet": "Por carteira ou instituição",
+      "noWallet": "Sem carteira"
+    },
+    "class": {
+      "fixed_income": "Renda fixa",
+      "stocks": "Ações",
+      "real_estate_funds": "Fundos imobiliários (FIIs)",
+      "etfs": "ETFs",
+      "funds": "Fundos",
+      "pension": "Previdência",
+      "structured": "COE",
+      "crypto": "Cripto",
+      "other": "Outros"
+    },
+    "evolution": {
+      "title": "Evolução",
+      "hint": "Valores registrados, em {{currency}}. Posições vendidas contam até a venda; as sem câmbio ficam de fora."
+    },
+    "positions": {
+      "title": "Posições",
+      "asset": "Ativo",
+      "institution": "Instituição",
+      "quantity": "Quant.",
+      "price": "Preço",
+      "value": "Valor",
+      "return": "Rentab.",
+      "share": "% da carteira",
+      "avgPrice": "PM {{price}}",
+      "open": "Abrir {{name}} em {{page}}",
+      "noPrice": "Sem preço",
+      "noFx": "Sem câmbio",
+      "synced": "Sincronizado",
+      "manual": "Manual",
+      "quote": "Cotação",
+      "atCost": "Pelo custo de compra"
+    },
+    "empty": {
+      "title": "Nenhum investimento ainda",
+      "body": "Conecte um banco ou corretora que informe investimentos, importe suas notas de corretagem ou cadastre posições em {{page}}.",
+      "connect": "Conectar conta",
+      "import": "Importar ordens",
+      "add": "Cadastrar em {{page}}"
+    }
   },
   "month": {
     "subtitle": "O que entrou, o que saiu e o que ainda vence neste mês.",

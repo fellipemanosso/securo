@@ -51,7 +51,7 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from 'recharts'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { PageHeader } from '@/components/page-header'
 import { PropertyEquitySummary } from '@/components/property-equity-summary'
 import { LOAN_COLLATERAL_TYPES } from '@/lib/property-equity'
@@ -214,7 +214,11 @@ export default function AssetsPage() {
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [pendingGrowthSave, setPendingGrowthSave] = useState<Record<string, unknown> | null>(null)
-  const [expandedId, setExpandedId] = useState<string | null>(null)
+  // Opened from Investimentos (`/assets?asset=<id>`): start with that holding
+  // expanded, and scroll to it once the list is on screen (effect below).
+  const [searchParams] = useSearchParams()
+  const linkedAssetId = searchParams.get('asset')
+  const [expandedId, setExpandedId] = useState<string | null>(linkedAssetId)
 
   // Wallet (AssetGroup) dialog state
   const [walletDialogOpen, setWalletDialogOpen] = useState(false)
@@ -521,6 +525,11 @@ export default function AssetsPage() {
     return [...currencies].sort()
   }, [activeAssets, userCurrency])
 
+  const linkedAssetLoaded = !!linkedAssetId && activeAssets.some((a) => a.id === linkedAssetId)
+  useEffect(() => {
+    if (linkedAssetLoaded) document.getElementById(`asset-row-${linkedAssetId}`)?.scrollIntoView?.({ block: 'start' })
+  }, [linkedAssetLoaded, linkedAssetId])
+
   // Debounced ticker search. Runs only when the market-price method is
   // selected and the query is non-trivial — keeps the autocomplete snappy
   // without flooding the yfinance-backed endpoint.
@@ -773,7 +782,7 @@ export default function AssetsPage() {
     const needsBuys = isMarketPriced && !hasCost && !asset.sell_date
 
     return (
-      <div key={asset.id} className="border-b border-border last:border-b-0">
+      <div key={asset.id} id={`asset-row-${asset.id}`} className="border-b border-border last:border-b-0 scroll-mt-20">
         <div
           className="grid items-center gap-2 px-3 py-3 cursor-pointer hover:bg-muted/20 transition-colors text-sm"
           style={{ gridTemplateColumns: HOLDINGS_GRID }}

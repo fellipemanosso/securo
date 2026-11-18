@@ -1186,7 +1186,23 @@ export interface Asset {
   total_invested: number | null
   realized_gain: number | null
   transaction_count: number
+  // Investimentos page: class of an investment asset (null for real estate,
+  // vehicles, valuables and "other"), and the date current_value refers to
+  // (null when the value is just the purchase price, i.e. carried at cost).
+  investment_class: InvestmentClass | null
+  value_as_of: string | null
 }
+
+export type InvestmentClass =
+  | 'fixed_income'
+  | 'stocks'
+  | 'real_estate_funds'
+  | 'etfs'
+  | 'funds'
+  | 'pension'
+  | 'structured'
+  | 'crypto'
+  | 'other'
 
 /** One order read from a broker CSV, before it reaches a holding. */
 export interface AssetOrderImport {

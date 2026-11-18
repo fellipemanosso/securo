@@ -123,6 +123,7 @@
     "settings": "Ustawienia",
     "recurring": "Cykliczne",
     "assets": "Aktywa",
+    "investments": "Inwestycje",
     "payees": "Odbiorcy",
     "splitGroups": "Grupy",
     "goals": "Cele",
@@ -138,6 +139,78 @@
     "collapseSidebar": "Zwiń pasek boczny",
     "expandSidebar": "Rozwiń pasek boczny",
     "collections": "Kolekcje"
+  },
+  "investments": {
+    "subtitle": "Ile masz zainwestowane, jak to jest podzielone i ile zarobiło.",
+    "import": "Importuj",
+    "manage": "Zarządzaj w: {{page}}",
+    "error": "Nie udało się wczytać inwestycji.",
+    "summary": {
+      "title": "Podsumowanie",
+      "value": "Bieżąca wartość",
+      "valueHint": "Pozycje w sumie: {{count}}",
+      "cost": "Koszt",
+      "costHint": "Koszt pozycji o znanej stopie zwrotu",
+      "return": "Stopa zwrotu",
+      "returnHint": "Niezrealizowana, z posiadanych pozycji",
+      "returnCoverage": "Obejmuje {{counted}} z {{total}} pozycji; pozostałe nie mają zapisanego kosztu."
+    },
+    "provenance": {
+      "valuesOn": "Wartości z {{date}}",
+      "valuesBetween": "Wartości od {{from}} do {{to}}",
+      "synced": "Synchronizowane: {{count}}",
+      "manual": "Ręczne: {{count}}",
+      "atCost": "Po cenie zakupu: {{count}}"
+    },
+    "warnings": {
+      "noPrice": "Bez ceny, poza sumą: {{names}}.",
+      "noFx": "Brak kursu {{currency}} → {{primary}}: {{amount}} poza sumą."
+    },
+    "allocation": {
+      "byClass": "Według klasy",
+      "byWallet": "Według portfela lub instytucji",
+      "noWallet": "Bez portfela"
+    },
+    "class": {
+      "fixed_income": "Stały dochód",
+      "stocks": "Akcje",
+      "real_estate_funds": "Fundusze nieruchomości (FII)",
+      "etfs": "ETF",
+      "funds": "Fundusze",
+      "pension": "Emerytalne",
+      "structured": "Produkty strukturyzowane (COE)",
+      "crypto": "Krypto",
+      "other": "Inne"
+    },
+    "evolution": {
+      "title": "Zmiana wartości",
+      "hint": "Zapisane wartości w {{currency}}. Sprzedane pozycje liczą się do dnia sprzedaży; pozycje bez kursu są pominięte."
+    },
+    "positions": {
+      "title": "Pozycje",
+      "asset": "Aktywo",
+      "institution": "Instytucja",
+      "quantity": "Ilość",
+      "price": "Cena",
+      "value": "Wartość",
+      "return": "Zwrot",
+      "share": "% portfela",
+      "avgPrice": "Śr. {{price}}",
+      "open": "Otwórz {{name}} w: {{page}}",
+      "noPrice": "Bez ceny",
+      "noFx": "Brak kursu",
+      "synced": "Synchronizowane",
+      "manual": "Ręczne",
+      "quote": "Notowanie",
+      "atCost": "Po cenie zakupu"
+    },
+    "empty": {
+      "title": "Brak inwestycji",
+      "body": "Połącz bank lub dom maklerski, który przekazuje inwestycje, zaimportuj zlecenia albo dodaj pozycje w: {{page}}.",
+      "connect": "Połącz konto",
+      "import": "Importuj zlecenia",
+      "add": "Dodaj w: {{page}}"
+    }
   },
   "month": {
     "subtitle": "Co wpłynęło, co wypłynęło i co jeszcze trzeba zapłacić w tym miesiącu.",

@@ -124,6 +124,7 @@
     "settings": "Settings",
     "recurring": "Recurring",
     "assets": "Assets",
+    "investments": "Investments",
     "payees": "Payees",
     "splitGroups": "Groups",
     "goals": "Goals",
@@ -138,6 +139,78 @@
     "documentation": "Documentation",
     "collapseSidebar": "Collapse sidebar",
     "expandSidebar": "Expand sidebar"
+  },
+  "investments": {
+    "subtitle": "What you have invested, how it is split and how much it has earned.",
+    "import": "Import",
+    "manage": "Manage in {{page}}",
+    "error": "Could not load your investments.",
+    "summary": {
+      "title": "Summary",
+      "value": "Current value",
+      "valueHint": "Positions in the total: {{count}}",
+      "cost": "Cost",
+      "costHint": "What the positions with a known return cost",
+      "return": "Return",
+      "returnHint": "Unrealized, on the positions you still hold",
+      "returnCoverage": "Covers {{counted}} of {{total}} positions; the others have no recorded cost."
+    },
+    "provenance": {
+      "valuesOn": "Values from {{date}}",
+      "valuesBetween": "Values from {{from}} to {{to}}",
+      "synced": "Synced: {{count}}",
+      "manual": "Manual: {{count}}",
+      "atCost": "At purchase price: {{count}}"
+    },
+    "warnings": {
+      "noPrice": "No price, left out of the total: {{names}}.",
+      "noFx": "No {{currency}} to {{primary}} exchange rate: {{amount}} left out of the total."
+    },
+    "allocation": {
+      "byClass": "By class",
+      "byWallet": "By wallet or institution",
+      "noWallet": "No wallet"
+    },
+    "class": {
+      "fixed_income": "Fixed income",
+      "stocks": "Stocks",
+      "real_estate_funds": "Real estate funds (FIIs)",
+      "etfs": "ETFs",
+      "funds": "Funds",
+      "pension": "Pension plans",
+      "structured": "Structured notes (COE)",
+      "crypto": "Crypto",
+      "other": "Other"
+    },
+    "evolution": {
+      "title": "Value over time",
+      "hint": "Recorded values, in {{currency}}. Sold positions count until their sale; positions with no exchange rate are left out."
+    },
+    "positions": {
+      "title": "Positions",
+      "asset": "Asset",
+      "institution": "Institution",
+      "quantity": "Qty.",
+      "price": "Price",
+      "value": "Value",
+      "return": "Return",
+      "share": "% of portfolio",
+      "avgPrice": "Avg. {{price}}",
+      "open": "Open {{name}} in {{page}}",
+      "noPrice": "No price",
+      "noFx": "No exchange rate",
+      "synced": "Synced",
+      "manual": "Manual",
+      "quote": "Quote",
+      "atCost": "At purchase price"
+    },
+    "empty": {
+      "title": "No investments yet",
+      "body": "Connect a bank or broker that reports investments, import your broker orders, or add positions in {{page}}.",
+      "connect": "Connect an account",
+      "import": "Import orders",
+      "add": "Add in {{page}}"
+    }
   },
   "month": {
     "subtitle": "What came in, what went out, and what is still due this month.",

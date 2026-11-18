@@ -114,6 +114,11 @@ class AssetRead(BaseModel):
     total_invested: Optional[float] = None
     realized_gain: Optional[float] = None
     transaction_count: int = 0
+    # Investimentos page: the investment class (None for assets that are not
+    # investments, see services/investment_class.py) and the date the
+    # current value refers to (None when it falls back to the purchase price).
+    investment_class: Optional[str] = None
+    value_as_of: Optional[_date] = None
 
     model_config = ConfigDict(from_attributes=True)
 

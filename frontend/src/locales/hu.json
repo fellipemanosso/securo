@@ -124,6 +124,7 @@
     "settings": "Beállítások",
     "recurring": "Ismétlődő",
     "assets": "Eszközök",
+    "investments": "Befektetések",
     "payees": "Partnerek",
     "splitGroups": "Csoportok",
     "goals": "Célok",
@@ -138,6 +139,78 @@
     "documentation": "Dokumentáció",
     "collapseSidebar": "Oldalsáv összecsukása",
     "expandSidebar": "Oldalsáv kinyitása"
+  },
+  "investments": {
+    "subtitle": "Mennyit fektettél be, hogyan oszlik meg, és mennyit hozott.",
+    "import": "Importálás",
+    "manage": "Kezelés itt: {{page}}",
+    "error": "Nem sikerült betölteni a befektetéseidet.",
+    "summary": {
+      "title": "Összesítés",
+      "value": "Jelenlegi érték",
+      "valueHint": "Pozíciók az összegben: {{count}}",
+      "cost": "Bekerülési érték",
+      "costHint": "Az ismert hozamú pozíciók bekerülési értéke",
+      "return": "Hozam",
+      "returnHint": "Nem realizált, a meglévő pozíciókon",
+      "returnCoverage": "{{total}} pozícióból {{counted}} szerepel benne; a többinél nincs rögzített bekerülési érték."
+    },
+    "provenance": {
+      "valuesOn": "Értékek: {{date}}",
+      "valuesBetween": "Értékek: {{from}} – {{to}}",
+      "synced": "Szinkronizált: {{count}}",
+      "manual": "Kézi: {{count}}",
+      "atCost": "Vételáron: {{count}}"
+    },
+    "warnings": {
+      "noPrice": "Ár nélkül, kimarad az összegből: {{names}}.",
+      "noFx": "Nincs {{currency}} → {{primary}} árfolyam: {{amount}} kimarad az összegből."
+    },
+    "allocation": {
+      "byClass": "Eszközosztály szerint",
+      "byWallet": "Tárca vagy intézmény szerint",
+      "noWallet": "Tárca nélkül"
+    },
+    "class": {
+      "fixed_income": "Fix hozamú",
+      "stocks": "Részvények",
+      "real_estate_funds": "Ingatlanalapok (FII)",
+      "etfs": "ETF-ek",
+      "funds": "Alapok",
+      "pension": "Nyugdíjcélú",
+      "structured": "Strukturált termékek (COE)",
+      "crypto": "Kripto",
+      "other": "Egyéb"
+    },
+    "evolution": {
+      "title": "Értékalakulás",
+      "hint": "Rögzített értékek, {{currency}} pénznemben. Az eladott pozíciók az eladásig számítanak; az árfolyam nélküliek kimaradnak."
+    },
+    "positions": {
+      "title": "Pozíciók",
+      "asset": "Eszköz",
+      "institution": "Intézmény",
+      "quantity": "Menny.",
+      "price": "Ár",
+      "value": "Érték",
+      "return": "Hozam",
+      "share": "Portfólió %",
+      "avgPrice": "Átl. {{price}}",
+      "open": "{{name}} megnyitása itt: {{page}}",
+      "noPrice": "Nincs ár",
+      "noFx": "Nincs árfolyam",
+      "synced": "Szinkronizált",
+      "manual": "Kézi",
+      "quote": "Árfolyam",
+      "atCost": "Vételáron"
+    },
+    "empty": {
+      "title": "Még nincsenek befektetések",
+      "body": "Kapcsolj össze egy bankot vagy brókert, amely befektetéseket jelent, importáld a megbízásaidat, vagy vegyél fel pozíciókat itt: {{page}}.",
+      "connect": "Számla összekapcsolása",
+      "import": "Megbízások importálása",
+      "add": "Felvétel itt: {{page}}"
+    }
   },
   "month": {
     "subtitle": "Mi jött be, mi ment ki, és mi esedékes még ebben a hónapban.",

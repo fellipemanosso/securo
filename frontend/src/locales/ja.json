@@ -124,6 +124,7 @@
     "settings": "設定",
     "recurring": "定期取引",
     "assets": "資産",
+    "investments": "投資",
     "payees": "取引相手",
     "splitGroups": "グループ",
     "goals": "目標",
@@ -138,6 +139,78 @@
     "documentation": "ドキュメント",
     "collapseSidebar": "サイドバーを折りたたむ",
     "expandSidebar": "サイドバーを展開する"
+  },
+  "investments": {
+    "subtitle": "投資額、その内訳、これまでの損益。",
+    "import": "インポート",
+    "manage": "{{page}}で管理",
+    "error": "投資を読み込めませんでした。",
+    "summary": {
+      "title": "概要",
+      "value": "現在の評価額",
+      "valueHint": "合計に含まれる銘柄: {{count}}",
+      "cost": "取得額",
+      "costHint": "損益がわかる銘柄の取得額",
+      "return": "損益",
+      "returnHint": "含み損益（保有中の銘柄）",
+      "returnCoverage": "{{total}}銘柄中{{counted}}銘柄が対象です。残りは取得額が記録されていません。"
+    },
+    "provenance": {
+      "valuesOn": "{{date}}時点の評価額",
+      "valuesBetween": "{{from}}〜{{to}}時点の評価額",
+      "synced": "同期: {{count}}",
+      "manual": "手動: {{count}}",
+      "atCost": "取得価格で評価: {{count}}"
+    },
+    "warnings": {
+      "noPrice": "価格がなく合計から除外: {{names}}。",
+      "noFx": "{{currency}}から{{primary}}への為替レートがありません: {{amount}}は合計から除外。"
+    },
+    "allocation": {
+      "byClass": "資産クラス別",
+      "byWallet": "ウォレット・金融機関別",
+      "noWallet": "ウォレットなし"
+    },
+    "class": {
+      "fixed_income": "債券・預金",
+      "stocks": "株式",
+      "real_estate_funds": "不動産ファンド（FII）",
+      "etfs": "ETF",
+      "funds": "投資信託",
+      "pension": "年金",
+      "structured": "仕組債（COE）",
+      "crypto": "暗号資産",
+      "other": "その他"
+    },
+    "evolution": {
+      "title": "評価額の推移",
+      "hint": "記録された評価額（{{currency}}）。売却した銘柄は売却日まで含みます。為替レートのない銘柄は除外されます。"
+    },
+    "positions": {
+      "title": "保有銘柄",
+      "asset": "銘柄",
+      "institution": "金融機関",
+      "quantity": "数量",
+      "price": "価格",
+      "value": "評価額",
+      "return": "損益",
+      "share": "構成比",
+      "avgPrice": "平均 {{price}}",
+      "open": "{{name}}を{{page}}で開く",
+      "noPrice": "価格なし",
+      "noFx": "為替レートなし",
+      "synced": "同期",
+      "manual": "手動",
+      "quote": "時価",
+      "atCost": "取得価格で評価"
+    },
+    "empty": {
+      "title": "まだ投資がありません",
+      "body": "投資情報を提供する銀行や証券会社を連携するか、注文履歴をインポートするか、{{page}}で銘柄を追加してください。",
+      "connect": "口座を連携",
+      "import": "注文をインポート",
+      "add": "{{page}}で追加"
+    }
   },
   "month": {
     "subtitle": "今月の入金、出金、そしてまだ支払いが残っているもの。",

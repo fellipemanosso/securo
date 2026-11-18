@@ -14,6 +14,7 @@ import {
   Split,
   Tag,
   Target,
+  TrendingUp,
   Upload,
   Users,
 } from 'lucide-react'
@@ -52,6 +53,8 @@ export const navItems: NavItem[] = [
   { type: 'link', key: 'month', path: '/month', icon: CalendarDays, module: 'transactions' },
   { type: 'link', key: 'reports', path: '/reports', icon: BarChart3, module: 'reports' },
   { type: 'link', key: 'assets', path: '/assets', icon: Landmark, module: 'assets' },
+  // Investments get their own page; Patrimônio keeps managing every asset.
+  { type: 'link', key: 'investments', path: '/investments', icon: TrendingUp, module: 'assets' },
   { type: 'separator', labelKey: 'nav.groupSetup' },
   { type: 'link', key: 'budgets', path: '/budgets', icon: PiggyBank, module: 'budgets' },
   { type: 'link', key: 'goals', path: '/goals', icon: Target, module: 'goals' },

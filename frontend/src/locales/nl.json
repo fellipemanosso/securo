@@ -124,6 +124,7 @@
     "settings": "Instellingen",
     "recurring": "Terugkerend",
     "assets": "Activa",
+    "investments": "Beleggingen",
     "payees": "Begunstigden",
     "splitGroups": "Groepen",
     "goals": "Doelen",
@@ -138,6 +139,78 @@
     "documentation": "Documentatie",
     "collapseSidebar": "Zijbalk inklappen",
     "expandSidebar": "Zijbalk uitklappen"
+  },
+  "investments": {
+    "subtitle": "Wat je hebt belegd, hoe het verdeeld is en wat het heeft opgeleverd.",
+    "import": "Importeren",
+    "manage": "Beheren in {{page}}",
+    "error": "Je beleggingen konden niet worden geladen.",
+    "summary": {
+      "title": "Overzicht",
+      "value": "Huidige waarde",
+      "valueHint": "Posities in het totaal: {{count}}",
+      "cost": "Kosten",
+      "costHint": "Wat de posities met een bekend rendement hebben gekost",
+      "return": "Rendement",
+      "returnHint": "Ongerealiseerd, op de posities die je nog hebt",
+      "returnCoverage": "Omvat {{counted}} van {{total}} posities; voor de rest zijn geen kosten vastgelegd."
+    },
+    "provenance": {
+      "valuesOn": "Waarden van {{date}}",
+      "valuesBetween": "Waarden van {{from}} tot {{to}}",
+      "synced": "Gesynchroniseerd: {{count}}",
+      "manual": "Handmatig: {{count}}",
+      "atCost": "Tegen aankoopprijs: {{count}}"
+    },
+    "warnings": {
+      "noPrice": "Geen prijs, niet in het totaal: {{names}}.",
+      "noFx": "Geen wisselkoers van {{currency}} naar {{primary}}: {{amount}} niet in het totaal."
+    },
+    "allocation": {
+      "byClass": "Per klasse",
+      "byWallet": "Per portefeuille of instelling",
+      "noWallet": "Zonder portefeuille"
+    },
+    "class": {
+      "fixed_income": "Vastrentend",
+      "stocks": "Aandelen",
+      "real_estate_funds": "Vastgoedfondsen (FII)",
+      "etfs": "ETF's",
+      "funds": "Fondsen",
+      "pension": "Pensioen",
+      "structured": "Gestructureerde producten (COE)",
+      "crypto": "Crypto",
+      "other": "Overig"
+    },
+    "evolution": {
+      "title": "Verloop",
+      "hint": "Vastgelegde waarden, in {{currency}}. Verkochte posities tellen tot de verkoop; posities zonder wisselkoers vallen weg."
+    },
+    "positions": {
+      "title": "Posities",
+      "asset": "Belegging",
+      "institution": "Instelling",
+      "quantity": "Aantal",
+      "price": "Prijs",
+      "value": "Waarde",
+      "return": "Rendement",
+      "share": "% van portefeuille",
+      "avgPrice": "Gem. {{price}}",
+      "open": "{{name}} openen in {{page}}",
+      "noPrice": "Geen prijs",
+      "noFx": "Geen wisselkoers",
+      "synced": "Gesynchroniseerd",
+      "manual": "Handmatig",
+      "quote": "Koers",
+      "atCost": "Tegen aankoopprijs"
+    },
+    "empty": {
+      "title": "Nog geen beleggingen",
+      "body": "Koppel een bank of broker die beleggingen doorgeeft, importeer je orders of voeg posities toe in {{page}}.",
+      "connect": "Rekening koppelen",
+      "import": "Orders importeren",
+      "add": "Toevoegen in {{page}}"
+    }
   },
   "month": {
     "subtitle": "Wat er binnenkwam, wat er uitging en wat deze maand nog betaald moet worden.",

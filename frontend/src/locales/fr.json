@@ -124,6 +124,7 @@
     "settings": "Paramètres",
     "recurring": "Récurrentes",
     "assets": "Actifs",
+    "investments": "Investissements",
     "payees": "Bénéficiaires",
     "splitGroups": "Groupes",
     "goals": "Objectifs",
@@ -138,6 +139,78 @@
     "documentation": "Documentation",
     "collapseSidebar": "Réduire la barre latérale",
     "expandSidebar": "Développer la barre latérale"
+  },
+  "investments": {
+    "subtitle": "Ce que vous avez investi, sa répartition et ce qu'il a rapporté.",
+    "import": "Importer",
+    "manage": "Gérer dans {{page}}",
+    "error": "Impossible de charger vos investissements.",
+    "summary": {
+      "title": "Résumé",
+      "value": "Valeur actuelle",
+      "valueHint": "Positions dans le total : {{count}}",
+      "cost": "Coût",
+      "costHint": "Coût des positions dont le rendement est connu",
+      "return": "Rendement",
+      "returnHint": "Latent, sur les positions détenues",
+      "returnCoverage": "Couvre {{counted}} positions sur {{total}} ; les autres n'ont pas de coût enregistré."
+    },
+    "provenance": {
+      "valuesOn": "Valeurs du {{date}}",
+      "valuesBetween": "Valeurs du {{from}} au {{to}}",
+      "synced": "Synchronisées : {{count}}",
+      "manual": "Manuelles : {{count}}",
+      "atCost": "Au prix d'achat : {{count}}"
+    },
+    "warnings": {
+      "noPrice": "Sans prix, hors du total : {{names}}.",
+      "noFx": "Pas de taux de change {{currency}} vers {{primary}} : {{amount}} hors du total."
+    },
+    "allocation": {
+      "byClass": "Par classe",
+      "byWallet": "Par portefeuille ou établissement",
+      "noWallet": "Sans portefeuille"
+    },
+    "class": {
+      "fixed_income": "Revenu fixe",
+      "stocks": "Actions",
+      "real_estate_funds": "Fonds immobiliers (FII)",
+      "etfs": "ETF",
+      "funds": "Fonds",
+      "pension": "Épargne retraite",
+      "structured": "Produits structurés (COE)",
+      "crypto": "Crypto",
+      "other": "Autres"
+    },
+    "evolution": {
+      "title": "Évolution",
+      "hint": "Valeurs enregistrées, en {{currency}}. Les positions vendues comptent jusqu'à leur vente ; celles sans taux de change sont exclues."
+    },
+    "positions": {
+      "title": "Positions",
+      "asset": "Actif",
+      "institution": "Établissement",
+      "quantity": "Qté",
+      "price": "Prix",
+      "value": "Valeur",
+      "return": "Rendement",
+      "share": "% du portefeuille",
+      "avgPrice": "PRU {{price}}",
+      "open": "Ouvrir {{name}} dans {{page}}",
+      "noPrice": "Sans prix",
+      "noFx": "Sans taux de change",
+      "synced": "Synchronisé",
+      "manual": "Manuel",
+      "quote": "Cours",
+      "atCost": "Au prix d'achat"
+    },
+    "empty": {
+      "title": "Aucun investissement pour l'instant",
+      "body": "Connectez une banque ou un courtier qui transmet vos investissements, importez vos ordres ou ajoutez des positions dans {{page}}.",
+      "connect": "Connecter un compte",
+      "import": "Importer des ordres",
+      "add": "Ajouter dans {{page}}"
+    }
   },
   "month": {
     "subtitle": "Ce qui est entré, ce qui est sorti et ce qui reste à payer ce mois-ci.",

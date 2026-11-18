@@ -124,6 +124,7 @@
     "settings": "Nastavenia",
     "recurring": "Opakované",
     "assets": "Aktíva",
+    "investments": "Investície",
     "payees": "Príjemcovia",
     "splitGroups": "Skupiny",
     "goals": "Ciele",
@@ -138,6 +139,78 @@
     "documentation": "Dokumentácia",
     "collapseSidebar": "Zbaliť bočný panel",
     "expandSidebar": "Rozbaliť bočný panel"
+  },
+  "investments": {
+    "subtitle": "Koľko máte investované, ako je to rozdelené a koľko to zarobilo.",
+    "import": "Importovať",
+    "manage": "Spravovať v: {{page}}",
+    "error": "Investície sa nepodarilo načítať.",
+    "summary": {
+      "title": "Súhrn",
+      "value": "Aktuálna hodnota",
+      "valueHint": "Pozície v súčte: {{count}}",
+      "cost": "Náklady",
+      "costHint": "Koľko stáli pozície so známym výnosom",
+      "return": "Výnos",
+      "returnHint": "Nerealizovaný, z držaných pozícií",
+      "returnCoverage": "Zahŕňa {{counted}} z {{total}} pozícií; ostatné nemajú zaznamenané náklady."
+    },
+    "provenance": {
+      "valuesOn": "Hodnoty z {{date}}",
+      "valuesBetween": "Hodnoty od {{from}} do {{to}}",
+      "synced": "Synchronizované: {{count}}",
+      "manual": "Ručné: {{count}}",
+      "atCost": "V obstarávacej cene: {{count}}"
+    },
+    "warnings": {
+      "noPrice": "Bez ceny, mimo súčtu: {{names}}.",
+      "noFx": "Chýba kurz {{currency}} → {{primary}}: {{amount}} mimo súčtu."
+    },
+    "allocation": {
+      "byClass": "Podľa triedy",
+      "byWallet": "Podľa portfólia alebo inštitúcie",
+      "noWallet": "Bez portfólia"
+    },
+    "class": {
+      "fixed_income": "Pevný výnos",
+      "stocks": "Akcie",
+      "real_estate_funds": "Realitné fondy (FII)",
+      "etfs": "ETF",
+      "funds": "Fondy",
+      "pension": "Dôchodkové sporenie",
+      "structured": "Štruktúrované produkty (COE)",
+      "crypto": "Krypto",
+      "other": "Ostatné"
+    },
+    "evolution": {
+      "title": "Vývoj hodnoty",
+      "hint": "Zaznamenané hodnoty v {{currency}}. Predané pozície sa počítajú do dňa predaja; pozície bez kurzu sú vynechané."
+    },
+    "positions": {
+      "title": "Pozície",
+      "asset": "Aktívum",
+      "institution": "Inštitúcia",
+      "quantity": "Množstvo",
+      "price": "Cena",
+      "value": "Hodnota",
+      "return": "Výnos",
+      "share": "% portfólia",
+      "avgPrice": "Priem. {{price}}",
+      "open": "Otvoriť {{name}} v: {{page}}",
+      "noPrice": "Bez ceny",
+      "noFx": "Chýba kurz",
+      "synced": "Synchronizované",
+      "manual": "Ručné",
+      "quote": "Kurz",
+      "atCost": "V obstarávacej cene"
+    },
+    "empty": {
+      "title": "Zatiaľ žiadne investície",
+      "body": "Pripojte banku alebo brokera, ktorý hlási investície, importujte svoje pokyny alebo pridajte pozície v: {{page}}.",
+      "connect": "Pripojiť účet",
+      "import": "Importovať pokyny",
+      "add": "Pridať v: {{page}}"
+    }
   },
   "month": {
     "subtitle": "Čo prišlo, čo odišlo a čo je tento mesiac ešte splatné.",
