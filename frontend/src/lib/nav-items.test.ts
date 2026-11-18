@@ -75,7 +75,7 @@ describe('isNavItemActive', () => {
 })
 
 describe('visibleNavItems', () => {
-  it('renders a personal workspace exactly as before modules existed', () => {
+  it('renders a personal workspace with every link it showed before modules existed, plus Mês', () => {
     const personal = visibleNavItems(navItems, (id) => PERSONAL_MODULES.includes(id))
     expect(linkKeys(personal)).toEqual([
       'transactions',
@@ -83,6 +83,7 @@ describe('visibleNavItems', () => {
       'cards',
       'connections',
       'import',
+      'month',
       'reports',
       'assets',
       'budgets',

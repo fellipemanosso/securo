@@ -1,6 +1,8 @@
 import uuid
+from datetime import date
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_async_session
@@ -9,13 +11,14 @@ from app.core.workspace_context import (
     current_workspace,
     current_writable_workspace,
 )
+from app.schemas.recurring_month import RecurringMonthOccurrence
 from app.schemas.recurring_transaction import (
     RecurringTransactionCreate,
     RecurringTransactionRead,
     RecurringTransactionUpdate,
 )
 from app.schemas.transaction import TransactionRead
-from app.services import recurring_transaction_service, transaction_service
+from app.services import recurring_month_service, recurring_transaction_service, transaction_service
 
 router = APIRouter(prefix="/api/recurring-transactions", tags=["recurring-transactions"])
 
@@ -26,6 +29,19 @@ async def list_recurring_transactions(
     session: AsyncSession = Depends(get_async_session),
 ):
     return await recurring_transaction_service.get_recurring_transactions(session, ctx.workspace.id)
+
+
+@router.get("/month-status", response_model=list[RecurringMonthOccurrence])
+async def get_recurring_month_status(
+    month: date = Query(..., description="Any day of the month, YYYY-MM-DD"),
+    account_ids: Optional[list[uuid.UUID]] = Query(None),
+    ctx: WorkspaceContext = Depends(current_workspace),
+    session: AsyncSession = Depends(get_async_session),
+):
+    """Each recurring occurrence of the month: paid, pending or overdue."""
+    return await recurring_month_service.get_month_status(
+        session, ctx.workspace.id, ctx.user_id, month, account_ids
+    )
 
 
 @router.post("", response_model=RecurringTransactionRead, status_code=status.HTTP_201_CREATED)

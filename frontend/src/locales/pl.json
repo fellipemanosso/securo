@@ -109,6 +109,7 @@
   },
   "nav": {
     "dashboard": "Pulpit",
+    "month": "Miesiąc",
     "transactions": "Transakcje",
     "invoices": "Faktury",
     "accounts": "Konta",
@@ -136,6 +137,79 @@
     "collapseSidebar": "Zwiń pasek boczny",
     "expandSidebar": "Rozwiń pasek boczny",
     "collections": "Kolekcje"
+  },
+  "month": {
+    "subtitle": "Co wpłynęło, co wypłynęło i co jeszcze trzeba zapłacić w tym miesiącu.",
+    "navigation": "Nawigacja między miesiącami",
+    "current": "Bieżący miesiąc",
+    "previous": "Poprzedni miesiąc",
+    "next": "Następny miesiąc",
+    "results": {
+      "title": "Wynik miesiąca",
+      "hint": "Zrealizowane liczy tylko zaksięgowane transakcje. Oczekiwane dodaje to, co jeszcze nastąpi: transakcje oczekujące i pozycje cykliczne.",
+      "error": "Nie udało się wczytać wyniku miesiąca.",
+      "income": "Wpływy",
+      "expenses": "Wydatki",
+      "net": "Wynik",
+      "realized": "Zrealizowane",
+      "pending": "jeszcze oczekiwane {{amount}}",
+      "projected": "zamknie się na {{amount}}",
+      "fxFallback": "Niektóre kwoty w innej walucie nie mają jeszcze kursu i zostały dodane według wartości nominalnej."
+    },
+    "bills": {
+      "title": "Wyciągi z kart",
+      "hint": "Wyciągi płatne w tym miesiącu. Najpierw kwota z banku; dopóki wyciąg nie dotrze, Securo szacuje go na podstawie cyklu.",
+      "total": "Razem do zapłaty",
+      "error": "Nie udało się wczytać wyciągów z kart.",
+      "empty": "Brak kart kredytowych",
+      "emptyHint": "Połącz bank lub dodaj kartę, aby śledzić tu jej wyciągi.",
+      "goToCards": "Przejdź do kart",
+      "missingConversion": "Wyciągi w innej walucie bez kursu nie są wliczone do sumy.",
+      "noDue": "Brak terminu płatności",
+      "missingConfig": "Ustaw dzień zamknięcia i termin płatności, aby zobaczyć ten wyciąg",
+      "open": "Otwórz wyciąg: {{name}}"
+    },
+    "recurring": {
+      "title": "Cykliczne",
+      "hint": "Oczekiwane, zapłacone i oczekujące w tym miesiącu.",
+      "manage": "Zarządzaj",
+      "error": "Nie udało się wczytać pozycji cyklicznych.",
+      "empty": "Brak pozycji cyklicznych w tym miesiącu",
+      "emptyHint": "Dodaj czynsz, subskrypcje i pensję jako pozycje cykliczne, aby śledzić je tutaj.",
+      "receivedOn": "Otrzymano {{date}}",
+      "paidOn": "Zapłacono {{date}}",
+      "expectedOn": "Oczekiwane {{date}}",
+      "expectedAmount": "oczekiwano {{amount}}",
+      "status": {
+        "paid": "Zapłacone",
+        "received": "Otrzymane",
+        "pending": "Oczekuje",
+        "overdue": "Zaległe"
+      },
+      "missingConversion": "Pozycje w innej walucie bez kursu nie są wliczone do sum.",
+      "outflow": "Rachunki i płatności",
+      "inflow": "Wpływy",
+      "expected": "Oczekiwane",
+      "paid": "Zapłacone",
+      "received": "Otrzymane",
+      "pending": "Oczekuje",
+      "overdueCount": "Zaległe: {{count}}"
+    },
+    "bill": {
+      "title": "{{name}} · wyciąg {{month}}",
+      "error": "Nie udało się wczytać tego wyciągu.",
+      "composition": "Z czego składa się suma",
+      "total": "Suma wyciągu",
+      "noCharges": "Na tym wyciągu nie ma jeszcze zakupów.",
+      "byCategory": "Według kategorii",
+      "byCard": "Według karty",
+      "noCard": "Nierozpoznana karta",
+      "installments": "Raty",
+      "installmentsEmpty": "Brak rat na tym wyciągu.",
+      "topCharges": "Największe zakupy",
+      "openCard": "Otwórz na stronie karty",
+      "forecast": "Prognoza"
+    }
   },
   "invoices": {
     "title": "Invoices",

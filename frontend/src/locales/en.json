@@ -109,6 +109,7 @@
   },
   "nav": {
     "dashboard": "Dashboard",
+    "month": "Month",
     "transactions": "Transactions",
     "invoices": "Invoices",
     "accounts": "Accounts",
@@ -136,6 +137,79 @@
     "documentation": "Documentation",
     "collapseSidebar": "Collapse sidebar",
     "expandSidebar": "Expand sidebar"
+  },
+  "month": {
+    "subtitle": "What came in, what went out, and what is still due this month.",
+    "navigation": "Month navigation",
+    "current": "This month",
+    "previous": "Previous month",
+    "next": "Next month",
+    "results": {
+      "title": "Month results",
+      "hint": "Realized counts posted transactions. Still expected adds pending transactions and recurring entries that have not happened yet.",
+      "error": "Could not load the month results.",
+      "income": "Income",
+      "expenses": "Expenses",
+      "net": "Net",
+      "realized": "Realized",
+      "pending": "{{amount}} still expected",
+      "projected": "closes at {{amount}}",
+      "fxFallback": "Some amounts in other currencies have no exchange rate yet and were added at face value."
+    },
+    "bills": {
+      "title": "Card bills",
+      "hint": "Bills due this month. The bank's amount first; until the bill arrives, Securo estimates it from the cycle.",
+      "total": "Total due",
+      "error": "Could not load the card bills.",
+      "empty": "No credit cards yet",
+      "emptyHint": "Connect a bank or add a card to follow its bills here.",
+      "goToCards": "Go to cards",
+      "missingConversion": "Bills in other currencies without an exchange rate are not in the total.",
+      "noDue": "No due date",
+      "missingConfig": "Set the closing and due days to see this bill",
+      "open": "Open the {{name}} bill"
+    },
+    "recurring": {
+      "title": "Recurring",
+      "hint": "Expected, paid and still pending this month.",
+      "manage": "Manage",
+      "error": "Could not load the recurring entries.",
+      "empty": "Nothing recurring this month",
+      "emptyHint": "Add rent, subscriptions and salary as recurring entries to follow them here.",
+      "receivedOn": "Received {{date}}",
+      "paidOn": "Paid {{date}}",
+      "expectedOn": "Expected {{date}}",
+      "expectedAmount": "expected {{amount}}",
+      "status": {
+        "paid": "Paid",
+        "received": "Received",
+        "pending": "Pending",
+        "overdue": "Overdue"
+      },
+      "missingConversion": "Entries in other currencies without an exchange rate are not in the totals.",
+      "outflow": "Bills and payments",
+      "inflow": "Income",
+      "expected": "Expected",
+      "paid": "Paid",
+      "received": "Received",
+      "pending": "Pending",
+      "overdueCount": "Overdue: {{count}}"
+    },
+    "bill": {
+      "title": "{{name}} · {{month}} bill",
+      "error": "Could not load this bill.",
+      "composition": "What makes up the total",
+      "total": "Bill total",
+      "noCharges": "No charges on this bill yet.",
+      "byCategory": "By category",
+      "byCard": "By card",
+      "noCard": "Card not identified",
+      "installments": "Installments",
+      "installmentsEmpty": "No installments on this bill.",
+      "topCharges": "Largest charges",
+      "openCard": "Open on the card page",
+      "forecast": "Forecast"
+    }
   },
   "invoices": {
     "title": "Invoices",

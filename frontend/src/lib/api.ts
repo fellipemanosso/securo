@@ -56,6 +56,7 @@ import type {
   InvoiceSettings,
   InvoiceSummary,
   RecurringTransaction,
+  RecurringMonthOccurrence,
   ProjectedTransaction,
   TransactionCalendarResponse,
   Budget,
@@ -1358,6 +1359,14 @@ export const reconciliation = {
 export const recurring = {
   list: async (): Promise<RecurringTransaction[]> => {
     const { data } = await api.get('/recurring-transactions')
+    return data
+  },
+  /** Each occurrence of the month (`YYYY-MM`), paid, pending or overdue. */
+  monthStatus: async (month: string, accountIds?: string[]): Promise<RecurringMonthOccurrence[]> => {
+    const { data } = await api.get('/recurring-transactions/month-status', {
+      params: { month: `${month}-01`, ...(accountIds ? { account_ids: accountIds } : {}) },
+      paramsSerializer: { indexes: null },
+    })
     return data
   },
   create: async (rt: Partial<RecurringTransaction>): Promise<RecurringTransaction> => {

@@ -951,6 +951,29 @@ export interface ProjectedTransaction {
   }[]
 }
 
+/** One occurrence of a recurring commitment in a month (Mês page). `date`
+ *  is the schedule's date while open, the linked transaction's once linked;
+ *  `paid_amount` is set only for a paid occurrence. */
+export interface RecurringMonthOccurrence {
+  recurring_id: string
+  description: string
+  account_id: string | null
+  category_id: string | null
+  category_name: string | null
+  category_icon: string | null
+  category_color: string | null
+  type: 'debit' | 'credit'
+  frequency: RecurringTransaction['frequency']
+  currency: string
+  date: string
+  expected_amount: number
+  expected_amount_primary: number | null
+  status: 'paid' | 'pending' | 'overdue'
+  transaction_id: string | null
+  paid_amount: number | null
+  paid_amount_primary: number | null
+}
+
 export interface TransactionCalendarItem {
   kind: 'actual' | 'projected'
   id: string | null

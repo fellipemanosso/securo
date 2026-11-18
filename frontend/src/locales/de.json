@@ -109,6 +109,7 @@
   },
   "nav": {
     "dashboard": "Dashboard",
+    "month": "Monat",
     "transactions": "Transaktionen",
     "invoices": "Rechnungen",
     "accounts": "Konten",
@@ -136,6 +137,79 @@
     "documentation": "Dokumentation",
     "collapseSidebar": "Seitenleiste einklappen",
     "expandSidebar": "Seitenleiste ausklappen"
+  },
+  "month": {
+    "subtitle": "Was eingegangen ist, was ausgegeben wurde und was diesen Monat noch fällig ist.",
+    "navigation": "Monatsnavigation",
+    "current": "Dieser Monat",
+    "previous": "Vorheriger Monat",
+    "next": "Nächster Monat",
+    "results": {
+      "title": "Monatsergebnis",
+      "hint": "Realisiert zählt nur gebuchte Umsätze. Erwartet ergänzt, was noch kommt: vorgemerkte Umsätze und wiederkehrende Buchungen.",
+      "error": "Das Monatsergebnis konnte nicht geladen werden.",
+      "income": "Einnahmen",
+      "expenses": "Ausgaben",
+      "net": "Ergebnis",
+      "realized": "Realisiert",
+      "pending": "{{amount}} noch erwartet",
+      "projected": "schließt mit {{amount}}",
+      "fxFallback": "Für einige Beträge in Fremdwährung gibt es noch keinen Wechselkurs; sie wurden zum Nennwert addiert."
+    },
+    "bills": {
+      "title": "Kartenabrechnungen",
+      "hint": "Abrechnungen, die diesen Monat fällig sind. Zuerst der Betrag der Bank; bis die Abrechnung da ist, schätzt Securo sie aus dem Zyklus.",
+      "total": "Fällig insgesamt",
+      "error": "Die Kartenabrechnungen konnten nicht geladen werden.",
+      "empty": "Noch keine Kreditkarten",
+      "emptyHint": "Verbinde eine Bank oder füge eine Karte hinzu, um ihre Abrechnungen hier zu verfolgen.",
+      "goToCards": "Zu den Karten",
+      "missingConversion": "Abrechnungen in Fremdwährung ohne Wechselkurs sind nicht in der Summe.",
+      "noDue": "Kein Fälligkeitsdatum",
+      "missingConfig": "Lege Abschluss- und Fälligkeitstag fest, um diese Abrechnung zu sehen",
+      "open": "Abrechnung öffnen: {{name}}"
+    },
+    "recurring": {
+      "title": "Wiederkehrend",
+      "hint": "Erwartet, bezahlt und offen in diesem Monat.",
+      "manage": "Verwalten",
+      "error": "Die wiederkehrenden Buchungen konnten nicht geladen werden.",
+      "empty": "Diesen Monat nichts Wiederkehrendes",
+      "emptyHint": "Lege Miete, Abos und Gehalt als wiederkehrende Buchungen an, um sie hier zu verfolgen.",
+      "receivedOn": "Erhalten am {{date}}",
+      "paidOn": "Bezahlt am {{date}}",
+      "expectedOn": "Erwartet am {{date}}",
+      "expectedAmount": "erwartet {{amount}}",
+      "status": {
+        "paid": "Bezahlt",
+        "received": "Erhalten",
+        "pending": "Offen",
+        "overdue": "Überfällig"
+      },
+      "missingConversion": "Buchungen in Fremdwährung ohne Wechselkurs sind nicht in den Summen.",
+      "outflow": "Rechnungen und Zahlungen",
+      "inflow": "Einnahmen",
+      "expected": "Erwartet",
+      "paid": "Bezahlt",
+      "received": "Erhalten",
+      "pending": "Offen",
+      "overdueCount": "Überfällig: {{count}}"
+    },
+    "bill": {
+      "title": "{{name}} · Abrechnung {{month}}",
+      "error": "Diese Abrechnung konnte nicht geladen werden.",
+      "composition": "Woraus sich die Summe zusammensetzt",
+      "total": "Abrechnungssumme",
+      "noCharges": "Noch keine Umsätze auf dieser Abrechnung.",
+      "byCategory": "Nach Kategorie",
+      "byCard": "Nach Karte",
+      "noCard": "Karte nicht erkannt",
+      "installments": "Raten",
+      "installmentsEmpty": "Keine Raten auf dieser Abrechnung.",
+      "topCharges": "Größte Umsätze",
+      "openCard": "Auf der Kartenseite öffnen",
+      "forecast": "Prognose"
+    }
   },
   "invoices": {
     "title": "Invoices",

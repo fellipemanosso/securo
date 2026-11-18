@@ -109,6 +109,7 @@
   },
   "nav": {
     "dashboard": "Dashboard",
+    "month": "Mese",
     "transactions": "Transazioni",
     "invoices": "Fatture",
     "accounts": "Conti",
@@ -136,6 +137,79 @@
     "documentation": "Documentazione",
     "collapseSidebar": "Riduci barra laterale",
     "expandSidebar": "Espandi barra laterale"
+  },
+  "month": {
+    "subtitle": "Cosa è entrato, cosa è uscito e cosa scade ancora questo mese.",
+    "navigation": "Navigazione tra i mesi",
+    "current": "Questo mese",
+    "previous": "Mese precedente",
+    "next": "Mese successivo",
+    "results": {
+      "title": "Risultato del mese",
+      "hint": "Il realizzato conta solo i movimenti contabilizzati. Il previsto aggiunge ciò che deve ancora accadere: movimenti in sospeso e ricorrenze.",
+      "error": "Impossibile caricare il risultato del mese.",
+      "income": "Entrate",
+      "expenses": "Uscite",
+      "net": "Risultato",
+      "realized": "Realizzato",
+      "pending": "{{amount}} ancora previsto",
+      "projected": "chiude a {{amount}}",
+      "fxFallback": "Alcuni importi in altra valuta non hanno ancora un tasso di cambio e sono stati sommati al valore originale."
+    },
+    "bills": {
+      "title": "Estratti conto del mese",
+      "hint": "Estratti conto in scadenza questo mese. Prima l'importo della banca; finché l'estratto non arriva, Securo lo stima dal ciclo.",
+      "total": "Totale da pagare",
+      "error": "Impossibile caricare gli estratti conto.",
+      "empty": "Nessuna carta di credito",
+      "emptyHint": "Collega una banca o aggiungi una carta per seguire qui i suoi estratti conto.",
+      "goToCards": "Vai alle carte",
+      "missingConversion": "Gli estratti in altra valuta senza tasso di cambio non sono nel totale.",
+      "noDue": "Nessuna scadenza",
+      "missingConfig": "Imposta i giorni di chiusura e scadenza per vedere questo estratto",
+      "open": "Apri estratto: {{name}}"
+    },
+    "recurring": {
+      "title": "Ricorrenti",
+      "hint": "Previsto, pagato e in sospeso questo mese.",
+      "manage": "Gestisci",
+      "error": "Impossibile caricare le ricorrenze.",
+      "empty": "Niente di ricorrente questo mese",
+      "emptyHint": "Aggiungi affitto, abbonamenti e stipendio come ricorrenze per seguirli qui.",
+      "receivedOn": "Ricevuto il {{date}}",
+      "paidOn": "Pagato il {{date}}",
+      "expectedOn": "Previsto il {{date}}",
+      "expectedAmount": "previsto {{amount}}",
+      "status": {
+        "paid": "Pagato",
+        "received": "Ricevuto",
+        "pending": "In sospeso",
+        "overdue": "In ritardo"
+      },
+      "missingConversion": "I movimenti in altra valuta senza tasso di cambio non sono nei totali.",
+      "outflow": "Bollette e pagamenti",
+      "inflow": "Entrate",
+      "expected": "Previsto",
+      "paid": "Pagato",
+      "received": "Ricevuto",
+      "pending": "In sospeso",
+      "overdueCount": "In ritardo: {{count}}"
+    },
+    "bill": {
+      "title": "{{name}} · estratto {{month}}",
+      "error": "Impossibile caricare questo estratto.",
+      "composition": "Da cosa è composto il totale",
+      "total": "Totale estratto",
+      "noCharges": "Ancora nessun acquisto su questo estratto.",
+      "byCategory": "Per categoria",
+      "byCard": "Per carta",
+      "noCard": "Carta non identificata",
+      "installments": "Rate",
+      "installmentsEmpty": "Nessuna rata su questo estratto.",
+      "topCharges": "Acquisti più grandi",
+      "openCard": "Apri nella pagina della carta",
+      "forecast": "Prevista"
+    }
   },
   "invoices": {
     "title": "Invoices",

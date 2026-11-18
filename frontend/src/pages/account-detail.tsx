@@ -1,6 +1,6 @@
 import { useState, useMemo, type MouseEvent, type ReactNode } from 'react'
 import { accountCardLabel, getAccountName } from '@/lib/account-utils'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, useSearchParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useDisplayLocale, useDateLocale } from '@/hooks/use-display-locale'
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -104,6 +104,10 @@ type TxWithBalance = Transaction & { runningBalance: number }
 
 export default function AccountDetailPage() {
   const { id } = useParams<{ id: string }>()
+  // `?cycle=<cycle_key>` opens that bill instead of the current one (the
+  // Mês page links a card's bill this way).
+  const [searchParams] = useSearchParams()
+  const requestedCycleKey = searchParams.get('cycle')
   const { t, i18n } = useTranslation()
   const { mask, privacyMode, MASK } = usePrivacyMode()
   const { user } = useAuth()
@@ -207,7 +211,8 @@ export default function AccountDetailPage() {
     setCycleSource({ account, timelineData })
     if (account?.type === 'credit_card' && !filterTouched) {
       const defaultKey = timelineData?.[0]?.default_key
-      const selected = timelineItems.find((item) => item.cycle_key === defaultKey)
+      const selected = timelineItems.find((item) => item.cycle_key === requestedCycleKey)
+        ?? timelineItems.find((item) => item.cycle_key === defaultKey)
       if (selected) {
         setActiveCycleKey(selected.cycle_key)
         setFilterFrom(selected.start)

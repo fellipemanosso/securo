@@ -109,6 +109,7 @@
   },
   "nav": {
     "dashboard": "Přehled",
+    "month": "Měsíc",
     "transactions": "Transakce",
     "invoices": "Faktury",
     "accounts": "Účty",
@@ -136,6 +137,79 @@
     "documentation": "Dokumentace",
     "collapseSidebar": "Sbalit boční panel",
     "expandSidebar": "Rozbalit boční panel"
+  },
+  "month": {
+    "subtitle": "Co přišlo, co odešlo a co je tento měsíc ještě splatné.",
+    "navigation": "Navigace mezi měsíci",
+    "current": "Tento měsíc",
+    "previous": "Předchozí měsíc",
+    "next": "Další měsíc",
+    "results": {
+      "title": "Výsledek měsíce",
+      "hint": "Skutečnost počítá jen zaúčtované transakce. Očekávané přidává to, co teprve přijde: čekající transakce a opakované položky.",
+      "error": "Výsledek měsíce se nepodařilo načíst.",
+      "income": "Příjmy",
+      "expenses": "Výdaje",
+      "net": "Výsledek",
+      "realized": "Skutečnost",
+      "pending": "ještě očekáváno {{amount}}",
+      "projected": "uzavře se na {{amount}}",
+      "fxFallback": "Některé částky v cizí měně zatím nemají kurz a byly započteny v původní hodnotě."
+    },
+    "bills": {
+      "title": "Výpisy z karet",
+      "hint": "Výpisy splatné tento měsíc. Nejprve částka od banky; dokud výpis nedorazí, Securo ho odhadne podle cyklu.",
+      "total": "Celkem k úhradě",
+      "error": "Výpisy z karet se nepodařilo načíst.",
+      "empty": "Zatím žádné kreditní karty",
+      "emptyHint": "Připojte banku nebo přidejte kartu a sledujte její výpisy zde.",
+      "goToCards": "Přejít na karty",
+      "missingConversion": "Výpisy v cizí měně bez kurzu nejsou v součtu.",
+      "noDue": "Bez data splatnosti",
+      "missingConfig": "Nastavte den uzávěrky a splatnosti, abyste viděli tento výpis",
+      "open": "Otevřít výpis: {{name}}"
+    },
+    "recurring": {
+      "title": "Opakované",
+      "hint": "Očekáváno, zaplaceno a čeká tento měsíc.",
+      "manage": "Spravovat",
+      "error": "Opakované položky se nepodařilo načíst.",
+      "empty": "Tento měsíc nic opakovaného",
+      "emptyHint": "Přidejte nájem, předplatné a mzdu jako opakované položky a sledujte je zde.",
+      "receivedOn": "Přijato {{date}}",
+      "paidOn": "Zaplaceno {{date}}",
+      "expectedOn": "Očekáváno {{date}}",
+      "expectedAmount": "očekáváno {{amount}}",
+      "status": {
+        "paid": "Zaplaceno",
+        "received": "Přijato",
+        "pending": "Čeká",
+        "overdue": "Po splatnosti"
+      },
+      "missingConversion": "Položky v cizí měně bez kurzu nejsou v součtech.",
+      "outflow": "Účty a platby",
+      "inflow": "Příjmy",
+      "expected": "Očekáváno",
+      "paid": "Zaplaceno",
+      "received": "Přijato",
+      "pending": "Čeká",
+      "overdueCount": "Po splatnosti: {{count}}"
+    },
+    "bill": {
+      "title": "{{name}} · výpis {{month}}",
+      "error": "Tento výpis se nepodařilo načíst.",
+      "composition": "Z čeho se skládá součet",
+      "total": "Součet výpisu",
+      "noCharges": "Na tomto výpisu zatím nejsou žádné nákupy.",
+      "byCategory": "Podle kategorie",
+      "byCard": "Podle karty",
+      "noCard": "Karta nerozpoznána",
+      "installments": "Splátky",
+      "installmentsEmpty": "Na tomto výpisu nejsou žádné splátky.",
+      "topCharges": "Největší nákupy",
+      "openCard": "Otevřít na stránce karty",
+      "forecast": "Odhad"
+    }
   },
   "invoices": {
     "title": "Faktury",

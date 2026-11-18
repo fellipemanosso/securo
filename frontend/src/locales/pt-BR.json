@@ -109,6 +109,7 @@
   },
   "nav": {
     "dashboard": "Painel",
+    "month": "Mês",
     "transactions": "Transações",
     "invoices": "Cobranças",
     "accounts": "Contas",
@@ -136,6 +137,79 @@
     "documentation": "Documentação",
     "collapseSidebar": "Recolher barra lateral",
     "expandSidebar": "Expandir barra lateral"
+  },
+  "month": {
+    "subtitle": "O que entrou, o que saiu e o que ainda vence neste mês.",
+    "navigation": "Navegação entre meses",
+    "current": "Mês atual",
+    "previous": "Mês anterior",
+    "next": "Próximo mês",
+    "results": {
+      "title": "Resultado do mês",
+      "hint": "Realizado conta só transações lançadas. O previsto soma o que ainda vai acontecer: transações pendentes e recorrências.",
+      "error": "Não foi possível carregar o resultado do mês.",
+      "income": "Entradas",
+      "expenses": "Saídas",
+      "net": "Resultado",
+      "realized": "Realizado",
+      "pending": "{{amount}} ainda previsto",
+      "projected": "fecha em {{amount}}",
+      "fxFallback": "Alguns valores em outra moeda ainda não têm cotação e entraram pelo valor original."
+    },
+    "bills": {
+      "title": "Faturas do mês",
+      "hint": "Faturas que vencem neste mês. Primeiro o valor do banco; até a fatura chegar, o Securo estima pelo ciclo.",
+      "total": "Total a pagar",
+      "error": "Não foi possível carregar as faturas.",
+      "empty": "Nenhum cartão cadastrado",
+      "emptyHint": "Conecte um banco ou cadastre um cartão para acompanhar as faturas aqui.",
+      "goToCards": "Ir para cartões",
+      "missingConversion": "Faturas em outra moeda sem cotação não entraram no total.",
+      "noDue": "Vencimento não informado",
+      "missingConfig": "Informe os dias de fechamento e vencimento para ver esta fatura",
+      "open": "Abrir fatura: {{name}}"
+    },
+    "recurring": {
+      "title": "Recorrentes",
+      "hint": "Previsto, pago e pendente neste mês.",
+      "manage": "Gerenciar",
+      "error": "Não foi possível carregar as recorrências.",
+      "empty": "Nada recorrente neste mês",
+      "emptyHint": "Cadastre aluguel, assinaturas e salário como recorrências para acompanhar tudo aqui.",
+      "receivedOn": "Recebido em {{date}}",
+      "paidOn": "Pago em {{date}}",
+      "expectedOn": "Previsto para {{date}}",
+      "expectedAmount": "previsto {{amount}}",
+      "status": {
+        "paid": "Pago",
+        "received": "Recebido",
+        "pending": "Pendente",
+        "overdue": "Atrasado"
+      },
+      "missingConversion": "Lançamentos em outra moeda sem cotação não entraram nos totais.",
+      "outflow": "Contas e pagamentos",
+      "inflow": "Entradas",
+      "expected": "Previsto",
+      "paid": "Pago",
+      "received": "Recebido",
+      "pending": "Pendente",
+      "overdueCount": "Atrasados: {{count}}"
+    },
+    "bill": {
+      "title": "Fatura {{month}} · {{name}}",
+      "error": "Não foi possível carregar esta fatura.",
+      "composition": "O que compõe o total",
+      "total": "Total da fatura",
+      "noCharges": "Ainda não há compras nesta fatura.",
+      "byCategory": "Por categoria",
+      "byCard": "Por cartão",
+      "noCard": "Cartão não identificado",
+      "installments": "Parcelas",
+      "installmentsEmpty": "Nenhuma parcela nesta fatura.",
+      "topCharges": "Maiores compras",
+      "openCard": "Abrir no cartão",
+      "forecast": "Prevista"
+    }
   },
   "invoices": {
     "title": "Cobranças",

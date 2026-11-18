@@ -109,6 +109,7 @@
   },
   "nav": {
     "dashboard": "Áttekintés",
+    "month": "Hónap",
     "transactions": "Tranzakciók",
     "invoices": "Számlázás",
     "accounts": "Számlák",
@@ -136,6 +137,79 @@
     "documentation": "Dokumentáció",
     "collapseSidebar": "Oldalsáv összecsukása",
     "expandSidebar": "Oldalsáv kinyitása"
+  },
+  "month": {
+    "subtitle": "Mi jött be, mi ment ki, és mi esedékes még ebben a hónapban.",
+    "navigation": "Hónapok közötti navigáció",
+    "current": "Ez a hónap",
+    "previous": "Előző hónap",
+    "next": "Következő hónap",
+    "results": {
+      "title": "A hónap eredménye",
+      "hint": "A teljesült csak a könyvelt tranzakciókat számolja. A várható hozzáadja, ami még hátravan: függő tranzakciók és ismétlődő tételek.",
+      "error": "A hónap eredményét nem sikerült betölteni.",
+      "income": "Bevételek",
+      "expenses": "Kiadások",
+      "net": "Eredmény",
+      "realized": "Teljesült",
+      "pending": "még várható {{amount}}",
+      "projected": "zárás {{amount}}",
+      "fxFallback": "Néhány más pénznemű összeghez még nincs árfolyam, ezért névértéken lettek hozzáadva."
+    },
+    "bills": {
+      "title": "Kártyaszámlák",
+      "hint": "Az ebben a hónapban esedékes számlák. Elsőként a bank összege; amíg a számla meg nem érkezik, a Securo a ciklus alapján becsüli.",
+      "total": "Összesen fizetendő",
+      "error": "A kártyaszámlákat nem sikerült betölteni.",
+      "empty": "Még nincs hitelkártya",
+      "emptyHint": "Kapcsolj össze egy bankot vagy adj hozzá egy kártyát, hogy itt kövesd a számláit.",
+      "goToCards": "Ugrás a kártyákhoz",
+      "missingConversion": "Az árfolyam nélküli, más pénznemű számlák nincsenek az összegben.",
+      "noDue": "Nincs esedékesség",
+      "missingConfig": "Állítsd be a zárási és esedékességi napot a számla megtekintéséhez",
+      "open": "Számla megnyitása: {{name}}"
+    },
+    "recurring": {
+      "title": "Ismétlődő",
+      "hint": "Várható, fizetett és függő tételek ebben a hónapban.",
+      "manage": "Kezelés",
+      "error": "Az ismétlődő tételeket nem sikerült betölteni.",
+      "empty": "Ebben a hónapban nincs ismétlődő tétel",
+      "emptyHint": "Add hozzá a lakbért, az előfizetéseket és a fizetést ismétlődő tételként, hogy itt kövesd őket.",
+      "receivedOn": "Beérkezett: {{date}}",
+      "paidOn": "Fizetve: {{date}}",
+      "expectedOn": "Várható: {{date}}",
+      "expectedAmount": "várható {{amount}}",
+      "status": {
+        "paid": "Fizetve",
+        "received": "Beérkezett",
+        "pending": "Függő",
+        "overdue": "Lejárt"
+      },
+      "missingConversion": "Az árfolyam nélküli, más pénznemű tételek nincsenek az összegekben.",
+      "outflow": "Számlák és kifizetések",
+      "inflow": "Bevételek",
+      "expected": "Várható",
+      "paid": "Fizetve",
+      "received": "Beérkezett",
+      "pending": "Függő",
+      "overdueCount": "Lejárt: {{count}}"
+    },
+    "bill": {
+      "title": "{{name}} · {{month}} számla",
+      "error": "Ezt a számlát nem sikerült betölteni.",
+      "composition": "Miből áll össze az összeg",
+      "total": "Számla összege",
+      "noCharges": "Ezen a számlán még nincs vásárlás.",
+      "byCategory": "Kategória szerint",
+      "byCard": "Kártya szerint",
+      "noCard": "Nem azonosított kártya",
+      "installments": "Részletek",
+      "installmentsEmpty": "Ezen a számlán nincs részlet.",
+      "topCharges": "Legnagyobb vásárlások",
+      "openCard": "Megnyitás a kártya oldalán",
+      "forecast": "Előrejelzés"
+    }
   },
   "invoices": {
     "title": "Számlázás",

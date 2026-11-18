@@ -109,6 +109,7 @@
   },
   "nav": {
     "dashboard": "Dashboard",
+    "month": "Maand",
     "transactions": "Transacties",
     "invoices": "Facturen",
     "accounts": "Rekeningen",
@@ -136,6 +137,79 @@
     "documentation": "Documentatie",
     "collapseSidebar": "Zijbalk inklappen",
     "expandSidebar": "Zijbalk uitklappen"
+  },
+  "month": {
+    "subtitle": "Wat er binnenkwam, wat er uitging en wat deze maand nog betaald moet worden.",
+    "navigation": "Maandnavigatie",
+    "current": "Deze maand",
+    "previous": "Vorige maand",
+    "next": "Volgende maand",
+    "results": {
+      "title": "Maandresultaat",
+      "hint": "Gerealiseerd telt alleen geboekte transacties. Verwacht telt op wat nog komt: openstaande transacties en terugkerende posten.",
+      "error": "Het maandresultaat kon niet worden geladen.",
+      "income": "Inkomsten",
+      "expenses": "Uitgaven",
+      "net": "Resultaat",
+      "realized": "Gerealiseerd",
+      "pending": "{{amount}} nog verwacht",
+      "projected": "sluit op {{amount}}",
+      "fxFallback": "Voor sommige bedragen in een andere valuta is nog geen wisselkoers; ze zijn tegen hun oorspronkelijke waarde opgeteld."
+    },
+    "bills": {
+      "title": "Creditcardafschriften",
+      "hint": "Afschriften die deze maand vervallen. Eerst het bedrag van de bank; tot het afschrift binnen is, schat Securo het op basis van de cyclus.",
+      "total": "Totaal te betalen",
+      "error": "De afschriften konden niet worden geladen.",
+      "empty": "Nog geen creditcards",
+      "emptyHint": "Koppel een bank of voeg een kaart toe om de afschriften hier te volgen.",
+      "goToCards": "Naar kaarten",
+      "missingConversion": "Afschriften in een andere valuta zonder wisselkoers zitten niet in het totaal.",
+      "noDue": "Geen vervaldatum",
+      "missingConfig": "Stel de afsluit- en vervaldag in om dit afschrift te zien",
+      "open": "Afschrift openen: {{name}}"
+    },
+    "recurring": {
+      "title": "Terugkerend",
+      "hint": "Verwacht, betaald en nog open deze maand.",
+      "manage": "Beheren",
+      "error": "De terugkerende posten konden niet worden geladen.",
+      "empty": "Deze maand niets terugkerends",
+      "emptyHint": "Voeg huur, abonnementen en salaris toe als terugkerende posten om ze hier te volgen.",
+      "receivedOn": "Ontvangen op {{date}}",
+      "paidOn": "Betaald op {{date}}",
+      "expectedOn": "Verwacht op {{date}}",
+      "expectedAmount": "verwacht {{amount}}",
+      "status": {
+        "paid": "Betaald",
+        "received": "Ontvangen",
+        "pending": "Open",
+        "overdue": "Te laat"
+      },
+      "missingConversion": "Posten in een andere valuta zonder wisselkoers zitten niet in de totalen.",
+      "outflow": "Rekeningen en betalingen",
+      "inflow": "Inkomsten",
+      "expected": "Verwacht",
+      "paid": "Betaald",
+      "received": "Ontvangen",
+      "pending": "Open",
+      "overdueCount": "Te laat: {{count}}"
+    },
+    "bill": {
+      "title": "{{name}} · afschrift {{month}}",
+      "error": "Dit afschrift kon niet worden geladen.",
+      "composition": "Waaruit het totaal bestaat",
+      "total": "Totaal afschrift",
+      "noCharges": "Nog geen aankopen op dit afschrift.",
+      "byCategory": "Per categorie",
+      "byCard": "Per kaart",
+      "noCard": "Kaart niet herkend",
+      "installments": "Termijnen",
+      "installmentsEmpty": "Geen termijnen op dit afschrift.",
+      "topCharges": "Grootste aankopen",
+      "openCard": "Openen op de kaartpagina",
+      "forecast": "Verwacht"
+    }
   },
   "invoices": {
     "title": "Invoices",

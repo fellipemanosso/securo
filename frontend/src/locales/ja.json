@@ -109,6 +109,7 @@
   },
   "nav": {
     "dashboard": "ダッシュボード",
+    "month": "月次",
     "transactions": "取引",
     "invoices": "請求書",
     "accounts": "口座",
@@ -136,6 +137,79 @@
     "documentation": "ドキュメント",
     "collapseSidebar": "サイドバーを折りたたむ",
     "expandSidebar": "サイドバーを展開する"
+  },
+  "month": {
+    "subtitle": "今月の入金、出金、そしてまだ支払いが残っているもの。",
+    "navigation": "月の切り替え",
+    "current": "今月",
+    "previous": "前の月",
+    "next": "次の月",
+    "results": {
+      "title": "今月の収支",
+      "hint": "実績は確定した取引のみを集計します。見込みには、保留中の取引や定期取引など、これから発生するものを加えます。",
+      "error": "今月の収支を読み込めませんでした。",
+      "income": "収入",
+      "expenses": "支出",
+      "net": "収支",
+      "realized": "実績",
+      "pending": "あと {{amount}} の見込み",
+      "projected": "月末見込み {{amount}}",
+      "fxFallback": "一部の外貨金額はまだ為替レートがないため、元の金額で加算しています。"
+    },
+    "bills": {
+      "title": "カードの請求",
+      "hint": "今月が支払期日の請求です。銀行の金額を優先し、請求が届くまではサイクルから Securo が見積もります。",
+      "total": "支払合計",
+      "error": "カードの請求を読み込めませんでした。",
+      "empty": "クレジットカードはまだありません",
+      "emptyHint": "銀行を連携するかカードを追加すると、ここで請求を確認できます。",
+      "goToCards": "カードへ",
+      "missingConversion": "為替レートのない外貨の請求は合計に含まれていません。",
+      "noDue": "支払期日なし",
+      "missingConfig": "この請求を見るには締め日と支払日を設定してください",
+      "open": "請求を開く：{{name}}"
+    },
+    "recurring": {
+      "title": "定期取引",
+      "hint": "今月の予定、支払済み、未払い。",
+      "manage": "管理",
+      "error": "定期取引を読み込めませんでした。",
+      "empty": "今月の定期取引はありません",
+      "emptyHint": "家賃、サブスクリプション、給与を定期取引として登録すると、ここで確認できます。",
+      "receivedOn": "{{date}} 受取",
+      "paidOn": "{{date}} 支払",
+      "expectedOn": "{{date}} 予定",
+      "expectedAmount": "予定 {{amount}}",
+      "status": {
+        "paid": "支払済み",
+        "received": "受取済み",
+        "pending": "未払い",
+        "overdue": "期限超過"
+      },
+      "missingConversion": "為替レートのない外貨の取引は合計に含まれていません。",
+      "outflow": "請求と支払い",
+      "inflow": "収入",
+      "expected": "予定",
+      "paid": "支払済み",
+      "received": "受取済み",
+      "pending": "未払い",
+      "overdueCount": "期限超過：{{count}}"
+    },
+    "bill": {
+      "title": "{{name}} · {{month}} の請求",
+      "error": "この請求を読み込めませんでした。",
+      "composition": "合計の内訳",
+      "total": "請求合計",
+      "noCharges": "この請求にはまだ利用がありません。",
+      "byCategory": "カテゴリ別",
+      "byCard": "カード別",
+      "noCard": "カード不明",
+      "installments": "分割払い",
+      "installmentsEmpty": "この請求に分割払いはありません。",
+      "topCharges": "大きな利用",
+      "openCard": "カードのページで開く",
+      "forecast": "見込み"
+    }
   },
   "invoices": {
     "title": "請求書",

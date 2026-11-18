@@ -109,6 +109,7 @@
   },
   "nav": {
     "dashboard": "Tableau de bord",
+    "month": "Mois",
     "transactions": "Transactions",
     "invoices": "Factures",
     "accounts": "Comptes",
@@ -136,6 +137,79 @@
     "documentation": "Documentation",
     "collapseSidebar": "Réduire la barre latérale",
     "expandSidebar": "Développer la barre latérale"
+  },
+  "month": {
+    "subtitle": "Ce qui est entré, ce qui est sorti et ce qui reste à payer ce mois-ci.",
+    "navigation": "Navigation entre les mois",
+    "current": "Ce mois-ci",
+    "previous": "Mois précédent",
+    "next": "Mois suivant",
+    "results": {
+      "title": "Résultat du mois",
+      "hint": "Le réalisé ne compte que les opérations comptabilisées. Le prévu ajoute ce qui doit encore arriver : opérations en attente et récurrences.",
+      "error": "Impossible de charger le résultat du mois.",
+      "income": "Entrées",
+      "expenses": "Sorties",
+      "net": "Résultat",
+      "realized": "Réalisé",
+      "pending": "{{amount}} encore prévu",
+      "projected": "clôture à {{amount}}",
+      "fxFallback": "Certains montants en devise étrangère n'ont pas encore de taux de change et ont été ajoutés à leur valeur d'origine."
+    },
+    "bills": {
+      "title": "Relevés de carte du mois",
+      "hint": "Relevés à payer ce mois-ci. D'abord le montant de la banque ; tant que le relevé n'est pas arrivé, Securo l'estime à partir du cycle.",
+      "total": "Total à payer",
+      "error": "Impossible de charger les relevés de carte.",
+      "empty": "Aucune carte pour l'instant",
+      "emptyHint": "Connectez une banque ou ajoutez une carte pour suivre ses relevés ici.",
+      "goToCards": "Aller aux cartes",
+      "missingConversion": "Les relevés en devise étrangère sans taux de change ne sont pas dans le total.",
+      "noDue": "Pas d'échéance",
+      "missingConfig": "Renseignez les jours de clôture et d'échéance pour voir ce relevé",
+      "open": "Ouvrir le relevé : {{name}}"
+    },
+    "recurring": {
+      "title": "Récurrences",
+      "hint": "Prévu, payé et en attente ce mois-ci.",
+      "manage": "Gérer",
+      "error": "Impossible de charger les récurrences.",
+      "empty": "Rien de récurrent ce mois-ci",
+      "emptyHint": "Ajoutez le loyer, les abonnements et le salaire en récurrences pour les suivre ici.",
+      "receivedOn": "Reçu le {{date}}",
+      "paidOn": "Payé le {{date}}",
+      "expectedOn": "Prévu le {{date}}",
+      "expectedAmount": "prévu {{amount}}",
+      "status": {
+        "paid": "Payé",
+        "received": "Reçu",
+        "pending": "En attente",
+        "overdue": "En retard"
+      },
+      "missingConversion": "Les opérations en devise étrangère sans taux de change ne sont pas dans les totaux.",
+      "outflow": "Factures et paiements",
+      "inflow": "Entrées",
+      "expected": "Prévu",
+      "paid": "Payé",
+      "received": "Reçu",
+      "pending": "En attente",
+      "overdueCount": "En retard : {{count}}"
+    },
+    "bill": {
+      "title": "{{name}} · relevé {{month}}",
+      "error": "Impossible de charger ce relevé.",
+      "composition": "Ce qui compose le total",
+      "total": "Total du relevé",
+      "noCharges": "Aucun achat sur ce relevé pour l'instant.",
+      "byCategory": "Par catégorie",
+      "byCard": "Par carte",
+      "noCard": "Carte non identifiée",
+      "installments": "Paiements échelonnés",
+      "installmentsEmpty": "Aucun paiement échelonné sur ce relevé.",
+      "topCharges": "Achats les plus importants",
+      "openCard": "Ouvrir sur la page de la carte",
+      "forecast": "Prévu"
+    }
   },
   "invoices": {
     "title": "Invoices",

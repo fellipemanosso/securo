@@ -109,6 +109,7 @@
   },
   "nav": {
     "dashboard": "Painel",
+    "month": "Mês",
     "transactions": "Transações",
     "invoices": "Cobranças",
     "accounts": "Contas",
@@ -136,6 +137,79 @@
     "documentation": "Documentação",
     "collapseSidebar": "Recolher barra lateral",
     "expandSidebar": "Expandir barra lateral"
+  },
+  "month": {
+    "subtitle": "O que entrou, o que saiu e o que ainda vence este mês.",
+    "navigation": "Navegação entre meses",
+    "current": "Mês atual",
+    "previous": "Mês anterior",
+    "next": "Mês seguinte",
+    "results": {
+      "title": "Resultado do mês",
+      "hint": "O realizado conta apenas movimentos lançados. O previsto soma o que ainda vai acontecer: movimentos pendentes e recorrências.",
+      "error": "Não foi possível carregar o resultado do mês.",
+      "income": "Entradas",
+      "expenses": "Saídas",
+      "net": "Resultado",
+      "realized": "Realizado",
+      "pending": "{{amount}} ainda previsto",
+      "projected": "fecha em {{amount}}",
+      "fxFallback": "Alguns valores noutra moeda ainda não têm câmbio e entraram pelo valor original."
+    },
+    "bills": {
+      "title": "Faturas do mês",
+      "hint": "Faturas que vencem este mês. Primeiro o valor do banco; até a fatura chegar, o Securo estima-a pelo ciclo.",
+      "total": "Total a pagar",
+      "error": "Não foi possível carregar as faturas.",
+      "empty": "Nenhum cartão registado",
+      "emptyHint": "Ligue um banco ou registe um cartão para acompanhar as faturas aqui.",
+      "goToCards": "Ir para cartões",
+      "missingConversion": "Faturas noutra moeda sem câmbio não entraram no total.",
+      "noDue": "Vencimento não indicado",
+      "missingConfig": "Indique os dias de fecho e de vencimento para ver esta fatura",
+      "open": "Abrir fatura: {{name}}"
+    },
+    "recurring": {
+      "title": "Recorrentes",
+      "hint": "Previsto, pago e pendente este mês.",
+      "manage": "Gerir",
+      "error": "Não foi possível carregar as recorrências.",
+      "empty": "Nada recorrente este mês",
+      "emptyHint": "Registe a renda, as subscrições e o salário como recorrências para os acompanhar aqui.",
+      "receivedOn": "Recebido a {{date}}",
+      "paidOn": "Pago a {{date}}",
+      "expectedOn": "Previsto para {{date}}",
+      "expectedAmount": "previsto {{amount}}",
+      "status": {
+        "paid": "Pago",
+        "received": "Recebido",
+        "pending": "Pendente",
+        "overdue": "Em atraso"
+      },
+      "missingConversion": "Movimentos noutra moeda sem câmbio não entraram nos totais.",
+      "outflow": "Contas e pagamentos",
+      "inflow": "Entradas",
+      "expected": "Previsto",
+      "paid": "Pago",
+      "received": "Recebido",
+      "pending": "Pendente",
+      "overdueCount": "Em atraso: {{count}}"
+    },
+    "bill": {
+      "title": "Fatura {{month}} · {{name}}",
+      "error": "Não foi possível carregar esta fatura.",
+      "composition": "O que compõe o total",
+      "total": "Total da fatura",
+      "noCharges": "Ainda não há compras nesta fatura.",
+      "byCategory": "Por categoria",
+      "byCard": "Por cartão",
+      "noCard": "Cartão não identificado",
+      "installments": "Prestações",
+      "installmentsEmpty": "Nenhuma prestação nesta fatura.",
+      "topCharges": "Maiores compras",
+      "openCard": "Abrir no cartão",
+      "forecast": "Prevista"
+    }
   },
   "invoices": {
     "title": "Cobranças",
