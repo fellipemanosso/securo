@@ -1260,12 +1260,41 @@
     "previousCycle": "Vorheriger Zeitraum",
     "nextCycle": "Nächster Zeitraum",
     "cycleBillTotal": "Abrechnungssumme",
+    "billConfidence": {
+      "bank": "Bank · abgeschlossen {{date}}",
+      "manual": "Manuell",
+      "estimated": "Securo-Schätzung"
+    },
+    "billClosing": {
+      "upcoming": "Abschluss am",
+      "past": "Abgeschlossen am",
+      "upcomingDate": "Abschluss am {{date}}",
+      "pastDate": "Abgeschlossen am {{date}}"
+    },
+    "billBreakdown": {
+      "toggle": "Was ist enthalten?",
+      "title": "Was diese Schätzung enthält",
+      "hint": "Securo addiert die bisherigen Umsätze dieser Abrechnung. Der Betrag kann sich ändern, bis die Bank die Abrechnung abschließt.",
+      "purchases": "Einkäufe",
+      "credits": "Gutschriften und Erstattungen",
+      "pending": "Ausstehende Einkäufe",
+      "installments_one": "{{count}} erwartete Rate",
+      "installments_other": "{{count}} erwartete Raten",
+      "adjustments": "Zahlungen und Anpassungen",
+      "total": "Geschätzte Summe"
+    },
+    "billRunningTotal": "Laufende Summe",
+    "vsPreviousBill": "ggü. {{label}}",
+    "syncedAgo": "Synchronisiert {{time}}",
+    "neverSynced": "Noch nicht synchronisiert",
     "dueDate": "Fällig am",
     "minimumPayment": "Mindestbetrag",
     "noChargesYet": "Noch keine Umsätze in diesem Abrechnungszeitraum",
     "currentTag": "jetzt",
-    "overdueDays": "Seit {{count}} Tagen überfällig",
-    "dueIn": "Fällig in {{count}} Tagen",
+    "overdueDays_one": "Seit {{count}} Tag überfällig",
+    "overdueDays_other": "Seit {{count}} Tagen überfällig",
+    "dueIn_one": "Fällig in {{count}} Tag",
+    "dueIn_other": "Fällig in {{count}} Tagen",
     "dueToday": "Heute fällig",
     "overdue": "Überfällig",
     "cycleMissing": "Abrechnungszyklus einrichten",
@@ -1427,7 +1456,10 @@
       "successTitle": "Bank connected",
       "successDescription": "The connection to {{institution}} is complete and the data is now available.",
       "errorTitle": "Could not complete connection",
-      "errorDescription": "Authorization was received, but an error occurred while creating or syncing the connection. Close this message and try again."
+      "errorDescription": "Authorization was received, but an error occurred while creating or syncing the connection. Close this message and try again.",
+      "unknownError": "Securo konnte diese Verbindung nicht erstellen oder synchronisieren.",
+      "widgetError": "Pluggy konnte die Verbindung zur Bank nicht abschließen.",
+      "widgetLoadError": "Der Pluggy-Connector konnte nicht geladen werden."
     }
   },
   "settings": {
@@ -3379,7 +3411,8 @@
     "hide": "Hide card",
     "show": "Show card",
     "showAll": "Show all",
-    "hiddenNotice": "Hidden cards ({{count}}) — totals do not include them",
+    "hiddenFromTotal_one": "Ohne {{count}} ausgeblendete Karte",
+    "hiddenFromTotal_other": "Ohne {{count}} ausgeblendete Karten",
     "updateError": "Could not update the card"
   }
 }

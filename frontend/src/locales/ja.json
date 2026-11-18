@@ -1259,12 +1259,41 @@
     "previousCycle": "前サイクル",
     "nextCycle": "次サイクル",
     "cycleBillTotal": "請求合計",
+    "billConfidence": {
+      "bank": "銀行 · {{date}}締め",
+      "manual": "手動",
+      "estimated": "Securoの見積もり"
+    },
+    "billClosing": {
+      "upcoming": "締め日",
+      "past": "締め日",
+      "upcomingDate": "{{date}}締め",
+      "pastDate": "{{date}}に締め済み"
+    },
+    "billBreakdown": {
+      "toggle": "内訳",
+      "title": "この見積もりの内訳",
+      "hint": "Securoがこの請求のこれまでの取引を合計しています。銀行が請求を確定するまで金額は変わる可能性があります。",
+      "purchases": "購入",
+      "credits": "入金・返金",
+      "pending": "保留中の購入",
+      "installments_one": "予定分割払い{{count}}件",
+      "installments_other": "予定分割払い{{count}}件",
+      "adjustments": "支払いと調整",
+      "total": "見積もり合計"
+    },
+    "billRunningTotal": "請求の累計",
+    "vsPreviousBill": "{{label}}比",
+    "syncedAgo": "{{time}}に同期",
+    "neverSynced": "まだ同期されていません",
     "dueDate": "支払期日",
     "minimumPayment": "最低支払額",
     "noChargesYet": "今サイクルの請求はまだありません",
     "currentTag": "現在",
-    "overdueDays": "{{count}}日延滞中",
-    "dueIn": "あと{{count}}日で支払期日",
+    "overdueDays_one": "{{count}}日延滞中",
+    "overdueDays_other": "{{count}}日延滞中",
+    "dueIn_one": "あと{{count}}日で支払期日",
+    "dueIn_other": "あと{{count}}日で支払期日",
     "dueToday": "支払期日は今日です",
     "overdue": "延滞",
     "cycleMissing": "サイクルを設定",
@@ -1426,7 +1455,10 @@
       "successTitle": "Bank connected",
       "successDescription": "The connection to {{institution}} is complete and the data is now available.",
       "errorTitle": "Could not complete connection",
-      "errorDescription": "Authorization was received, but an error occurred while creating or syncing the connection. Close this message and try again."
+      "errorDescription": "Authorization was received, but an error occurred while creating or syncing the connection. Close this message and try again.",
+      "unknownError": "Securoはこの接続を作成または同期できませんでした。",
+      "widgetError": "Pluggyは銀行との接続を完了できませんでした。",
+      "widgetLoadError": "Pluggyコネクタを読み込めませんでした。"
     }
   },
   "settings": {
@@ -3378,7 +3410,8 @@
     "hide": "Hide card",
     "show": "Show card",
     "showAll": "Show all",
-    "hiddenNotice": "Hidden cards ({{count}}) — totals do not include them",
+    "hiddenFromTotal_one": "非表示のカード{{count}}枚を除く",
+    "hiddenFromTotal_other": "非表示のカード{{count}}枚を除く",
     "updateError": "Could not update the card"
   }
 }

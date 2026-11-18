@@ -1260,16 +1260,40 @@
     "nextCycle": "Next cycle",
     "cycleBillTotal": "Bill total",
     "billConfidence": {
-      "confirmed": "Bank",
-      "estimated": "Estimate",
-      "closedOn": "Closed on {{date}}"
+      "bank": "Bank · closed {{date}}",
+      "manual": "Manual",
+      "estimated": "Securo estimate"
     },
+    "billClosing": {
+      "upcoming": "Closes on",
+      "past": "Closed on",
+      "upcomingDate": "Closes on {{date}}",
+      "pastDate": "Closed on {{date}}"
+    },
+    "billBreakdown": {
+      "toggle": "What's included?",
+      "title": "What this estimate includes",
+      "hint": "Securo adds up this bill's transactions so far. The amount can change until the bank closes the bill.",
+      "purchases": "Purchases",
+      "credits": "Credits and refunds",
+      "pending": "Pending purchases",
+      "installments_one": "{{count}} forecast installment",
+      "installments_other": "{{count}} forecast installments",
+      "adjustments": "Payments and adjustments",
+      "total": "Estimated total"
+    },
+    "billRunningTotal": "Running bill total",
+    "vsPreviousBill": "vs {{label}}",
+    "syncedAgo": "Synced {{time}}",
+    "neverSynced": "Not synced yet",
     "dueDate": "Due date",
     "minimumPayment": "Minimum",
     "noChargesYet": "No charges yet this cycle",
     "currentTag": "now",
-    "overdueDays": "Overdue by {{count}} days",
-    "dueIn": "Due in {{count}} days",
+    "overdueDays_one": "Overdue by {{count}} day",
+    "overdueDays_other": "Overdue by {{count}} days",
+    "dueIn_one": "Due in {{count}} day",
+    "dueIn_other": "Due in {{count}} days",
     "dueToday": "Due today",
     "overdue": "Overdue",
     "cycleMissing": "Set up cycle",
@@ -3386,7 +3410,8 @@
     "hide": "Hide card",
     "show": "Show card",
     "showAll": "Show all",
-    "hiddenNotice": "Hidden cards ({{count}}) — totals do not include them",
+    "hiddenFromTotal_one": "Excludes {{count}} hidden card",
+    "hiddenFromTotal_other": "Excludes {{count}} hidden cards",
     "updateError": "Could not update the card"
   }
 }

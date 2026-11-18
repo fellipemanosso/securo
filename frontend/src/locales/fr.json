@@ -1263,12 +1263,41 @@
     "previousCycle": "Cycle précédent",
     "nextCycle": "Cycle suivant",
     "cycleBillTotal": "Total de la facture",
+    "billConfidence": {
+      "bank": "Banque · clôturée le {{date}}",
+      "manual": "Manuel",
+      "estimated": "Estimation Securo"
+    },
+    "billClosing": {
+      "upcoming": "Clôture le",
+      "past": "Clôturé le",
+      "upcomingDate": "Clôture le {{date}}",
+      "pastDate": "Clôturé le {{date}}"
+    },
+    "billBreakdown": {
+      "toggle": "Ce qui est inclus ?",
+      "title": "Ce que comprend cette estimation",
+      "hint": "Securo additionne les transactions de cette facture jusqu'à présent. Le montant peut changer jusqu'à la clôture par la banque.",
+      "purchases": "Achats",
+      "credits": "Crédits et remboursements",
+      "pending": "Achats en attente",
+      "installments_one": "{{count}} échéance prévue",
+      "installments_other": "{{count}} échéances prévues",
+      "adjustments": "Paiements et ajustements",
+      "total": "Total estimé"
+    },
+    "billRunningTotal": "Cumul de la facture",
+    "vsPreviousBill": "vs {{label}}",
+    "syncedAgo": "Synchronisé {{time}}",
+    "neverSynced": "Pas encore synchronisé",
     "dueDate": "Date d'échéance",
     "minimumPayment": "Minimum",
     "noChargesYet": "Aucun prélèvement pour ce cycle",
     "currentTag": "actuel",
-    "overdueDays": "En retard de {{count}} jours",
-    "dueIn": "Échéance dans {{count}} jours",
+    "overdueDays_one": "En retard de {{count}} jour",
+    "overdueDays_other": "En retard de {{count}} jours",
+    "dueIn_one": "Échéance dans {{count}} jour",
+    "dueIn_other": "Échéance dans {{count}} jours",
     "dueToday": "Échéance aujourd'hui",
     "overdue": "En retard",
     "cycleMissing": "Configurer le cycle",
@@ -1430,7 +1459,10 @@
       "successTitle": "Bank connected",
       "successDescription": "The connection to {{institution}} is complete and the data is now available.",
       "errorTitle": "Could not complete connection",
-      "errorDescription": "Authorization was received, but an error occurred while creating or syncing the connection. Close this message and try again."
+      "errorDescription": "Authorization was received, but an error occurred while creating or syncing the connection. Close this message and try again.",
+      "unknownError": "Securo n'a pas pu créer ni synchroniser cette connexion.",
+      "widgetError": "Pluggy n'a pas pu finaliser la connexion avec la banque.",
+      "widgetLoadError": "Le connecteur Pluggy n'a pas pu être chargé."
     }
   },
   "settings": {
@@ -3382,7 +3414,8 @@
     "hide": "Hide card",
     "show": "Show card",
     "showAll": "Show all",
-    "hiddenNotice": "Hidden cards ({{count}}) — totals do not include them",
+    "hiddenFromTotal_one": "Exclut {{count}} carte masquée",
+    "hiddenFromTotal_other": "Exclut {{count}} cartes masquées",
     "updateError": "Could not update the card"
   }
 }

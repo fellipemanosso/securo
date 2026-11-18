@@ -1260,12 +1260,41 @@
     "previousCycle": "Vorige cyclus",
     "nextCycle": "Volgende cyclus",
     "cycleBillTotal": "Totaal factuur",
+    "billConfidence": {
+      "bank": "Bank · afgesloten {{date}}",
+      "manual": "Handmatig",
+      "estimated": "Schatting Securo"
+    },
+    "billClosing": {
+      "upcoming": "Sluit op",
+      "past": "Gesloten op",
+      "upcomingDate": "Sluit op {{date}}",
+      "pastDate": "Gesloten op {{date}}"
+    },
+    "billBreakdown": {
+      "toggle": "Wat zit erin?",
+      "title": "Wat deze schatting omvat",
+      "hint": "Securo telt de transacties van deze factuur tot nu toe op. Het bedrag kan veranderen totdat de bank de factuur afsluit.",
+      "purchases": "Aankopen",
+      "credits": "Tegoeden en terugbetalingen",
+      "pending": "Aankopen in behandeling",
+      "installments_one": "{{count}} verwachte termijn",
+      "installments_other": "{{count}} verwachte termijnen",
+      "adjustments": "Betalingen en correcties",
+      "total": "Geschat totaal"
+    },
+    "billRunningTotal": "Lopend factuurtotaal",
+    "vsPreviousBill": "t.o.v. {{label}}",
+    "syncedAgo": "Gesynchroniseerd {{time}}",
+    "neverSynced": "Nog niet gesynchroniseerd",
     "dueDate": "Vervaldatum",
     "minimumPayment": "Minimaal",
     "noChargesYet": "Nog geen kosten deze cyclus",
     "currentTag": "nu",
-    "overdueDays": "Te laat met {{count}} dagen",
-    "dueIn": "Te verwachten over {{count}} dagen",
+    "overdueDays_one": "{{count}} dag te laat",
+    "overdueDays_other": "{{count}} dagen te laat",
+    "dueIn_one": "Vervalt over {{count}} dag",
+    "dueIn_other": "Vervalt over {{count}} dagen",
     "dueToday": "Vandaag verschuldigd",
     "overdue": "Te laat",
     "cycleMissing": "Cyclus instellen",
@@ -1428,7 +1457,10 @@
       "successTitle": "Bank connected",
       "successDescription": "The connection to {{institution}} is complete and the data is now available.",
       "errorTitle": "Could not complete connection",
-      "errorDescription": "Authorization was received, but an error occurred while creating or syncing the connection. Close this message and try again."
+      "errorDescription": "Authorization was received, but an error occurred while creating or syncing the connection. Close this message and try again.",
+      "unknownError": "Securo kon deze verbinding niet aanmaken of synchroniseren.",
+      "widgetError": "Pluggy kon de verbinding met de bank niet voltooien.",
+      "widgetLoadError": "De Pluggy-connector kon niet worden geladen."
     }
   },
   "settings": {
@@ -3380,7 +3412,8 @@
     "hide": "Hide card",
     "show": "Show card",
     "showAll": "Show all",
-    "hiddenNotice": "Hidden cards ({{count}}) — totals do not include them",
+    "hiddenFromTotal_one": "Zonder {{count}} verborgen kaart",
+    "hiddenFromTotal_other": "Zonder {{count}} verborgen kaarten",
     "updateError": "Could not update the card"
   }
 }

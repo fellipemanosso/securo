@@ -1276,12 +1276,47 @@
     "previousCycle": "Попередній цикл",
     "nextCycle": "Наступний цикл",
     "cycleBillTotal": "Усього за рахунком",
+    "billConfidence": {
+      "bank": "Банк · закрито {{date}}",
+      "manual": "Вручну",
+      "estimated": "Оцінка Securo"
+    },
+    "billClosing": {
+      "upcoming": "Закривається",
+      "past": "Закрито",
+      "upcomingDate": "Закривається {{date}}",
+      "pastDate": "Закрито {{date}}"
+    },
+    "billBreakdown": {
+      "toggle": "Що входить?",
+      "title": "Що входить у цю оцінку",
+      "hint": "Securo підсумовує операції цього рахунку на цей момент. Сума може змінитися, доки банк не закриє рахунок.",
+      "purchases": "Покупки",
+      "credits": "Зарахування та повернення",
+      "pending": "Покупки в обробці",
+      "installments_one": "{{count}} очікуваний платіж розстрочки",
+      "installments_few": "{{count}} очікувані платежі розстрочки",
+      "installments_many": "{{count}} очікуваних платежів розстрочки",
+      "installments_other": "{{count}} очікуваного платежу розстрочки",
+      "adjustments": "Платежі та коригування",
+      "total": "Орієнтовний підсумок"
+    },
+    "billRunningTotal": "Наростаючий підсумок рахунку",
+    "vsPreviousBill": "до {{label}}",
+    "syncedAgo": "Синхронізовано {{time}}",
+    "neverSynced": "Ще не синхронізовано",
     "dueDate": "Дата платежу",
     "minimumPayment": "Мінімум",
     "noChargesYet": "У цьому циклі поки немає нарахувань",
     "currentTag": "зараз",
-    "overdueDays": "Прострочено на {{count}} днів",
-    "dueIn": "Залишилось {{count}} днів",
+    "overdueDays_one": "Прострочено на {{count}} день",
+    "overdueDays_few": "Прострочено на {{count}} дні",
+    "overdueDays_many": "Прострочено на {{count}} днів",
+    "overdueDays_other": "Прострочено на {{count}} дня",
+    "dueIn_one": "Залишився {{count}} день",
+    "dueIn_few": "Залишилося {{count}} дні",
+    "dueIn_many": "Залишилося {{count}} днів",
+    "dueIn_other": "Залишилося {{count}} дня",
     "dueToday": "Сьогодні",
     "overdue": "Прострочено",
     "cycleMissing": "Налаштувати цикл",
@@ -1443,7 +1478,10 @@
       "successTitle": "Bank connected",
       "successDescription": "The connection to {{institution}} is complete and the data is now available.",
       "errorTitle": "Could not complete connection",
-      "errorDescription": "Authorization was received, but an error occurred while creating or syncing the connection. Close this message and try again."
+      "errorDescription": "Authorization was received, but an error occurred while creating or syncing the connection. Close this message and try again.",
+      "unknownError": "Securo не вдалося створити або синхронізувати це підключення.",
+      "widgetError": "Pluggy не вдалося завершити підключення до банку.",
+      "widgetLoadError": "Не вдалося завантажити конектор Pluggy."
     }
   },
   "settings": {
@@ -3421,7 +3459,10 @@
     "hide": "Hide card",
     "show": "Show card",
     "showAll": "Show all",
-    "hiddenNotice": "Hidden cards ({{count}}) — totals do not include them",
+    "hiddenFromTotal_one": "Без {{count}} прихованої картки",
+    "hiddenFromTotal_few": "Без {{count}} прихованих карток",
+    "hiddenFromTotal_many": "Без {{count}} прихованих карток",
+    "hiddenFromTotal_other": "Без {{count}} прихованої картки",
     "updateError": "Could not update the card"
   }
 }

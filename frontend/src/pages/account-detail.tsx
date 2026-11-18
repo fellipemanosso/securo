@@ -4,8 +4,8 @@ import { useParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useDisplayLocale, useDateLocale } from '@/hooks/use-display-locale'
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { format, addDays, addMonths, endOfMonth, parseISO, startOfMonth, subMonths } from 'date-fns'
-import { accounts, dashboard, transactions, categories as categoriesApi, categoryGroups as categoryGroupsApi } from '@/lib/api'
+import { format, addDays, addMonths, endOfMonth, formatDistanceToNow, parseISO, startOfMonth, subMonths } from 'date-fns'
+import { accounts, connections, dashboard, transactions, categories as categoriesApi, categoryGroups as categoryGroupsApi } from '@/lib/api'
 import { localDateString } from '@/lib/date-utils'
 import { applyTransactionToBalance, excludeMaterializedProjections, mergeRunningBalances, runningBalanceChartFrom, transactionAmountForBalance } from '@/lib/account-detail-utils'
 import { invalidateFinancialQueries } from '@/lib/invalidate-queries'
@@ -85,6 +85,15 @@ function daysUntil(dateStr: string): number {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   return Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+}
+
+/** Day and month only ("24/10" or "10/24", following the regional setting):
+ *  enough to place a closing date next to the bill it belongs to. */
+function formatDayMonth(dateStr: string, dateLocale: string) {
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString(dateLocale, {
+    day: '2-digit',
+    month: '2-digit',
+  })
 }
 
 /** Label a window that belongs to no bill and is not the open cycle, which is
@@ -190,13 +199,7 @@ export default function AccountDetailPage() {
   ) ?? []
   const activeCycle = timelineItems.find((item) => item.cycle_key === activeCycleKey) ?? null
   const activeBill = activeCycle?.kind === 'statement' && activeCycle.record_id && activeCycle.due_date
-    ? {
-        id: activeCycle.record_id,
-        due_date: activeCycle.due_date,
-        closing_date: activeCycle.closing_date,
-        source: activeCycle.source,
-        total_amount: activeCycle.amount,
-      }
+    ? { due_date: activeCycle.due_date }
     : null
 
   const [cycleSource, setCycleSource] = useState<{
@@ -333,6 +336,14 @@ export default function AccountDetailPage() {
     queryFn: () => accounts.installmentForecasts(id!, activeCycleKey!),
     enabled: !!id && account?.type === 'credit_card' && activeCycle?.kind === 'projection',
   })
+
+  // Connected cards say how fresh the bank data behind the bill is.
+  const { data: connectionsList } = useQuery({
+    queryKey: ['connections'],
+    queryFn: () => connections.list(),
+    enabled: !!account?.connection_id && account.type === 'credit_card',
+  })
+  const cardConnection = connectionsList?.find((connection) => connection.id === account?.connection_id) ?? null
 
   // Any other account pages through the period newest first. Each row
   // carries the balance right after it, which the server walks over the
@@ -694,6 +705,32 @@ export default function AccountDetailPage() {
     return withBalance.reverse()
   }, [cycleTxData, installmentForecastRows, isCreditCard, usePrimary, displayCurrency])
 
+  // The parts an estimated bill adds up, for the "what's included" panel.
+  // Same exclusions as the running total above, plus the bill's own rule
+  // that a transfer-like credit is an unpaired payment rather than a refund.
+  const billParts = useMemo(() => {
+    if (!isCreditCard || !cycleTxData?.items) return null
+    let purchases = 0
+    let credits = 0
+    let pending = 0
+    for (const tx of cycleTxData.items) {
+      if (tx.is_ignored || tx.category?.is_ignored || tx.source === 'opening_balance' || tx.transfer_pair_id) continue
+      if (tx.type === 'credit' && tx.category?.treat_as_transfer) continue
+      const amt = transactionAmountForBalance(tx, usePrimary, displayCurrency)
+      if (amt == null) continue
+      if (tx.type === 'credit') credits += Math.abs(amt)
+      else if (tx.status === 'pending') pending += Math.abs(amt)
+      else purchases += Math.abs(amt)
+    }
+    let installments = 0
+    for (const row of installmentForecastRows) {
+      const amt = transactionAmountForBalance(row, usePrimary, displayCurrency)
+      if (amt == null) continue
+      installments += row.type === 'debit' ? Math.abs(amt) : -Math.abs(amt)
+    }
+    return { purchases, credits, pending, installments, installmentCount: installmentForecastRows.length }
+  }, [isCreditCard, cycleTxData, installmentForecastRows, usePrimary, displayCurrency])
+
   // Merged list: real transactions, pending rows, and virtual recurring
   // projections. The newest row is the forecast at the end of the range,
   // even before the older pages are loaded (#1202).
@@ -725,6 +762,22 @@ export default function AccountDetailPage() {
     ? { start: defaultCycle.start, end: defaultCycle.end }
     : { start: defaultFrom(), end: defaultTo() }
   const hasFilters = filterFrom !== resolvedDefaultRange.start || filterTo !== resolvedDefaultRange.end
+
+  // The bill number on screen and where it comes from. A closed bank
+  // statement and a manual statement carry their own amount; anything else
+  // (a projection, an open statement, a converted currency, a hand-picked
+  // range) is Securo's sum of the transactions, so it is an estimate.
+  const statementAmount = !primaryShown && activeCycle?.kind === 'statement' && activeCycle.amount != null
+    ? Number(activeCycle.amount)
+    : null
+  const billSource: 'bank' | 'manual' | 'estimate' = statementAmount == null
+    ? 'estimate'
+    : activeCycle?.source === 'bank' && !!activeCycle.closing_date && activeCycle.closing_date < format(new Date(), 'yyyy-MM-dd')
+      ? 'bank'
+      : activeCycle?.source === 'manual' ? 'manual' : 'estimate'
+  const billTotal = billSource !== 'estimate' && statementAmount != null
+    ? statementAmount
+    : (primaryShown ? summary?.projected_expenses_primary : undefined) ?? summary?.projected_expenses ?? summary?.monthly_expenses ?? 0
 
   // The mobile transaction view is intentionally grouped by day so the date
   // remains visible without spending a full column on every row.
@@ -1025,20 +1078,6 @@ export default function AccountDetailPage() {
               onToggleHidden={(card) => cardUpdateMutation.mutate({ last4: card.last4, payload: { is_hidden: !card.is_hidden } })}
               onRename={(card, alias) => cardUpdateMutation.mutate({ last4: card.last4, payload: { alias } })}
             />
-            {hiddenCardLast4.length > 0 && (
-              <p className="text-xs text-muted-foreground">
-                {t('accountCards.hiddenNotice', { count: hiddenCardLast4.length })}
-                {canWrite && (
-                  <button
-                    type="button"
-                    className="ml-2 font-medium text-primary hover:underline"
-                    onClick={() => hiddenCardLast4.forEach(last4 => cardUpdateMutation.mutate({ last4, payload: { is_hidden: false } }))}
-                  >
-                    {t('accountCards.showAll')}
-                  </button>
-                )}
-              </p>
-            )}
           </div>
         )}
       </div>
@@ -1115,17 +1154,7 @@ export default function AccountDetailPage() {
 
       {/* Compact stat bar */}
       {isCreditCard ? (() => {
-        // Closed bank Statements keep the bank's amount. Open cycles use the
-        // summary resolved through the same canonical cycle key.
-        const closedBankTotal = !primaryShown
-          && activeCycle?.kind === 'statement'
-          && activeCycle.source === 'bank'
-          && activeCycle.closing_date
-          && activeCycle.closing_date < format(new Date(), 'yyyy-MM-dd')
-          && activeCycle.amount != null
-          ? Number(activeCycle.amount)
-          : null
-        const billTotal = closedBankTotal ?? (primaryShown ? summary?.projected_expenses_primary : undefined) ?? summary?.projected_expenses ?? summary?.monthly_expenses ?? 0
+        const dfLocale = resolveDateFnsLocale(i18n.resolvedLanguage ?? i18n.language)
         const isDefaultCycle = activeCycleKey === timelineData?.[0]?.default_key
         const cycleDueDate = activeCycle?.due_date ?? null
         const dueIn = cycleDueDate ? daysUntil(cycleDueDate) : null
@@ -1154,37 +1183,136 @@ export default function AccountDetailPage() {
         )
         const showComparison = !!previousCycle && prevTotal > 0
         const deltaPct = showComparison ? ((billTotal - prevTotal) / prevTotal) * 100 : null
-        const prevCycleLabel = previousCycle?.due_date
-          ? format(parseISO(previousCycle.due_date + 'T00:00:00'), 'MMM yyyy', {
-              locale: resolveDateFnsLocale(i18n.resolvedLanguage ?? i18n.language),
-            })
+        const prevCycleMonth = previousCycle?.due_date
+          ? format(parseISO(previousCycle.due_date + 'T00:00:00'), 'MMM yyyy', { locale: dfLocale })
           : previousCycle?.due_month ?? null
+        const prevCycleLabel = prevCycleMonth
+          ? prevCycleMonth.charAt(0).toUpperCase() + prevCycleMonth.slice(1)
+          : null
+        const closingDate = activeCycle?.closing_date ?? null
+        const provenance = billSource === 'bank' && closingDate
+          ? {
+              label: t('accounts.billConfidence.bank', { date: formatDayMonth(closingDate, dateLocale) }),
+              className: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
+            }
+          : billSource === 'manual'
+            ? { label: t('accounts.billConfidence.manual'), className: 'bg-foreground/5 text-foreground' }
+            : { label: t('accounts.billConfidence.estimated'), className: 'bg-amber-500/10 text-amber-700 dark:text-amber-400' }
+        const money = (value: number) => mask(formatCurrency(value, displayCurrency, locale))
+        // Whatever the listed parts do not explain (payments netted against
+        // the bill, rows the client cannot classify) gets its own line, so
+        // the panel always adds up to the number it explains.
+        const billAdjustments = billParts
+          ? billTotal - (billParts.purchases - billParts.credits + billParts.pending + billParts.installments)
+          : 0
         return (
           <div className={`grid grid-cols-3 gap-2 sm:gap-4 mb-6 ${cycleSectionClass}`} aria-busy={cycleSwitching}>
             <div className="bg-card rounded-xl border border-border shadow-sm p-3 sm:p-4 overflow-hidden">
-              <p className="text-[10px] sm:text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1 truncate">
-                <span className="truncate">{t('accounts.cycleBillTotal')}</span>
-                <span className={`inline-flex shrink-0 items-center rounded px-1 py-0 text-[8px] sm:text-[9px] font-bold uppercase tracking-wide ${activeBill ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' : 'bg-amber-500/10 text-amber-700 dark:text-amber-400'}`}>
-                  {activeBill
-                    ? t('accounts.billConfidence.confirmed')
-                    : t('accounts.billConfidence.estimated')}
-                </span>
+              <p className="text-[10px] sm:text-xs font-medium text-muted-foreground mb-1 truncate">
+                {t('accounts.cycleBillTotal')}
               </p>
               <p className="text-[length:clamp(0.7rem,3.5vw,1.25rem)] sm:text-2xl font-bold tabular-nums text-foreground">
-                {mask(formatCurrency(billTotal, displayCurrency, locale))}
+                {money(billTotal)}
               </p>
+              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] sm:text-[11px] font-semibold leading-tight ${provenance.className}`}>
+                  {provenance.label}
+                </span>
+                {billSource === 'estimate' && billParts && (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        className="rounded-sm text-[10px] sm:text-xs font-medium text-muted-foreground underline decoration-dotted underline-offset-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        {t('accounts.billBreakdown.toggle')}
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent align="start" className="w-72 p-3">
+                      <p className="text-sm font-semibold text-foreground">{t('accounts.billBreakdown.title')}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{t('accounts.billBreakdown.hint')}</p>
+                      <dl className="mt-3 space-y-1.5 text-xs">
+                        <div className="flex items-baseline justify-between gap-3">
+                          <dt className="text-muted-foreground">{t('accounts.billBreakdown.purchases')}</dt>
+                          <dd className="tabular-nums text-foreground">{money(billParts.purchases)}</dd>
+                        </div>
+                        {billParts.credits > 0.005 && (
+                          <div className="flex items-baseline justify-between gap-3">
+                            <dt className="text-muted-foreground">{t('accounts.billBreakdown.credits')}</dt>
+                            <dd className="tabular-nums text-foreground">{money(-billParts.credits)}</dd>
+                          </div>
+                        )}
+                        {billParts.pending > 0.005 && (
+                          <div className="flex items-baseline justify-between gap-3">
+                            <dt className="text-muted-foreground">{t('accounts.billBreakdown.pending')}</dt>
+                            <dd className="tabular-nums text-foreground">{money(billParts.pending)}</dd>
+                          </div>
+                        )}
+                        {billParts.installmentCount > 0 && (
+                          <div className="flex items-baseline justify-between gap-3">
+                            <dt className="text-muted-foreground">{t('accounts.billBreakdown.installments', { count: billParts.installmentCount })}</dt>
+                            <dd className="tabular-nums text-foreground">{money(billParts.installments)}</dd>
+                          </div>
+                        )}
+                        {Math.abs(billAdjustments) > 0.005 && (
+                          <div className="flex items-baseline justify-between gap-3">
+                            <dt className="text-muted-foreground">{t('accounts.billBreakdown.adjustments')}</dt>
+                            <dd className="tabular-nums text-foreground">{money(billAdjustments)}</dd>
+                          </div>
+                        )}
+                        <div className="flex items-baseline justify-between gap-3 border-t border-border pt-1.5 font-semibold">
+                          <dt className="text-foreground">{t('accounts.billBreakdown.total')}</dt>
+                          <dd className="tabular-nums text-foreground">{money(billTotal)}</dd>
+                        </div>
+                      </dl>
+                    </PopoverContent>
+                  </Popover>
+                )}
+              </div>
               {deltaPct != null && prevCycleLabel && (
-                <p className={`text-[10px] sm:text-xs font-medium mt-0.5 tabular-nums ${deltaPct > 0 ? 'text-rose-500' : 'text-emerald-600'}`}>
-                  {deltaPct > 0 ? '+' : ''}{deltaPct.toFixed(0)}% <span className="text-muted-foreground font-normal">vs {prevCycleLabel}</span>
+                <p className={`text-[10px] sm:text-xs font-medium mt-1 tabular-nums ${deltaPct > 0 ? 'text-rose-500' : 'text-emerald-600'}`}>
+                  {deltaPct > 0 ? '+' : ''}{deltaPct.toFixed(0)}%{' '}
+                  <span className="text-muted-foreground font-normal">{t('accounts.vsPreviousBill', { label: prevCycleLabel })}</span>
                 </p>
               )}
-              {activeBill?.closing_date && (
-                <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
-                  {t('accounts.billConfidence.closedOn', {
-                    date: format(parseISO(activeBill.closing_date + 'T00:00:00'), 'P', {
-                      locale: resolveDateFnsLocale(i18n.resolvedLanguage ?? i18n.language),
-                    }),
-                  })}
+              {/* A closed bank bill already names its closing date in the chip. */}
+              {billSource !== 'bank' && closingDate && (
+                <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
+                  {closingDate < format(new Date(), 'yyyy-MM-dd')
+                    ? t('accounts.billClosing.pastDate', { date: formatDayMonth(closingDate, dateLocale) })
+                    : t('accounts.billClosing.upcomingDate', { date: formatDayMonth(closingDate, dateLocale) })}
+                </p>
+              )}
+              {cardConnection && (
+                <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
+                  {cardConnection.last_sync_at ? (
+                    <time
+                      dateTime={cardConnection.last_sync_at}
+                      title={new Date(cardConnection.last_sync_at).toLocaleString(dateLocale)}
+                    >
+                      {t('accounts.syncedAgo', {
+                        time: formatDistanceToNow(new Date(cardConnection.last_sync_at), { addSuffix: true, locale: dfLocale }),
+                      })}
+                    </time>
+                  ) : t('accounts.neverSynced')}
+                </p>
+              )}
+              {/* Hiding a card changes this number, so say so right here. */}
+              {hiddenCardLast4.length > 0 && (
+                <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
+                  {t('accountCards.hiddenFromTotal', { count: hiddenCardLast4.length })}
+                  {canWrite && (
+                    <>
+                      {' · '}
+                      <button
+                        type="button"
+                        className="rounded-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        onClick={() => hiddenCardLast4.forEach(last4 => cardUpdateMutation.mutate({ last4, payload: { is_hidden: false } }))}
+                      >
+                        {t('accountCards.showAll')}
+                      </button>
+                    </>
+                  )}
                 </p>
               )}
             </div>
@@ -1278,12 +1406,7 @@ export default function AccountDetailPage() {
         // currently being viewed. For the current cycle this matches the "current
         // open balance" since nothing has been paid yet; for past cycles it shows
         // that month's burn rate against the (current) limit.
-        const closedBankBill = !primaryShown && activeBill?.source === 'bank' && activeBill.closing_date
-          && activeBill.closing_date < format(new Date(), 'yyyy-MM-dd')
-          ? Number(activeBill.total_amount)
-          : null
-        const cycleBillTotal = closedBankBill ?? (primaryShown ? summary?.projected_expenses_primary : undefined) ?? summary?.projected_expenses ?? summary?.monthly_expenses ?? 0
-        const utilized = limit != null ? cycleBillTotal : null
+        const utilized = limit != null ? billTotal : null
         const rawPct = limit != null && limit > 0 && utilized != null ? (utilized / limit) * 100 : null
         const pct = rawPct != null ? Math.min(100, rawPct) : null
         return (
@@ -1347,22 +1470,26 @@ export default function AccountDetailPage() {
                   {limit != null ? mask(formatCurrency(limit, account.currency, locale)) : '—'}
                 </p>
               </div>
-              <div>
-                {/* Closing date. For bill-driven cycles we derive it from the
-                    bill's due_date + account.statement_close_day (handles
-                    dynamic close days). For cycle-math cycles, filterTo is
-                    the day before the close, so close = filterTo + 1. */}
-                <p className="text-[10px] sm:text-xs font-medium text-muted-foreground mb-0.5">
-                  {t('accounts.statementCloseDay')}
-                </p>
-                <p className="text-sm sm:text-base font-semibold tabular-nums text-foreground">
-                  {activeCycle?.closing_date
-                    ? formatDateStr(activeCycle.closing_date, dateLocale)
-                    : (filterTo
-                        ? formatDateStr(format(addDays(parseISO(filterTo), 1), 'yyyy-MM-dd'), dateLocale)
-                        : '—')}
-                </p>
-              </div>
+              {(() => {
+                // Closing date. For bill-driven cycles we derive it from the
+                // bill's due_date + account.statement_close_day (handles
+                // dynamic close days). For cycle-math cycles, filterTo is
+                // the day before the close, so close = filterTo + 1.
+                const closing = activeCycle?.closing_date
+                  ?? (filterTo ? format(addDays(parseISO(filterTo), 1), 'yyyy-MM-dd') : null)
+                return (
+                  <div>
+                    <p className="text-[10px] sm:text-xs font-medium text-muted-foreground mb-0.5">
+                      {closing && closing < format(new Date(), 'yyyy-MM-dd')
+                        ? t('accounts.billClosing.past')
+                        : t('accounts.billClosing.upcoming')}
+                    </p>
+                    <p className="text-sm sm:text-base font-semibold tabular-nums text-foreground">
+                      {closing ? formatDateStr(closing, dateLocale) : '—'}
+                    </p>
+                  </div>
+                )
+              })()}
             </div>
           </div>
         )
@@ -1574,7 +1701,7 @@ export default function AccountDetailPage() {
                     <th className="px-2 sm:px-4 py-3 text-left font-medium">{t('transactions.description')}</th>
                     <th className="px-2 sm:px-4 py-3 text-left font-medium hidden md:table-cell">{t('transactions.category')}</th>
                     <th className="px-2 sm:px-4 py-3 text-right font-medium whitespace-nowrap">{t('transactions.amount')}</th>
-                    <th className="px-2 sm:px-4 py-3 text-right font-medium hidden sm:table-cell whitespace-nowrap">{t('accounts.runningBalance')}</th>
+                    <th className="px-2 sm:px-4 py-3 text-right font-medium hidden sm:table-cell whitespace-nowrap">{isCreditCard ? t('accounts.billRunningTotal') : t('accounts.runningBalance')}</th>
                   </tr>
                 </thead>
                 <tbody>

@@ -1315,16 +1315,43 @@
     "previousCycle": "Predchádzajúci cyklus",
     "nextCycle": "Nasledujúci cyklus",
     "cycleBillTotal": "Suma vyúčtovania",
+    "billConfidence": {
+      "bank": "Banka · uzavreté {{date}}",
+      "manual": "Ručné",
+      "estimated": "Odhad Securo"
+    },
+    "billClosing": {
+      "upcoming": "Uzávierka",
+      "past": "Uzavreté",
+      "upcomingDate": "Uzávierka {{date}}",
+      "pastDate": "Uzavreté {{date}}"
+    },
+    "billBreakdown": {
+      "toggle": "Čo zahŕňa?",
+      "title": "Čo tento odhad zahŕňa",
+      "hint": "Securo sčítava doterajšie transakcie tohto vyúčtovania. Suma sa môže zmeniť, kým banka vyúčtovanie neuzavrie.",
+      "purchases": "Nákupy",
+      "credits": "Pripísané sumy a vrátenia",
+      "pending": "Čakajúce nákupy",
+      "installments_one": "{{count}} očakávaná splátka",
+      "installments_few": "{{count}} očakávané splátky",
+      "installments_many": "{{count}} očakávanej splátky",
+      "installments_other": "{{count}} očakávaných splátok",
+      "adjustments": "Platby a úpravy",
+      "total": "Odhadovaný súčet"
+    },
+    "billRunningTotal": "Priebežný súčet vyúčtovania",
+    "vsPreviousBill": "oproti {{label}}",
+    "syncedAgo": "Synchronizované {{time}}",
+    "neverSynced": "Zatiaľ nesynchronizované",
     "dueDate": "Dátum splatnosti",
     "minimumPayment": "Minimum",
     "noChargesYet": "V tomto cykle zatiaľ žiadne čerpanie",
     "currentTag": "teraz",
-    "overdueDays": "{{count}} dní po splatnosti",
     "overdueDays_one": "{{count}} deň po splatnosti",
     "overdueDays_few": "{{count}} dni po splatnosti",
     "overdueDays_many": "{{count}} dňa po splatnosti",
     "overdueDays_other": "{{count}} dní po splatnosti",
-    "dueIn": "Splatné o {{count}} dní",
     "dueIn_one": "Splatné o {{count}} deň",
     "dueIn_few": "Splatné o {{count}} dni",
     "dueIn_many": "Splatné o {{count}} dňa",
@@ -1494,7 +1521,10 @@
       "successTitle": "Bank connected",
       "successDescription": "The connection to {{institution}} is complete and the data is now available.",
       "errorTitle": "Could not complete connection",
-      "errorDescription": "Authorization was received, but an error occurred while creating or syncing the connection. Close this message and try again."
+      "errorDescription": "Authorization was received, but an error occurred while creating or syncing the connection. Close this message and try again.",
+      "unknownError": "Securo nemohlo vytvoriť ani synchronizovať toto pripojenie.",
+      "widgetError": "Pluggy nemohlo dokončiť pripojenie k banke.",
+      "widgetLoadError": "Konektor Pluggy sa nepodarilo načítať."
     }
   },
   "settings": {
@@ -3548,7 +3578,10 @@
     "hide": "Hide card",
     "show": "Show card",
     "showAll": "Show all",
-    "hiddenNotice": "Hidden cards ({{count}}) — totals do not include them",
+    "hiddenFromTotal_one": "Bez {{count}} skrytej karty",
+    "hiddenFromTotal_few": "Bez {{count}} skrytých kariet",
+    "hiddenFromTotal_many": "Bez {{count}} skrytej karty",
+    "hiddenFromTotal_other": "Bez {{count}} skrytých kariet",
     "updateError": "Could not update the card"
   }
 }

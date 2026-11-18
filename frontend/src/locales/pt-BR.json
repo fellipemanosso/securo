@@ -1264,18 +1264,42 @@
     "nextCycle": "Próximo ciclo",
     "cycleBillTotal": "Total da fatura",
     "billConfidence": {
-      "confirmed": "Banco",
-      "estimated": "Estimativa",
-      "closedOn": "Fechada em {{date}}"
+      "bank": "Banco · fechada {{date}}",
+      "manual": "Manual",
+      "estimated": "Estimativa Securo"
     },
+    "billClosing": {
+      "upcoming": "Fecha em",
+      "past": "Fechou em",
+      "upcomingDate": "Fecha em {{date}}",
+      "pastDate": "Fechou em {{date}}"
+    },
+    "billBreakdown": {
+      "toggle": "O que entra?",
+      "title": "O que entra nesta estimativa",
+      "hint": "O Securo soma as transações desta fatura até agora. O valor pode mudar até o banco fechar a fatura.",
+      "purchases": "Compras",
+      "credits": "Créditos e estornos",
+      "pending": "Compras pendentes",
+      "installments_one": "{{count}} parcela prevista",
+      "installments_other": "{{count}} parcelas previstas",
+      "adjustments": "Pagamentos e ajustes",
+      "total": "Total estimado"
+    },
+    "billRunningTotal": "Acumulado na fatura",
+    "vsPreviousBill": "frente a {{label}}",
+    "syncedAgo": "Sincronizado {{time}}",
+    "neverSynced": "Ainda não sincronizado",
     "dueDate": "Vencimento",
     "minimumPayment": "Mínimo",
     "noChargesYet": "Nenhuma compra ainda neste ciclo",
     "currentTag": "agora",
-    "overdueDays": "Atrasado há {{count}} dias",
-    "dueIn": "Vence em {{count}} dias",
+    "overdueDays_one": "Atrasada há {{count}} dia",
+    "overdueDays_other": "Atrasada há {{count}} dias",
+    "dueIn_one": "Vence em {{count}} dia",
+    "dueIn_other": "Vence em {{count}} dias",
     "dueToday": "Vence hoje",
-    "overdue": "Atrasado",
+    "overdue": "Atrasada",
     "cycleMissing": "Configurar ciclo",
     "cycleMissingHint": "Preencha o dia de fechamento e vencimento para ativar filtros por fatura, alertas de vencimento e a visão por ciclo.",
     "ccSettingsHint": "Esses campos são opcionais, mas preenchê-los ativa filtros por ciclo, o alerta de vencimento e o bucketing de compras na fatura correta.",
@@ -3390,7 +3414,8 @@
     "hide": "Ocultar cartão",
     "show": "Mostrar cartão",
     "showAll": "Mostrar todos",
-    "hiddenNotice": "Cartões ocultos ({{count}}) — os totais não incluem esses cartões",
+    "hiddenFromTotal_one": "{{count}} cartão oculto fora do total",
+    "hiddenFromTotal_other": "{{count}} cartões ocultos fora do total",
     "updateError": "Não foi possível atualizar o cartão"
   }
 }

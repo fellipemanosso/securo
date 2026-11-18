@@ -123,7 +123,7 @@ describe('credit card cards control', () => {
       expect(api.transactions.list.mock.calls.length).toBeGreaterThan(listCalls)
       expect(api.accounts.summary.mock.calls.length).toBeGreaterThan(summaryCalls)
     })
-    expect(await screen.findByText(/Hidden cards \(1\)/)).toBeInTheDocument()
+    expect(await screen.findByText(/Excludes 1 hidden card/)).toBeInTheDocument()
   })
 
   it('renames a card with an empty or filled alias', async () => {

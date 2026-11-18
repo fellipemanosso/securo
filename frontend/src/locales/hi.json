@@ -1259,12 +1259,41 @@
     "previousCycle": "पिछला चक्र",
     "nextCycle": "अगला चक्र",
     "cycleBillTotal": "बिल कुल",
+    "billConfidence": {
+      "bank": "बैंक · {{date}} को बंद",
+      "manual": "मैनुअल",
+      "estimated": "Securo अनुमान"
+    },
+    "billClosing": {
+      "upcoming": "बंद होने की तारीख",
+      "past": "बंद हुआ",
+      "upcomingDate": "{{date}} को बंद होगा",
+      "pastDate": "{{date}} को बंद हुआ"
+    },
+    "billBreakdown": {
+      "toggle": "इसमें क्या शामिल है?",
+      "title": "इस अनुमान में क्या शामिल है",
+      "hint": "Securo इस बिल के अब तक के लेन-देन जोड़ता है। बैंक के बिल बंद करने तक राशि बदल सकती है।",
+      "purchases": "खरीदारी",
+      "credits": "क्रेडिट और रिफ़ंड",
+      "pending": "लंबित खरीदारी",
+      "installments_one": "{{count}} अनुमानित किस्त",
+      "installments_other": "{{count}} अनुमानित किस्तें",
+      "adjustments": "भुगतान और समायोजन",
+      "total": "अनुमानित कुल"
+    },
+    "billRunningTotal": "बिल का चालू कुल",
+    "vsPreviousBill": "{{label}} की तुलना में",
+    "syncedAgo": "{{time}} सिंक हुआ",
+    "neverSynced": "अभी तक सिंक नहीं हुआ",
     "dueDate": "देय तिथि",
     "minimumPayment": "न्यूनतम",
     "noChargesYet": "इस चक्र में अभी कोई शुल्क नहीं",
     "currentTag": "अभी",
-    "overdueDays": "{{count}} दिन से अतिदेय",
-    "dueIn": "{{count}} दिन में देय",
+    "overdueDays_one": "{{count}} दिन से अतिदेय",
+    "overdueDays_other": "{{count}} दिन से अतिदेय",
+    "dueIn_one": "{{count}} दिन में देय",
+    "dueIn_other": "{{count}} दिन में देय",
     "dueToday": "आज देय",
     "overdue": "अतिदेय",
     "cycleMissing": "चक्र सेट करें",
@@ -1426,7 +1455,10 @@
       "successTitle": "Bank connected",
       "successDescription": "The connection to {{institution}} is complete and the data is now available.",
       "errorTitle": "Could not complete connection",
-      "errorDescription": "Authorization was received, but an error occurred while creating or syncing the connection. Close this message and try again."
+      "errorDescription": "Authorization was received, but an error occurred while creating or syncing the connection. Close this message and try again.",
+      "unknownError": "Securo यह कनेक्शन बना या सिंक नहीं कर सका।",
+      "widgetError": "Pluggy बैंक से कनेक्शन पूरा नहीं कर सका।",
+      "widgetLoadError": "Pluggy कनेक्टर लोड नहीं हो सका।"
     }
   },
   "settings": {
@@ -3378,7 +3410,8 @@
     "hide": "Hide card",
     "show": "Show card",
     "showAll": "Show all",
-    "hiddenNotice": "Hidden cards ({{count}}) — totals do not include them",
+    "hiddenFromTotal_one": "{{count}} छिपा हुआ कार्ड शामिल नहीं",
+    "hiddenFromTotal_other": "{{count}} छिपे हुए कार्ड शामिल नहीं",
     "updateError": "Could not update the card"
   }
 }

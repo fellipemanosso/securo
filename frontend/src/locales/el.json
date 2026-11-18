@@ -971,12 +971,41 @@
     "previousCycle": "Προηγούμενος κύκλος",
     "nextCycle": "Επόμενος κύκλος",
     "cycleBillTotal": "Σύνολο λογαριασμού",
+    "billConfidence": {
+      "bank": "Τράπεζα · έκλεισε {{date}}",
+      "manual": "Χειροκίνητο",
+      "estimated": "Εκτίμηση Securo"
+    },
+    "billClosing": {
+      "upcoming": "Κλείνει στις",
+      "past": "Έκλεισε στις",
+      "upcomingDate": "Κλείνει στις {{date}}",
+      "pastDate": "Έκλεισε στις {{date}}"
+    },
+    "billBreakdown": {
+      "toggle": "Τι περιλαμβάνει;",
+      "title": "Τι περιλαμβάνει αυτή η εκτίμηση",
+      "hint": "Το Securo αθροίζει τις μέχρι τώρα συναλλαγές αυτού του λογαριασμού. Το ποσό μπορεί να αλλάξει μέχρι να κλείσει ο λογαριασμός από την τράπεζα.",
+      "purchases": "Αγορές",
+      "credits": "Πιστώσεις και επιστροφές",
+      "pending": "Εκκρεμείς αγορές",
+      "installments_one": "{{count}} αναμενόμενη δόση",
+      "installments_other": "{{count}} αναμενόμενες δόσεις",
+      "adjustments": "Πληρωμές και προσαρμογές",
+      "total": "Εκτιμώμενο σύνολο"
+    },
+    "billRunningTotal": "Σωρευτικό λογαριασμού",
+    "vsPreviousBill": "έναντι {{label}}",
+    "syncedAgo": "Συγχρονίστηκε {{time}}",
+    "neverSynced": "Δεν έχει συγχρονιστεί ακόμη",
     "dueDate": "Ημερομηνία λήξης",
     "minimumPayment": "Ελάχιστη καταβολή",
     "noChargesYet": "Δεν υπάρχουν χρεώσεις ακόμα σε αυτόν τον κύκλο",
     "currentTag": "τώρα",
-    "overdueDays": "Εκπρόθεσμο κατά {{count}} ημέρες",
-    "dueIn": "Λήγει σε {{count}} ημέρες",
+    "overdueDays_one": "Εκπρόθεσμο κατά {{count}} ημέρα",
+    "overdueDays_other": "Εκπρόθεσμο κατά {{count}} ημέρες",
+    "dueIn_one": "Λήγει σε {{count}} ημέρα",
+    "dueIn_other": "Λήγει σε {{count}} ημέρες",
     "dueToday": "Λήγει σήμερα",
     "overdue": "Εκπρόθεσμο",
     "cycleMissing": "Ρύθμιση κύκλου",
@@ -1138,7 +1167,10 @@
       "successTitle": "Bank connected",
       "successDescription": "The connection to {{institution}} is complete and the data is now available.",
       "errorTitle": "Could not complete connection",
-      "errorDescription": "Authorization was received, but an error occurred while creating or syncing the connection. Close this message and try again."
+      "errorDescription": "Authorization was received, but an error occurred while creating or syncing the connection. Close this message and try again.",
+      "unknownError": "Το Securo δεν μπόρεσε να δημιουργήσει ή να συγχρονίσει αυτή τη σύνδεση.",
+      "widgetError": "Η Pluggy δεν μπόρεσε να ολοκληρώσει τη σύνδεση με την τράπεζα.",
+      "widgetLoadError": "Δεν ήταν δυνατή η φόρτωση του συνδέσμου Pluggy."
     }
   },
   "settings": {
@@ -3378,7 +3410,8 @@
     "hide": "Hide card",
     "show": "Show card",
     "showAll": "Show all",
-    "hiddenNotice": "Hidden cards ({{count}}) — totals do not include them",
+    "hiddenFromTotal_one": "Εκτός {{count}} κρυφή κάρτα",
+    "hiddenFromTotal_other": "Εκτός {{count}} κρυφές κάρτες",
     "updateError": "Could not update the card"
   }
 }

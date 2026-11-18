@@ -1263,12 +1263,41 @@
     "previousCycle": "Ciclo anterior",
     "nextCycle": "Siguiente ciclo",
     "cycleBillTotal": "Total de la factura",
+    "billConfidence": {
+      "bank": "Banco · cerrada {{date}}",
+      "manual": "Manual",
+      "estimated": "Estimación de Securo"
+    },
+    "billClosing": {
+      "upcoming": "Cierra el",
+      "past": "Cerró el",
+      "upcomingDate": "Cierra el {{date}}",
+      "pastDate": "Cerró el {{date}}"
+    },
+    "billBreakdown": {
+      "toggle": "¿Qué incluye?",
+      "title": "Qué incluye esta estimación",
+      "hint": "Securo suma las transacciones de esta factura hasta ahora. El importe puede cambiar hasta que el banco cierre la factura.",
+      "purchases": "Compras",
+      "credits": "Créditos y reembolsos",
+      "pending": "Compras pendientes",
+      "installments_one": "{{count}} cuota prevista",
+      "installments_other": "{{count}} cuotas previstas",
+      "adjustments": "Pagos y ajustes",
+      "total": "Total estimado"
+    },
+    "billRunningTotal": "Acumulado en la factura",
+    "vsPreviousBill": "frente a {{label}}",
+    "syncedAgo": "Sincronizado {{time}}",
+    "neverSynced": "Aún sin sincronizar",
     "dueDate": "Fecha de vencimiento",
     "minimumPayment": "Pago mínimo",
     "noChargesYet": "Aún no hay cargos este ciclo",
     "currentTag": "ahora",
-    "overdueDays": "Vencida por {{count}} días",
-    "dueIn": "Vence en {{count}} días",
+    "overdueDays_one": "Vencida hace {{count}} día",
+    "overdueDays_other": "Vencida hace {{count}} días",
+    "dueIn_one": "Vence en {{count}} día",
+    "dueIn_other": "Vence en {{count}} días",
     "dueToday": "Vence hoy",
     "overdue": "Vencida",
     "cycleMissing": "Configurar ciclo",
@@ -1430,7 +1459,10 @@
       "successTitle": "Bank connected",
       "successDescription": "The connection to {{institution}} is complete and the data is now available.",
       "errorTitle": "Could not complete connection",
-      "errorDescription": "Authorization was received, but an error occurred while creating or syncing the connection. Close this message and try again."
+      "errorDescription": "Authorization was received, but an error occurred while creating or syncing the connection. Close this message and try again.",
+      "unknownError": "Securo no pudo crear ni sincronizar esta conexión.",
+      "widgetError": "Pluggy no pudo completar la conexión con el banco.",
+      "widgetLoadError": "No se pudo cargar el conector de Pluggy."
     }
   },
   "settings": {
@@ -3382,7 +3414,8 @@
     "hide": "Hide card",
     "show": "Show card",
     "showAll": "Show all",
-    "hiddenNotice": "Hidden cards ({{count}}) — totals do not include them",
+    "hiddenFromTotal_one": "Excluye {{count}} tarjeta oculta",
+    "hiddenFromTotal_other": "Excluye {{count}} tarjetas ocultas",
     "updateError": "Could not update the card"
   }
 }

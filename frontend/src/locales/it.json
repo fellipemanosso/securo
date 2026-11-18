@@ -1263,12 +1263,41 @@
     "previousCycle": "Ciclo precedente",
     "nextCycle": "Ciclo successivo",
     "cycleBillTotal": "Totale estratto conto",
+    "billConfidence": {
+      "bank": "Banca · chiuso il {{date}}",
+      "manual": "Manuale",
+      "estimated": "Stima Securo"
+    },
+    "billClosing": {
+      "upcoming": "Chiude il",
+      "past": "Chiuso il",
+      "upcomingDate": "Chiude il {{date}}",
+      "pastDate": "Chiuso il {{date}}"
+    },
+    "billBreakdown": {
+      "toggle": "Cosa include?",
+      "title": "Cosa include questa stima",
+      "hint": "Securo somma le transazioni di questo estratto conto finora. L'importo può cambiare finché la banca non chiude l'estratto conto.",
+      "purchases": "Acquisti",
+      "credits": "Accrediti e rimborsi",
+      "pending": "Acquisti in sospeso",
+      "installments_one": "{{count}} rata prevista",
+      "installments_other": "{{count}} rate previste",
+      "adjustments": "Pagamenti e rettifiche",
+      "total": "Totale stimato"
+    },
+    "billRunningTotal": "Progressivo dell'estratto conto",
+    "vsPreviousBill": "rispetto a {{label}}",
+    "syncedAgo": "Sincronizzato {{time}}",
+    "neverSynced": "Non ancora sincronizzato",
     "dueDate": "Data di scadenza",
     "minimumPayment": "Minimo",
     "noChargesYet": "Ancora nessun addebito in questo ciclo",
     "currentTag": "ora",
-    "overdueDays": "In ritardo di {{count}} giorni",
-    "dueIn": "Scade tra {{count}} giorni",
+    "overdueDays_one": "In ritardo di {{count}} giorno",
+    "overdueDays_other": "In ritardo di {{count}} giorni",
+    "dueIn_one": "Scade tra {{count}} giorno",
+    "dueIn_other": "Scade tra {{count}} giorni",
     "dueToday": "Scade oggi",
     "overdue": "Scaduto",
     "cycleMissing": "Configura ciclo",
@@ -1430,7 +1459,10 @@
       "successTitle": "Bank connected",
       "successDescription": "The connection to {{institution}} is complete and the data is now available.",
       "errorTitle": "Could not complete connection",
-      "errorDescription": "Authorization was received, but an error occurred while creating or syncing the connection. Close this message and try again."
+      "errorDescription": "Authorization was received, but an error occurred while creating or syncing the connection. Close this message and try again.",
+      "unknownError": "Securo non è riuscito a creare o sincronizzare questa connessione.",
+      "widgetError": "Pluggy non è riuscito a completare la connessione con la banca.",
+      "widgetLoadError": "Impossibile caricare il connettore Pluggy."
     }
   },
   "settings": {
@@ -3382,7 +3414,8 @@
     "hide": "Hide card",
     "show": "Show card",
     "showAll": "Show all",
-    "hiddenNotice": "Hidden cards ({{count}}) — totals do not include them",
+    "hiddenFromTotal_one": "Esclude {{count}} carta nascosta",
+    "hiddenFromTotal_other": "Esclude {{count}} carte nascoste",
     "updateError": "Could not update the card"
   }
 }

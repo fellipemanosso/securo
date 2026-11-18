@@ -242,3 +242,77 @@ describe('credit card cycle window', () => {
     expect(screen.getByText('7/10')).toBeInTheDocument()
   })
 })
+
+/** A one-statement timeline whose statement is the default bill. */
+function statementTimeline(statement: { source: 'bank' | 'manual'; closing_date: string; due_date: string; amount: number }) {
+  return [{
+    account_id: 'acc-1',
+    default_key: 'bill:bill-1',
+    items: [{
+      account_id: 'acc-1', due_month: statement.due_date.slice(0, 7), kind: 'statement',
+      cycle_key: 'bill:bill-1', start: '2026-08-01', end: '2026-08-29',
+      closing_date: statement.closing_date, due_date: statement.due_date, amount: statement.amount,
+      primary_amount: null, source: statement.source, record_id: 'bill-1', status: 'open',
+      editable: statement.source === 'manual', unavailable_reason: null,
+    }],
+  }]
+}
+
+describe('bill total provenance', () => {
+  it('calls the open cycle a Securo estimate and explains what it adds up', async () => {
+    api.accounts.summary.mockResolvedValue({
+      monthly_income: 0, monthly_expenses: 0, projected_income: 0, projected_expenses: 720,
+    })
+    api.accounts.installmentForecasts.mockResolvedValue([{
+      key: 'tx-1:7', description: 'THIAGO PEREIRA', amount: 720, currency: 'BRL', type: 'debit',
+      purchase_date: '2026-05-06', due_date: '2026-10-10', installment_number: 7,
+      total_installments: 10, category_id: null, card_last4: '9984',
+    }])
+    const { user } = await renderPage()
+
+    expect(await screen.findByText('Securo estimate')).toBeInTheDocument()
+    await screen.findByText('THIAGO PEREIRA')
+    await user.click(screen.getByRole('button', { name: "What's included?" }))
+
+    expect(await screen.findByText('1 forecast installment')).toBeInTheDocument()
+    expect(screen.getByText('Estimated total')).toBeInTheDocument()
+    // The listed parts already add up to the total.
+    expect(screen.queryByText('Payments and adjustments')).not.toBeInTheDocument()
+  })
+
+  it('credits a closed bank statement to the bank, with its closing date', async () => {
+    const { user } = await renderPage()
+
+    await user.click(await screen.findByTitle('Previous cycle'))
+
+    expect(await screen.findByText('Bank · closed 04/30')).toBeInTheDocument()
+    expect(screen.queryByText('Securo estimate')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: "What's included?" })).not.toBeInTheDocument()
+  })
+
+  it('shows a manual statement with its own amount, labelled manual', async () => {
+    api.accounts.creditCardTimeline.mockResolvedValue(statementTimeline({
+      source: 'manual', closing_date: '2026-08-30', due_date: '2026-09-10', amount: 512,
+    }))
+    api.accounts.summary.mockResolvedValue({
+      monthly_income: 0, monthly_expenses: 0, projected_income: 0, projected_expenses: 999,
+    })
+    renderWithProviders(<AccountDetailPage />, { route: '/accounts/acc-1', path: '/accounts/:id' })
+
+    expect(await screen.findByText('Manual')).toBeInTheDocument()
+    expect(screen.getAllByText(/512\.00/).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/999\.00/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/^Bank/)).not.toBeInTheDocument()
+  })
+
+  it('does not credit the bank for a statement it has not closed yet', async () => {
+    api.accounts.creditCardTimeline.mockResolvedValue(statementTimeline({
+      source: 'bank', closing_date: '2026-09-30', due_date: '2026-10-10', amount: 300,
+    }))
+    renderWithProviders(<AccountDetailPage />, { route: '/accounts/acc-1', path: '/accounts/:id' })
+
+    expect(await screen.findByText('Closes on 09/30')).toBeInTheDocument()
+    expect(screen.getByText('Securo estimate')).toBeInTheDocument()
+    expect(screen.queryByText(/^Bank/)).not.toBeInTheDocument()
+  })
+})

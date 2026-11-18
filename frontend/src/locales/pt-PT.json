@@ -1263,14 +1263,43 @@
     "previousCycle": "Ciclo anterior",
     "nextCycle": "Próximo ciclo",
     "cycleBillTotal": "Total da fatura",
+    "billConfidence": {
+      "bank": "Banco · fechada {{date}}",
+      "manual": "Manual",
+      "estimated": "Estimativa Securo"
+    },
+    "billClosing": {
+      "upcoming": "Fecha a",
+      "past": "Fechou a",
+      "upcomingDate": "Fecha a {{date}}",
+      "pastDate": "Fechou a {{date}}"
+    },
+    "billBreakdown": {
+      "toggle": "O que inclui?",
+      "title": "O que esta estimativa inclui",
+      "hint": "O Securo soma as transações desta fatura até agora. O valor pode mudar até o banco fechar a fatura.",
+      "purchases": "Compras",
+      "credits": "Créditos e reembolsos",
+      "pending": "Compras pendentes",
+      "installments_one": "{{count}} prestação prevista",
+      "installments_other": "{{count}} prestações previstas",
+      "adjustments": "Pagamentos e acertos",
+      "total": "Total estimado"
+    },
+    "billRunningTotal": "Acumulado na fatura",
+    "vsPreviousBill": "face a {{label}}",
+    "syncedAgo": "Sincronizado {{time}}",
+    "neverSynced": "Ainda não sincronizado",
     "dueDate": "Vencimento",
     "minimumPayment": "Mínimo",
     "noChargesYet": "Nenhuma compra ainda neste ciclo",
     "currentTag": "agora",
-    "overdueDays": "Atrasado há {{count}} dias",
-    "dueIn": "Vence em {{count}} dias",
+    "overdueDays_one": "Em atraso há {{count}} dia",
+    "overdueDays_other": "Em atraso há {{count}} dias",
+    "dueIn_one": "Vence dentro de {{count}} dia",
+    "dueIn_other": "Vence dentro de {{count}} dias",
     "dueToday": "Vence hoje",
-    "overdue": "Atrasado",
+    "overdue": "Em atraso",
     "cycleMissing": "Configurar ciclo",
     "cycleMissingHint": "Preenche o dia de fecho e vencimento para ativar filtros por fatura, alertas de vencimento e a visão por ciclo.",
     "ccSettingsHint": "Esses campos são opcionais, mas preenchê-los ativa filtros por ciclo, o alerta de vencimento e o bucketing de compras na fatura correta.",
@@ -1430,7 +1459,10 @@
       "successTitle": "Bank connected",
       "successDescription": "The connection to {{institution}} is complete and the data is now available.",
       "errorTitle": "Could not complete connection",
-      "errorDescription": "Authorization was received, but an error occurred while creating or syncing the connection. Close this message and try again."
+      "errorDescription": "Authorization was received, but an error occurred while creating or syncing the connection. Close this message and try again.",
+      "unknownError": "O Securo não conseguiu criar ou sincronizar esta ligação.",
+      "widgetError": "A Pluggy não conseguiu concluir a ligação ao banco.",
+      "widgetLoadError": "Não foi possível carregar o conector da Pluggy."
     }
   },
   "settings": {
@@ -3382,7 +3414,8 @@
     "hide": "Ocultar cartão",
     "show": "Mostrar cartão",
     "showAll": "Mostrar todos",
-    "hiddenNotice": "Cartões ocultos ({{count}}) — os totais não incluem esses cartões",
+    "hiddenFromTotal_one": "{{count}} cartão oculto fora do total",
+    "hiddenFromTotal_other": "{{count}} cartões ocultos fora do total",
     "updateError": "Não foi possível atualizar o cartão"
   }
 }
