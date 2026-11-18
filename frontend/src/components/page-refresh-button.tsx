@@ -39,7 +39,7 @@ export function PageRefreshButton({ onRefresh, refreshing = false }: PageRefresh
     <Button
       variant="outline"
       size="icon"
-      className="!size-9"
+      className="!size-11 sm:!size-9"
       aria-label={label}
       title={label}
       data-testid="page-refresh-button"
