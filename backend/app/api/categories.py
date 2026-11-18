@@ -26,14 +26,24 @@ router = APIRouter(prefix="/api/categories", tags=["categories"])
 @router.get("", response_model=list[CategoryRead])
 async def list_categories(
     include_hidden: bool = Query(False),
+    include_usage: bool = Query(False),
     ctx: WorkspaceContext = Depends(current_workspace),
     session: AsyncSession = Depends(get_async_session),
 ):
-    return await category_service.get_categories(
+    categories = await category_service.get_categories(
         session,
         ctx.workspace.id,
         include_hidden=include_hidden,
     )
+    if not include_usage:
+        return categories
+    counts = await category_service.get_category_transaction_counts(session, ctx.workspace.id)
+    return [
+        CategoryRead.model_validate(category).model_copy(
+            update={"transaction_count": counts.get(category.id, 0)}
+        )
+        for category in categories
+    ]
 
 
 @router.post("", response_model=CategoryRead, status_code=status.HTTP_201_CREATED)

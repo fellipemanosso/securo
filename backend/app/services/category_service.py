@@ -280,13 +280,46 @@ class CategoryUsage:
         )
 
 
+async def get_category_transaction_counts(
+    session: AsyncSession,
+    workspace_id: uuid.UUID,
+    category_id: Optional[uuid.UUID] = None,
+) -> dict[uuid.UUID, int]:
+    """Transactions that use each category, in one grouped query.
+
+    A transaction uses a category directly or through a line of a split; one
+    that does both for the same category counts once. Categories nothing uses
+    are absent. `category_id` narrows the question to a single category.
+    """
+    direct = select(
+        Transaction.category_id.label("category_id"),
+        Transaction.id.label("transaction_id"),
+    ).where(
+        Transaction.workspace_id == workspace_id,
+        Transaction.category_id.is_not(None),
+    )
+    via_lines = select(
+        TransactionCategoryLine.category_id.label("category_id"),
+        TransactionCategoryLine.transaction_id.label("transaction_id"),
+    ).where(TransactionCategoryLine.workspace_id == workspace_id)
+    if category_id is not None:
+        direct = direct.where(Transaction.category_id == category_id)
+        via_lines = via_lines.where(TransactionCategoryLine.category_id == category_id)
+
+    # UNION (not UNION ALL) drops the pair a transaction contributes twice.
+    used = direct.union(via_lines).subquery()
+    result = await session.execute(
+        select(used.c.category_id, func.count()).group_by(used.c.category_id)
+    )
+    return {row[0]: int(row[1]) for row in result.all()}
+
+
 async def get_category_usage(
     session: AsyncSession, workspace_id: uuid.UUID, category_id: uuid.UUID
 ) -> CategoryUsage:
     """Count what references a category, so the delete dialog can name it."""
     counts: dict[str, int] = {}
     for key, model in (
-        ("transactions", Transaction),
         ("budgets", Budget),
         ("recurring_transactions", RecurringTransaction),
     ):
@@ -300,16 +333,12 @@ async def get_category_usage(
         )
         counts[key] = int(result.scalar_one())
 
-    # A transaction split across categories references them through its
-    # lines; count each such transaction once.
-    split_count = await session.scalar(
-        select(func.count(func.distinct(TransactionCategoryLine.transaction_id))).where(
-            TransactionCategoryLine.workspace_id == workspace_id,
-            TransactionCategoryLine.category_id == category_id,
-        )
+    transaction_counts = await get_category_transaction_counts(
+        session, workspace_id, category_id
     )
-    counts["transactions"] += int(split_count or 0)
-    # Likewise a recurring bill split across categories.
+    counts["transactions"] = transaction_counts.get(category_id, 0)
+    # A recurring bill split across categories references them through its
+    # lines; count each such bill once.
     split_recurring = await session.scalar(
         select(
             func.count(func.distinct(RecurringTransactionCategoryLine.recurring_transaction_id))

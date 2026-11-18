@@ -34,6 +34,8 @@ class CategoryRead(CategoryBase):
     is_hidden: bool = False
     treat_as_transfer: bool = False
     is_ignored: bool = False
+    # Only filled by GET /categories?include_usage=true.
+    transaction_count: Optional[int] = None
 
     model_config = ConfigDict(from_attributes=True)
 

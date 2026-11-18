@@ -1,4 +1,6 @@
 import uuid
+from datetime import date
+from decimal import Decimal
 
 import pytest
 from httpx import AsyncClient
@@ -8,7 +10,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_async_session
 from app.main import app
 
+from app.models.account import Account
 from app.models.category import Category
+from app.models.transaction import Transaction
+from app.models.transaction_category_line import TransactionCategoryLine
 from app.models.user import User
 from app.services import category_service
 
@@ -426,3 +431,134 @@ async def test_hiding_can_deactivate_the_rules_that_assign_the_category(
         item for item in rules.json() if item["id"] == create_other.json()["id"]
     )
     assert untouched["is_active"] is True
+
+
+async def _use_categories(
+    session: AsyncSession,
+    test_user: User,
+    test_account: Account,
+    test_categories: list[Category],
+) -> None:
+    """Food: 1 direct + 1 split line + 1 both ways. Transport: 1 split line only."""
+    food, transport, _ = test_categories
+
+    def _transaction() -> Transaction:
+        return Transaction(
+            user_id=test_user.id, account_id=test_account.id, description="x",
+            amount=Decimal("100"), currency="BRL", date=date(2026, 10, 10),
+            type="debit", source="manual",
+        )
+
+    def _line(transaction: Transaction, category: Category, position: int):
+        return TransactionCategoryLine(
+            workspace_id=transaction.workspace_id, transaction_id=transaction.id,
+            category_id=category.id, amount=Decimal("50"), position=position,
+        )
+
+    direct, split, both = _transaction(), _transaction(), _transaction()
+    direct.category_id = food.id
+    both.category_id = food.id
+    session.add_all([direct, split, both])
+    await session.flush()
+    session.add_all([
+        _line(split, food, 0), _line(split, transport, 1),
+        _line(both, food, 0), _line(both, transport, 1),
+    ])
+    await session.commit()
+
+
+@pytest.mark.asyncio
+async def test_list_categories_counts_transactions_like_the_usage_endpoint(
+    client: AsyncClient,
+    auth_headers,
+    session: AsyncSession,
+    test_user: User,
+    test_account: Account,
+    test_categories: list[Category],
+):
+    await _use_categories(session, test_user, test_account, test_categories)
+
+    response = await client.get("/api/categories?include_usage=true", headers=auth_headers)
+
+    assert response.status_code == 200
+    counts = {item["id"]: item["transaction_count"] for item in response.json()}
+    food, transport, income = test_categories
+    # The transaction that uses food directly and through a line counts once.
+    assert counts[str(food.id)] == 3
+    assert counts[str(transport.id)] == 2
+    assert counts[str(income.id)] == 0
+    for category in test_categories:
+        usage = await client.get(
+            f"/api/categories/{category.id}/usage", headers=auth_headers
+        )
+        assert usage.json()["transactions"] == counts[str(category.id)]
+
+
+@pytest.mark.asyncio
+async def test_list_categories_omits_counts_unless_asked(
+    client: AsyncClient,
+    auth_headers,
+    session: AsyncSession,
+    test_user: User,
+    test_account: Account,
+    test_categories: list[Category],
+):
+    await _use_categories(session, test_user, test_account, test_categories)
+
+    listed = await client.get("/api/categories", headers=auth_headers)
+
+    assert {item["transaction_count"] for item in listed.json()} == {None}
+
+
+@pytest.mark.asyncio
+async def test_hidden_categories_are_counted_when_listed(
+    client: AsyncClient,
+    auth_headers,
+    session: AsyncSession,
+    test_user: User,
+    test_account: Account,
+    test_categories: list[Category],
+):
+    await _use_categories(session, test_user, test_account, test_categories)
+    transport = test_categories[1]
+    # The API refuses to hide a category a split still uses; set the flag directly.
+    transport.is_hidden = True
+    await session.commit()
+
+    response = await client.get(
+        "/api/categories?include_hidden=true&include_usage=true", headers=auth_headers
+    )
+
+    hidden = next(item for item in response.json() if item["id"] == str(transport.id))
+    assert hidden["is_hidden"] is True
+    assert hidden["transaction_count"] == 2
+
+
+@pytest.mark.asyncio
+async def test_counts_ignore_transactions_of_another_workspace(
+    client: AsyncClient,
+    auth_headers,
+    session: AsyncSession,
+    test_user: User,
+    test_account: Account,
+    test_categories: list[Category],
+):
+    from app.models.workspace import Workspace
+
+    other = Workspace(name="Other", kind="personal", created_by_user_id=test_user.id)
+    session.add(other)
+    await session.flush()
+    food = test_categories[0]
+    session.add(
+        Transaction(
+            user_id=test_user.id, workspace_id=other.id, account_id=test_account.id,
+            category_id=food.id, description="elsewhere", amount=Decimal("10"),
+            currency="BRL", date=date(2026, 10, 10), type="debit", source="manual",
+        )
+    )
+    await session.commit()
+
+    response = await client.get("/api/categories?include_usage=true", headers=auth_headers)
+
+    counts = {item["id"]: item["transaction_count"] for item in response.json()}
+    assert counts[str(food.id)] == 0
