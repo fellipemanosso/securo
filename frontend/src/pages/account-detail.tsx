@@ -25,6 +25,7 @@ import { CategoryIcon } from '@/components/category-icon'
 import { CategorySplitBadge, TransactionCategoryIcon } from '@/components/category-lines-display'
 import { isSplitByCategory, projectedSplitSource } from '@/lib/category-lines'
 import { ProjectedTransactionBadge } from '@/components/projected-transaction-badge'
+import { useApplyCategoryToSimilar } from '@/components/apply-category-to-similar'
 import { TransactionDialog, type TransactionSavePayload } from '@/components/transaction-dialog'
 import { extractApiError } from '@/lib/api-errors'
 import { TransferDialog } from '@/components/transfer-dialog'
@@ -420,11 +421,14 @@ export default function AccountDetailPage() {
     queryFn: categoryGroupsApi.list,
   })
 
+  const { offer: offerCategoryFollowUp, dialog: categoryFollowUpDialog } = useApplyCategoryToSimilar()
+
   const updateMutation = useMutation({
     mutationFn: ({ id: txId, ...data }: TransactionSavePayload & { id: string }) =>
       transactions.update(txId, data),
-    onSuccess: () => {
+    onSuccess: (saved) => {
       invalidateFinancialQueries(queryClient)
+      if (editingTx) void offerCategoryFollowUp(editingTx, saved)
       setDialogOpen(false)
       setEditingTx(null)
       toast.success(t('accounts.updated'))
@@ -2314,6 +2318,8 @@ export default function AccountDetailPage() {
         error={createMutation.error ? extractApiError(createMutation.error) : updateMutation.error ? extractApiError(updateMutation.error) : null}
         isSynced={editingTx?.source === 'sync'}
       />
+
+      {categoryFollowUpDialog}
 
       <TransferDialog
         open={transferPurpose !== null}

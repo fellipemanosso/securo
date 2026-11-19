@@ -56,6 +56,7 @@ import { isManualInstallmentSeriesRow } from '@/lib/installment-series'
 import { TransactionCategoryIcon, TransactionCategoryLabel } from '@/components/category-lines-display'
 import { CategorySelect } from '@/components/category-select'
 import { CategoryPicker } from '@/components/category-picker'
+import { useApplyCategoryToSimilar } from '@/components/apply-category-to-similar'
 import { TransactionDialog, type SaveAction, type TransactionSavePayload } from '@/components/transaction-dialog'
 import { PostTodayButton } from '@/components/post-today-button'
 import { extractApiError } from '@/lib/api-errors'
@@ -554,11 +555,14 @@ export default function TransactionsPage() {
     resetForm,
   } = useCreateTransaction({ onDone: () => setDialogOpen(false) })
 
+  const { offer: offerCategoryFollowUp, dialog: categoryFollowUpDialog } = useApplyCategoryToSimilar()
+
   const updateMutation = useMutation({
     mutationFn: ({ id, ...data }: TransactionUpdatePayload & { id: string }) =>
       transactions.update(id, data),
-    onSuccess: () => {
+    onSuccess: (saved) => {
       invalidateAfterTxMutation()
+      if (editingTx) void offerCategoryFollowUp(editingTx, saved)
       setDialogOpen(false)
       setEditingTx(null)
       toast.success(t('transactions.updated'))
@@ -2274,6 +2278,8 @@ export default function TransactionsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {categoryFollowUpDialog}
 
       {/* Installment-series delete scope. Edit scope is handled by the shared
           TransactionDialog so every edit surface behaves consistently. */}

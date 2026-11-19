@@ -50,6 +50,7 @@ import { CategorySplitBadge, TransactionCategoryIcon } from '@/components/catego
 import { isSplitByCategory, projectedSplitSource } from '@/lib/category-lines'
 import { AccountIcon } from '@/components/account-icon'
 import { TransactionDrillDown, type DrillDownFilter } from '@/components/transaction-drill-down'
+import { useApplyCategoryToSimilar } from '@/components/apply-category-to-similar'
 import { TransactionDialog, type TransactionSavePayload } from '@/components/transaction-dialog'
 import { extractApiError } from '@/lib/api-errors'
 import { TransactionCalendarView } from '@/components/transaction-calendar-view'
@@ -370,11 +371,14 @@ export default function DashboardPage() {
     queryFn: () => goalsApi.summary(3),
   })
 
+  const { offer: offerCategoryFollowUp, dialog: categoryFollowUpDialog } = useApplyCategoryToSimilar()
+
   const updateMutation = useMutation({
     mutationFn: ({ id, ...data }: TransactionSavePayload & { id: string }) =>
       transactions.update(id, data),
-    onSuccess: () => {
+    onSuccess: (saved) => {
       invalidateFinancialQueries(queryClient)
+      if (editingTx) void offerCategoryFollowUp(editingTx, saved)
       setDialogOpen(false)
       setEditingTx(null)
     },
@@ -1863,6 +1867,8 @@ export default function DashboardPage() {
         error={updateMutation.error ? extractApiError(updateMutation.error) : deleteMutation.error ? extractApiError(deleteMutation.error) : null}
         isSynced={editingTx?.source === 'sync'}
       />
+
+      {categoryFollowUpDialog}
 
       <RuleDialog
         key={createRuleOpen ? 'rule-open' : 'rule-closed'}
