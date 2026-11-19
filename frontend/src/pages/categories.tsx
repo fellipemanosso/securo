@@ -416,7 +416,13 @@ function CategoryForm({
             id="category-group"
             name="group_id"
             value={groupId}
-            onChange={(e) => setGroupId(e.target.value)}
+            onChange={(e) => {
+              const id = e.target.value
+              setGroupId(id)
+              const group = groups?.find((g) => g.id === id)
+              // A new category starts in its group's color; editing keeps the saved one.
+              if (!category && group) setColor(group.color)
+            }}
             className="h-11 w-full rounded-lg border border-border bg-card px-3 text-base text-foreground focus:outline-none focus:ring-2 focus:ring-primary sm:h-9 sm:text-sm"
           >
             <option value="">{t('categories.noGroup')}</option>
