@@ -125,4 +125,36 @@ describe('deleting a category', () => {
     const options = await screen.findAllByRole('option')
     expect(options.map((option) => option.textContent)).toEqual(['Transport'])
   })
+
+  it('marks destinations that leave the reports, and warns when one is chosen without blocking it', async () => {
+    api.categories.listIncludingHidden.mockResolvedValue([
+      FOOD,
+      TRANSPORT,
+      category('invest', 'Investments', { treat_as_transfer: true }),
+      category('refunds', 'Refunds', { is_ignored: true }),
+    ])
+    api.categories.usage.mockResolvedValue({ ...NO_USAGE, transactions: 3 })
+    const { user } = renderWithProviders(<CategoriesPage />)
+
+    await clickDelete(user, 'Food')
+    await screen.findByText('Delete Food?')
+    const warning = /stop counting as income or expense/
+    expect(screen.queryByText(warning)).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /Select category/ }))
+    const invest = await screen.findByRole('option', { name: /Investments/ })
+    expect(within(invest).getByText('Transfer')).toBeInTheDocument()
+    expect(within(screen.getByRole('option', { name: /Refunds/ })).getByText('Ignore')).toBeInTheDocument()
+    expect(within(screen.getByRole('option', { name: /^Transport$/ })).queryByText('Transfer')).toBeNull()
+
+    await user.click(invest)
+    expect(await screen.findByText(warning)).toBeInTheDocument()
+    const confirm = screen.getByRole('button', { name: /Delete and move/ })
+    expect(confirm).toBeEnabled()
+
+    // Choosing an ordinary category takes the warning away again.
+    await user.click(screen.getByRole('button', { name: /Investments/ }))
+    await user.click(await screen.findByRole('option', { name: /^Transport$/ }))
+    await waitFor(() => expect(screen.queryByText(warning)).not.toBeInTheDocument())
+  })
 })

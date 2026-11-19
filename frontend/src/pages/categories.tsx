@@ -4,7 +4,7 @@ import axios from 'axios'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { categories as categoriesApi, categoryGroups as groupsApi } from '@/lib/api'
 import { extractApiError } from '@/lib/api-errors'
-import { toast } from 'sonner'
+import { toast, useSonner } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { DeleteConfirmationDialog } from '@/components/delete-confirmation-dialog'
 import { Input } from '@/components/ui/input'
@@ -47,6 +47,13 @@ import { invalidateCategoryQueries } from '@/lib/invalidate-queries'
 import { CategoryIcon } from '@/components/category-icon'
 import { CategorySelect } from '@/components/category-select'
 import { IconPicker } from '@/components/icon-picker'
+import {
+  categoryReportFlags,
+  ReportFlagIcon,
+  reportFlagClass,
+  useReportFlagText,
+  type ReportFlag,
+} from '@/components/category-report-flag'
 import { useWorkspace } from '@/contexts/workspace-context'
 
 // Stands in for a group id so "no group" collapses with the real groups.
@@ -60,9 +67,37 @@ const COLLAPSED_STORAGE_KEY = 'securo:categories:collapsed'
 const BADGE_CLASS =
   'text-[11px] font-medium px-1.5 py-0.5 rounded bg-muted text-foreground/80 border border-border shrink-0'
 
+// A user-made category is the exception among the defaults, so its mark is
+// outlined rather than filled: noticeable, but quieter than a hidden category.
+const CUSTOM_BADGE_CLASS =
+  'text-[11px] font-medium px-1.5 py-0.5 rounded border border-dashed border-border text-foreground/80 shrink-0'
+
 const FOCUS_RING = 'outline-none focus-visible:ring-2 focus-visible:ring-primary'
 
 const FLASH_MS = 2400
+
+/**
+ * Focus the first control under `root` whose `data-focus` key is in `keys`.
+ * Below `sm` the row's menu button carries the key as `data-focus-touch`,
+ * because the three desktop buttons are hidden there and cannot take focus.
+ */
+function focusFirstIn(root: HTMLElement | null, keys: string[]) {
+  if (!root) return false
+  const wide = window.matchMedia(SM_QUERY).matches
+  for (const key of keys) {
+    const selectors = wide
+      ? [`[data-focus="${key}"]`]
+      : [`[data-focus-touch="${key}"]`, `[data-focus="${key}"]`]
+    for (const selector of selectors) {
+      const element = root.querySelector<HTMLElement>(selector)
+      if (element) {
+        element.focus()
+        return true
+      }
+    }
+  }
+  return false
+}
 
 function loadCollapsed(workspaceId: string): Set<string> {
   try {
@@ -121,11 +156,14 @@ function RowActions({
   menuAriaLabel,
   focusKey,
   setOpener,
+  onMenuOpenChange,
 }: {
   actions: RowAction[]
   menuAriaLabel: string
   focusKey?: string
   setOpener: (element: HTMLElement | null) => void
+  /** Tells the page this row's menu opened or closed, so it can clear the way. */
+  onMenuOpenChange: (menuId: string, open: boolean) => void
 }) {
   const triggerRef = useRef<HTMLButtonElement>(null)
   return (
@@ -140,18 +178,22 @@ function RowActions({
               type="button"
               title={action.label}
               aria-label={action.ariaLabel}
-              disabled={action.disabled}
+              // Not `disabled`: a disabled button drops the focus the user is
+              // holding while the request runs, and focus falls to the page.
+              aria-disabled={action.disabled || undefined}
               data-focus={index === 0 ? focusKey : undefined}
               onClick={(event) => {
+                if (action.disabled) return
                 setOpener(event.currentTarget)
                 action.onSelect()
               }}
               className={cn(
-                'inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors cursor-pointer disabled:cursor-default disabled:opacity-50',
+                'inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors cursor-pointer aria-disabled:cursor-default aria-disabled:opacity-50',
                 FOCUS_RING,
-                action.destructive
-                  ? 'hover:bg-rose-500/10 hover:text-rose-500'
-                  : 'hover:bg-primary/5 hover:text-primary',
+                !action.disabled
+                  && (action.destructive
+                    ? 'hover:bg-rose-500/10 hover:text-rose-500'
+                    : 'hover:bg-primary/5 hover:text-primary'),
               )}
             >
               {action.icon}
@@ -160,7 +202,7 @@ function RowActions({
         })}
       </div>
       <div className="sm:hidden">
-        <DropdownMenu modal={false}>
+        <DropdownMenu modal={false} onOpenChange={(open) => onMenuOpenChange(menuAriaLabel, open)}>
           <DropdownMenuTrigger asChild>
             <button
               ref={triggerRef}
@@ -177,6 +219,8 @@ function RowActions({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             {actions.map((action) => (
+              // Radix marks a disabled item `data-disabled` and never selects it;
+              // the menu closes on select, so no focus is held on it.
               <DropdownMenuItem
                 key={action.key}
                 disabled={action.disabled}
@@ -202,8 +246,9 @@ function RowActions({
  * this is a button: focus opens the tooltip, and a tap toggles it (Radix
  * leaves taps to the trigger's own click, which would otherwise do nothing).
  */
-function BadgeHint({ label, description }: { label: string; description: string }) {
+function BadgeHint({ flag }: { flag: ReportFlag }) {
   const [open, setOpen] = useState(false)
+  const { label, description } = useReportFlagText(flag)
   return (
     <TooltipProvider>
       <Tooltip open={open} onOpenChange={setOpen}>
@@ -215,11 +260,12 @@ function BadgeHint({ label, description }: { label: string; description: string 
               setOpen((current) => !current)
             }}
             className={cn(
-              BADGE_CLASS,
+              reportFlagClass(flag),
               'relative cursor-help before:absolute before:-inset-x-1 before:-inset-y-3 before:content-[""]',
               FOCUS_RING,
             )}
           >
+            <ReportFlagIcon flag={flag} />
             {label}
           </button>
         </TooltipTrigger>
@@ -504,6 +550,8 @@ export default function CategoriesPage() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { canWrite, current } = useWorkspace()
+  const { toasts } = useSonner()
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const workspaceId = current?.id ?? 'default'
   const pageRef = useRef<HTMLDivElement>(null)
   const [catDialogOpen, setCatDialogOpen] = useState(false)
@@ -525,7 +573,7 @@ export default function CategoriesPage() {
   const [transferTargetId, setTransferTargetId] = useState('')
   // The row or group just created or edited: scrolled into view and flashed.
   const [flash, setFlash] = useState<string | null>(null)
-  const pendingFlashRef = useRef<{ id: string; section: string } | null>(null)
+  const pendingFlashRef = useRef<{ id: string; section: string; focusKeys: string[] } | null>(null)
   const flashTimerRef = useRef<number | undefined>(undefined)
 
   // Each workspace keeps its own set of collapsed sections.
@@ -543,24 +591,6 @@ export default function CategoriesPage() {
   // Where focus goes when the opener is about to disappear (a deleted row):
   // candidates in order of preference, each a `data-focus` key.
   const successorRef = useRef<string[] | null>(null)
-  const focusFirst = (keys: string[]) => {
-    const root = pageRef.current
-    if (!root) return false
-    const wide = window.matchMedia(SM_QUERY).matches
-    for (const key of keys) {
-      const selectors = wide
-        ? [`[data-focus="${key}"]`]
-        : [`[data-focus-touch="${key}"]`, `[data-focus="${key}"]`]
-      for (const selector of selectors) {
-        const element = root.querySelector<HTMLElement>(selector)
-        if (element) {
-          element.focus()
-          return true
-        }
-      }
-    }
-    return false
-  }
   const restoreFocus = (event: Event) => {
     // The dialog that saved the row has just released the page scroll lock.
     requestAnimationFrame(startFlash)
@@ -568,12 +598,20 @@ export default function CategoriesPage() {
     if (successors) {
       successorRef.current = null
       event.preventDefault()
-      if (focusFirst(successors)) return
+      if (focusFirstIn(pageRef.current, successors)) return
     }
     const opener = openerRef.current
     if (opener?.isConnected) {
       event.preventDefault()
       opener.focus()
+      return
+    }
+    // The opener is gone: an edit moved its row to another section. Follow
+    // the row; the reveal hands focus over too if the list is not there yet.
+    const pending = pendingFlashRef.current
+    if (pending) {
+      event.preventDefault()
+      focusFirstIn(pageRef.current, pending.focusKeys)
     }
   }
 
@@ -627,7 +665,9 @@ export default function CategoriesPage() {
   // After a create or edit: open the section holding the row, then scroll to it
   // and flash it once the refreshed list has put it there and the dialog that
   // saved it has let go of the page scroll (which it locks while it is open).
-  const revealRow = (id: string, section: string, expand: boolean) => {
+  // `focusKeys` is where focus goes if the control the user was on is gone by
+  // then: the row, else its section header, else the add button.
+  const revealRow = (id: string, section: string, expand: boolean, focusKeys: string[]) => {
     if (expand && collapsedGroups.has(section)) {
       const next = new Set(collapsedGroups)
       next.delete(section)
@@ -635,7 +675,14 @@ export default function CategoriesPage() {
     }
     window.clearTimeout(flashTimerRef.current)
     setFlash(null)
-    pendingFlashRef.current = { id, section }
+    pendingFlashRef.current = { id, section, focusKeys }
+  }
+  const revealCategory = (cat: Category) => {
+    const section = cat.group_id ?? UNGROUPED
+    revealRow(cat.id, section, true, [`row:${cat.id}`, `header:${section}`, 'add-category'])
+  }
+  const revealGroup = (group: CategoryGroup) => {
+    revealRow(group.id, group.id, false, [`header:${group.id}`, 'add-group'])
   }
   const startFlash = useCallback(() => {
     const pending = pendingFlashRef.current
@@ -643,6 +690,12 @@ export default function CategoriesPage() {
     const element = pageRef.current?.querySelector<HTMLElement>(`[data-row-id="${pending.id}"]`)
     if (!element || element.closest<HTMLElement>('[data-section]')?.dataset.section !== pending.section) return
     pendingFlashRef.current = null
+    // An edit can move the row to another section and drop the control the
+    // user was on, which leaves focus on the page. Keep it with the row.
+    const active = document.activeElement
+    if (!active || active === document.body || !active.isConnected) {
+      focusFirstIn(pageRef.current, pending.focusKeys)
+    }
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     element.scrollIntoView?.({ block: 'nearest', behavior: reducedMotion ? 'auto' : 'smooth' })
     setFlash(pending.id)
@@ -665,7 +718,7 @@ export default function CategoriesPage() {
     onSuccess: (cat) => {
       invalidateAll()
       setCatDialogOpen(false)
-      revealRow(cat.id, cat.group_id ?? UNGROUPED, true)
+      revealCategory(cat)
       toast.success(categorySavedMessage(cat, 'created'))
     },
     onError: (err: unknown) => toast.error(extractApiError(err, t('common.error'))),
@@ -676,7 +729,7 @@ export default function CategoriesPage() {
       invalidateAll()
       setCatDialogOpen(false)
       setEditingCat(null)
-      revealRow(cat.id, cat.group_id ?? UNGROUPED, true)
+      revealCategory(cat)
       toast.success(categorySavedMessage(cat, 'updated'))
     },
     onError: (err: unknown) => toast.error(extractApiError(err, t('common.error'))),
@@ -826,7 +879,7 @@ export default function CategoriesPage() {
     onSuccess: (group) => {
       invalidateAll()
       setGroupDialogOpen(false)
-      revealRow(group.id, group.id, false)
+      revealGroup(group)
       toast.success(t('groups.createdNamed', { name: group.name }))
     },
     onError: (err: unknown) => toast.error(extractApiError(err, t('common.error'))),
@@ -837,7 +890,7 @@ export default function CategoriesPage() {
       invalidateAll()
       setGroupDialogOpen(false)
       setEditingGroup(null)
-      revealRow(group.id, group.id, false)
+      revealGroup(group)
       toast.success(t('groups.updatedNamed', { name: group.name }))
     },
     onError: (err: unknown) => toast.error(extractApiError(err, t('common.error'))),
@@ -880,6 +933,21 @@ export default function CategoriesPage() {
   // nothing to show is an error state.
   const loadFailed = (groupsError || categoriesError) && (!groups || !categoriesList)
   const isEmpty = !isLoading && !loadFailed && (groups?.length ?? 0) === 0 && ungrouped.length === 0
+  const listVisible = !isLoading && !loadFailed && !isEmpty
+  const dialogOpen =
+    catDialogOpen
+    || groupDialogOpen
+    || !!deletingCategory
+    || !!deletingGroup
+    || !!transferringCategory
+    || !!hidingCategory
+  const floatingHidden = dialogOpen || openMenuId !== null || toasts.length > 0
+  const handleMenuOpenChange = (menuId: string, open: boolean) =>
+    setOpenMenuId((openId) => (open ? menuId : openId === menuId ? null : openId))
+  const destinationFlags = categoryReportFlags(
+    transferOptions.categories.find((cat) => cat.id === transferTargetId)
+      ?? { treat_as_transfer: false, is_ignored: false },
+  )
 
   const catDialogError = (editingCat ? updateCatMutation : createCatMutation).error
   const groupDialogError = (editingGroup ? updateGroupMutation : createGroupMutation).error
@@ -911,7 +979,7 @@ export default function CategoriesPage() {
   const renderCategoryItem = (cat: Category, groupHidden = false) => {
     const dimmed = cat.is_hidden || groupHidden
     const count = transactionCounts.get(cat.id) ?? cat.transaction_count
-    const hasBadges = cat.is_system || cat.is_hidden || cat.treat_as_transfer || cat.is_ignored
+    const hasBadges = !cat.is_system || cat.is_hidden || cat.treat_as_transfer || cat.is_ignored
     const actions: RowAction[] = [
       {
         key: 'edit',
@@ -966,14 +1034,13 @@ export default function CategoriesPage() {
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 sm:contents">
             {hasBadges && (
               <div className="flex flex-wrap items-center gap-1.5 sm:shrink-0 sm:flex-nowrap">
-                {cat.is_system && renderBadge(t('categories.defaultBadge'))}
+                {!cat.is_system && (
+                  <span className={CUSTOM_BADGE_CLASS}>{t('categories.customBadge')}</span>
+                )}
                 {cat.is_hidden && renderBadge(t('categories.hiddenBadge'))}
-                {cat.treat_as_transfer && (
-                  <BadgeHint label={t('categories.treatAsTransferBadge')} description={t('categories.treatAsTransferDesc')} />
-                )}
-                {cat.is_ignored && (
-                  <BadgeHint label={t('categories.ignoreTransferBadge')} description={t('categories.ignoreTransferDesc')} />
-                )}
+                {categoryReportFlags(cat).map((flag) => (
+                  <BadgeHint key={flag} flag={flag} />
+                ))}
               </div>
             )}
             {typeof count === 'number' && (
@@ -989,6 +1056,7 @@ export default function CategoriesPage() {
             menuAriaLabel={`${t('common.more')}: ${cat.name}`}
             focusKey={`row:${cat.id}`}
             setOpener={setOpener}
+            onMenuOpenChange={handleMenuOpenChange}
           />
         )}
       </div>
@@ -1001,7 +1069,7 @@ export default function CategoriesPage() {
   }
 
   return (
-    <div ref={pageRef} className={cn(canWrite && 'pb-24 sm:pb-0')}>
+    <div ref={pageRef} className={cn(canWrite && 'pb-28 sm:pb-0')}>
       <PageHeader
         section={t('nav.groupSetup')}
         title={t('categories.title')}
@@ -1040,28 +1108,36 @@ export default function CategoriesPage() {
             <span />
           )}
           {canWrite && (
-            // On a phone the add actions float at the bottom right, under the
-            // thumb, whatever part of a long list is on screen; `main` clips
-            // overflow, so a sticky toolbar would not stay put.
-            <div className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-4 z-30 flex gap-2 rounded-2xl border border-border bg-card p-2 shadow-lg sm:static sm:z-auto sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none">
+            <div className="flex items-center gap-2">
               <Button
                 variant="outline"
                 size="sm"
-                className="h-11 min-w-11 gap-1.5 sm:h-9"
-                aria-label={t('groups.add')}
+                className={cn('h-11 gap-1.5 sm:h-9', !listVisible && 'max-sm:hidden')}
                 data-focus="add-group"
                 onClick={(event) => { setOpener(event.currentTarget); openGroupDialog(null) }}
               >
-                <FolderPlus size={14} /> <span className="hidden sm:inline">{t('groups.add')}</span>
+                <FolderPlus size={14} /> {t('groups.add')}
               </Button>
+              {/* Below `sm` this is the one floating action, labelled and centred
+                  so it never rests over a row's "…" menu at the right edge. It
+                  clears out while a dialog, a row menu or a toast is up (the
+                  toast stack takes the same bottom strip). It stays focusable,
+                  so a keyboard user who lands on it sees it, lifted above the
+                  toast. `main` clips overflow, so a sticky toolbar would not
+                  stay put. */}
               <Button
                 size="sm"
-                className="h-11 min-w-11 gap-1.5 sm:h-9"
-                aria-label={t('categories.addCategory')}
                 data-focus="add-category"
+                data-floating-hidden={floatingHidden}
+                className={cn(
+                  'max-sm:fixed max-sm:bottom-[max(1rem,env(safe-area-inset-bottom))] max-sm:left-1/2 max-sm:z-30 max-sm:h-12 max-sm:-translate-x-1/2 max-sm:rounded-full max-sm:px-5 max-sm:text-base max-sm:shadow-lg max-sm:transition-[opacity,translate] max-sm:has-[>svg]:px-5',
+                  'max-sm:data-[floating-hidden=true]:pointer-events-none max-sm:data-[floating-hidden=true]:opacity-0 max-sm:data-[floating-hidden=true]:focus-visible:-translate-y-24 max-sm:data-[floating-hidden=true]:focus-visible:opacity-100',
+                  'motion-reduce:transition-none',
+                  !listVisible && 'max-sm:hidden',
+                )}
                 onClick={(event) => { setOpener(event.currentTarget); openCatDialog(null) }}
               >
-                <Plus size={14} /> <span className="hidden sm:inline">{t('categories.addCategory')}</span>
+                <Plus size={16} /> {t('categories.addCategory')}
               </Button>
             </div>
           )}
@@ -1153,6 +1229,7 @@ export default function CategoriesPage() {
                         actions={groupActions}
                         menuAriaLabel={t('groups.moreAria', { name: group.name })}
                         setOpener={setOpener}
+                        onMenuOpenChange={handleMenuOpenChange}
                       />
                     )}
                   </div>
@@ -1299,7 +1376,18 @@ export default function CategoriesPage() {
                 categories={transferOptions.categories}
                 groups={transferOptions.groups}
                 autoHighlightFirst={false}
+                showReportFlags
               />
+            </div>
+            {/* A live region that is always there, so the warning is announced
+                when a destination that leaves reports is picked. */}
+            <div role="status">
+              {destinationFlags.length > 0 && (
+                <p className="flex items-start gap-2 rounded-lg border border-amber-600/40 bg-amber-500/15 px-3 py-2 text-sm text-foreground dark:border-amber-400/40 dark:bg-amber-400/15">
+                  <ReportFlagIcon flag={destinationFlags[0]} className="mt-0.5 size-4" />
+                  <span>{t('categories.deleteDestinationOutsideReports')}</span>
+                </p>
+              )}
             </div>
           </div>
           <DialogFooter>

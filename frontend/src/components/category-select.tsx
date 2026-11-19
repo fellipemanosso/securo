@@ -31,6 +31,8 @@ interface CategorySelectProps {
    * are hard to undo, so Enter cannot choose a category the user never saw.
    */
   autoHighlightFirst?: boolean
+  /** Mark categories that are ignored or treated as transfers in the list. */
+  showReportFlags?: boolean
   contentProps?: React.ComponentProps<typeof PopoverContent>
   /** Accessible name for the trigger, when the chosen category alone does
    *  not say what it is the category of (one picker per row of a list). */
@@ -50,6 +52,7 @@ export function CategorySelect({
   allowNone = false,
   creatable = false,
   autoHighlightFirst = true,
+  showReportFlags = false,
   contentProps,
   'aria-label': ariaLabel,
 }: CategorySelectProps) {
@@ -131,6 +134,7 @@ export function CategorySelect({
           allowNone={allowNone}
           creatable={canCreate}
           autoHighlightFirst={autoHighlightFirst}
+          showReportFlags={showReportFlags}
           onCreated={setCreated}
         />
       </PopoverContent>

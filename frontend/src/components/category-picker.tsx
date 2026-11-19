@@ -8,6 +8,7 @@ import { categories as categoriesApi } from '@/lib/api'
 import { extractApiError } from '@/lib/api-errors'
 import { invalidateCategoryQueries } from '@/lib/invalidate-queries'
 import { inlineCreateItemValue, inlineCreateName } from '@/lib/inline-create'
+import { categoryReportFlags, ReportFlagChip } from '@/components/category-report-flag'
 import type { Category, CategoryGroup } from '@/types'
 import { normalizeText } from '@/lib/utils'
 
@@ -39,6 +40,12 @@ interface CategoryPickerProps {
    * typing in the search still highlights the first match.
    */
   autoHighlightFirst?: boolean
+  /**
+   * Mark the categories that leave reports (ignored, or treated as a
+   * transfer) with their glyph. For picks where that changes what the user's
+   * numbers mean, like choosing where deleted entries go.
+   */
+  showReportFlags?: boolean
 }
 
 /**
@@ -55,6 +62,7 @@ export function CategoryPicker({
   onCreated,
   autoFocus = false,
   autoHighlightFirst = true,
+  showReportFlags = false,
 }: CategoryPickerProps) {
   const [search, setSearch] = useState('')
   const [highlighted, setHighlighted] = useState(NO_HIGHLIGHT)
@@ -154,6 +162,13 @@ export function CategoryPicker({
                   ) : null}
                   <span className="truncate">{cat.name}</span>
                 </div>
+                {showReportFlags && (
+                  <span className="flex shrink-0 gap-1">
+                    {categoryReportFlags(cat).map((flag) => (
+                      <ReportFlagChip key={flag} flag={flag} />
+                    ))}
+                  </span>
+                )}
                 {value === cat.id && <CheckIcon className="size-4 shrink-0" />}
               </CommandItem>
             ))}

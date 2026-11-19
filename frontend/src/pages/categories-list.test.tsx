@@ -82,7 +82,7 @@ describe('usage and origin on each row', () => {
     expect(screen.queryByText(/transaction/i)).not.toBeInTheDocument()
   })
 
-  it('labels the categories that came with the app', async () => {
+  it('marks only the categories the user made, and leaves the defaults unlabelled', async () => {
     api.categories.listIncludingHidden.mockResolvedValue([
       category('food', 'Food', { is_system: true }),
       category('pets', 'Pets'),
@@ -90,7 +90,26 @@ describe('usage and origin on each row', () => {
     renderWithProviders(<CategoriesPage />)
 
     await screen.findByText('Pets')
-    expect(screen.getAllByText('Default')).toHaveLength(1)
+    expect(screen.getAllByText('Custom')).toHaveLength(1)
+    expect(screen.queryByText('Default')).not.toBeInTheDocument()
+  })
+
+  it('gives categories that leave the reports a badge of their own, apart from the neutral ones', async () => {
+    api.categories.listIncludingHidden.mockResolvedValue([
+      category('invest', 'Investments', { is_system: true, treat_as_transfer: true }),
+      category('refunds', 'Refunds', { is_system: true, is_ignored: true }),
+      category('food', 'Food', { is_system: true, is_hidden: true }),
+    ])
+    renderWithProviders(<CategoriesPage />)
+
+    const transfer = await screen.findByRole('button', { name: 'Transfer' })
+    const ignored = screen.getByRole('button', { name: 'Ignore' })
+    // Each carries its glyph and a tint, where "Hidden" is plain text on grey.
+    expect(transfer.querySelector('svg.lucide-arrow-left-right')).not.toBeNull()
+    expect(ignored.querySelector('svg.lucide-ban')).not.toBeNull()
+    expect(transfer.className).toMatch(/sky/)
+    expect(ignored.className).toMatch(/amber/)
+    expect(screen.getByText('Hidden').querySelector('svg')).toBeNull()
   })
 })
 

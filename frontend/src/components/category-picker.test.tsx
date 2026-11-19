@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
 import { renderWithProviders, t } from '@/test/utils'
@@ -90,5 +90,21 @@ describe('CategoryPicker', () => {
     expect(screen.getByRole('option', { name: 'Movies' })).toHaveAttribute('aria-selected', 'true')
     await user.keyboard('{Enter}')
     expect(onChange).toHaveBeenCalledWith('cat-3')
+  })
+
+  it('marks categories that leave the reports only when asked to', () => {
+    const refunds = { id: 'cat-4', name: 'Refunds', group_id: null, is_ignored: true } as unknown as Category
+    const invest = { id: 'cat-5', name: 'Investments', group_id: null, treat_as_transfer: true } as unknown as Category
+    const props = { categories: [movies, refunds, invest], groups: [] }
+
+    const plain = renderPicker(props)
+    expect(screen.queryByText(t('categories.ignoreTransferBadge'))).toBeNull()
+    expect(screen.queryByText(t('categories.treatAsTransferBadge'))).toBeNull()
+    plain.unmount()
+
+    renderPicker({ ...props, showReportFlags: true })
+    expect(within(screen.getByRole('option', { name: /Refunds/ })).getByText(t('categories.ignoreTransferBadge'))).toBeInTheDocument()
+    expect(within(screen.getByRole('option', { name: /Investments/ })).getByText(t('categories.treatAsTransferBadge'))).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Movies' })).toHaveTextContent(/^Movies$/)
   })
 })
