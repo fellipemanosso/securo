@@ -155,7 +155,18 @@ async def create_category(
     user_id: uuid.UUID,
     data: CategoryCreate,
 ) -> Category:
-    category = Category(user_id=user_id, workspace_id=workspace_id, **data.model_dump())
+    fields = data.model_dump()
+    # A category filed in a group without its own color takes the group's color.
+    if data.group_id is not None and "color" not in data.model_fields_set:
+        group = await session.scalar(
+            select(CategoryGroup).where(
+                CategoryGroup.id == data.group_id,
+                CategoryGroup.workspace_id == workspace_id,
+            )
+        )
+        if group is not None:
+            fields["color"] = group.color
+    category = Category(user_id=user_id, workspace_id=workspace_id, **fields)
     session.add(category)
     await session.commit()
     await session.refresh(category)

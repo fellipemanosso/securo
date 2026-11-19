@@ -311,6 +311,30 @@ async def test_create_category_with_group(session: AsyncSession, test_user, test
 
 
 @pytest.mark.asyncio
+async def test_create_category_without_color_takes_group_color(session: AsyncSession, test_user, test_workspace):
+    from app.services.category_group_service import create_group
+    from app.schemas.category_group import CategoryGroupCreate
+
+    group = await create_group(
+        session,
+        test_workspace.id, test_user.id,
+        CategoryGroupCreate(name="Colored", icon="folder", color="#10B981"),
+    )
+    inherited = await create_category(
+        session,
+        test_workspace.id, test_user.id,
+        CategoryCreate(name="Inherits", group_id=group.id),
+    )
+    explicit = await create_category(
+        session,
+        test_workspace.id, test_user.id,
+        CategoryCreate(name="Explicit", color="#FF0000", group_id=group.id),
+    )
+    assert inherited.color == "#10B981"
+    assert explicit.color == "#FF0000"
+
+
+@pytest.mark.asyncio
 async def test_get_category_by_id(session: AsyncSession, test_user, test_workspace):
     created = await create_category(
         session,
