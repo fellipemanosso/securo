@@ -562,3 +562,38 @@ async def test_counts_ignore_transactions_of_another_workspace(
 
     counts = {item["id"]: item["transaction_count"] for item in response.json()}
     assert counts[str(food.id)] == 0
+
+
+@pytest.mark.asyncio
+async def test_counts_leave_out_a_hidden_card_but_deletion_still_sees_it(
+    client: AsyncClient,
+    auth_headers,
+    session: AsyncSession,
+    test_user: User,
+    test_workspace,
+    test_account: Account,
+    test_categories: list[Category],
+):
+    from app.models.account_card import AccountCard
+
+    food = test_categories[0]
+    session.add(AccountCard(
+        workspace_id=test_workspace.id, account_id=test_account.id, last4="9999", is_hidden=True,
+    ))
+    for last4 in ("9999", "1111"):
+        session.add(
+            Transaction(
+                user_id=test_user.id, account_id=test_account.id, category_id=food.id,
+                description=f"card {last4}", amount=Decimal("10"), currency="BRL",
+                date=date(2026, 10, 10), type="debit", source="manual", card_last4=last4,
+            )
+        )
+    await session.commit()
+
+    response = await client.get("/api/categories?include_usage=true", headers=auth_headers)
+    counts = {item["id"]: item["transaction_count"] for item in response.json()}
+    assert counts[str(food.id)] == 1
+
+    # Deleting moves the hidden card's rows too, so the dialog counts them.
+    usage = await client.get(f"/api/categories/{food.id}/usage", headers=auth_headers)
+    assert usage.json()["transactions"] == 2

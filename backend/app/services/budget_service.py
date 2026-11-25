@@ -353,7 +353,7 @@ async def get_budget_vs_actual(
 
     forecast_transactions = await _get_forecast_transactions(
         session, workspace_id, month_start, month_end,
-        range_date_col=report_date,
+        range_date_col=report_date, exclude_hidden_cards=True,
     )
     forecast_fractions = await forecast_owner_share_fractions(
         session, user_id, forecast_transactions
@@ -457,7 +457,7 @@ async def get_budget_vs_actual(
 
     prev_forecast_transactions = await _get_forecast_transactions(
         session, workspace_id, prev_month_start, prev_month_end,
-        range_date_col=report_date,
+        range_date_col=report_date, exclude_hidden_cards=True,
     )
     prev_forecast_fractions = await forecast_owner_share_fractions(
         session, user_id, prev_forecast_transactions

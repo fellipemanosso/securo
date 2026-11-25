@@ -228,3 +228,36 @@ async def test_search_escapes_like_wildcards(
     assert resp.status_code == 200
     payee_hits = [h for h in resp.json()["results"] if h["type"] == "payee"]
     assert any("50%" in h["label"] for h in payee_hits)
+
+
+@pytest.mark.asyncio
+async def test_search_leaves_out_a_hidden_card(
+    client: AsyncClient, auth_headers: dict, session: AsyncSession, test_user: User,
+    test_workspace,
+) -> None:
+    from app.models.account_card import AccountCard
+
+    account = Account(
+        id=uuid.uuid4(), user_id=test_user.id, name="Card", type="credit_card",
+        balance=Decimal("0"), currency="BRL",
+    )
+    session.add(account)
+    await session.flush()
+    session.add(AccountCard(
+        workspace_id=test_workspace.id, account_id=account.id, last4="9999", is_hidden=True,
+    ))
+    for last4 in ("9999", "1111", None):
+        session.add(
+            Transaction(
+                id=uuid.uuid4(), user_id=test_user.id, account_id=account.id,
+                description=f"Zebrafish {last4}", amount=Decimal("5"), currency="BRL",
+                date=date.today(), type="debit", source="manual", card_last4=last4,
+                created_at=datetime.now(timezone.utc),
+            )
+        )
+    await session.commit()
+
+    resp = await client.get("/api/search?q=zebrafish", headers=auth_headers)
+    assert resp.status_code == 200
+    labels = {h["label"] for h in resp.json()["results"] if h["type"] == "transaction"}
+    assert labels == {"Zebrafish 1111", "Zebrafish None"}

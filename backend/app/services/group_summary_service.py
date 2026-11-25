@@ -23,6 +23,7 @@ from app.models.category import Category
 from app.models.group import GroupMember
 from app.models.transaction import Transaction
 from app.models.transaction_split import TransactionSplit
+from app.services._query_filters import not_on_hidden_cards
 
 
 def _amount_expr():
@@ -62,7 +63,7 @@ async def compute_summary(
     month_label = func.substr(cast(Transaction.date, String), 1, 7).label("month")
     months_result = await session.execute(
         select(month_label, func.sum(amount))
-        .where(Transaction.id.in_(tx_ids))
+        .where(Transaction.id.in_(tx_ids), not_on_hidden_cards())
         .group_by(month_label)
         .order_by(month_label)
     )
@@ -82,7 +83,7 @@ async def compute_summary(
         )
         .select_from(Transaction)
         .outerjoin(Category, Transaction.category_id == Category.id)
-        .where(Transaction.id.in_(tx_ids), Transaction.type == "debit")
+        .where(Transaction.id.in_(tx_ids), Transaction.type == "debit", not_on_hidden_cards())
         .group_by(Category.id, Category.name, Category.color)
         .order_by(func.sum(amount).desc())
     )

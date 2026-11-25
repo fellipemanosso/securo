@@ -271,6 +271,46 @@ async def test_suggestions_skip_hidden_categories(
     assert response.json() == []
 
 
+@pytest.mark.asyncio
+async def test_suggestions_and_similar_leave_out_a_hidden_card(
+    client: AsyncClient, auth_headers, session: AsyncSession, test_user, test_workspace,
+    test_account, test_categories,
+):
+    from app.models.account_card import AccountCard
+
+    food, transport, _ = (c.id for c in test_categories)
+    session.add(AccountCard(
+        workspace_id=test_workspace.id, account_id=test_account.id, last4="9999", is_hidden=True,
+    ))
+    hidden_rows = [
+        _tx(test_user, test_account, "MERCADO", category_id=food, card_last4="9999"),
+        _tx(test_user, test_account, "MERCADO", category_id=food, card_last4="9999"),
+    ]
+    visible = _tx(test_user, test_account, "MERCADO", category_id=transport, card_last4="1111")
+    target = _tx(test_user, test_account, "MERCADO")
+    session.add_all([*hidden_rows, visible, target])
+    await session.commit()
+
+    response = await client.post(
+        "/api/transactions/category-suggestions",
+        headers=auth_headers,
+        json={"transaction_ids": [str(target.id)]},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json() == [
+        {
+            "transaction_id": str(target.id),
+            "category_id": str(transport),
+            "uses": 1,
+            "matched_by": "description",
+        }
+    ]
+
+    similar = await client.get(f"/api/transactions/{target.id}/similar", headers=auth_headers)
+    assert similar.status_code == 200, similar.text
+    assert [item["id"] for item in similar.json()] == [str(visible.id)]
+
+
 # --- similar ------------------------------------------------------------------
 
 

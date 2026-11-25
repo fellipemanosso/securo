@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.app_clock import app_today
 from app.models.account import Account
+from app.models.account_card import AccountCard
 from app.models.credit_card_bill import CreditCardBill
 from app.models.fx_rate import FxRate
 from app.models.transaction import Transaction
@@ -189,3 +190,51 @@ async def test_list_accounts_shared_line_open_bill_foreign_currency(
     single = (await client.get(f"/api/accounts/{card.id}", headers=auth_headers)).json()
     assert single["open_bill_total_primary"] == pytest.approx(1000.0)
     assert single["balance_primary"] == pytest.approx(-500.0)
+
+
+@pytest.mark.asyncio
+async def test_list_accounts_shared_line_open_bill_leaves_out_hidden_card(
+    client: AsyncClient, auth_headers, session: AsyncSession, test_user, test_workspace
+):
+    """The open bill is the Fatura shown everywhere: a hidden card's charges
+    linked to it drop out, while the balance keeps the real debt."""
+    card = await _make_card(session, test_user.id, test_workspace.id, "R684 Hidden", "acc-684-8")
+    bill = CreditCardBill(
+        id=uuid.uuid4(),
+        user_id=test_user.id,
+        workspace_id=test_workspace.id,
+        account_id=card.id,
+        external_id="bill-hidden",
+        due_date=app_today() + timedelta(days=5),
+        total_amount=Decimal("820.50"),
+        currency="BRL",
+    )
+    session.add(bill)
+    await session.flush()
+    session.add_all([
+        AccountCard(
+            workspace_id=test_workspace.id, account_id=card.id, last4="9999", is_hidden=True
+        ),
+        Transaction(
+            id=uuid.uuid4(),
+            user_id=test_user.id,
+            account_id=card.id,
+            description="HIDDEN CARD CHARGE",
+            amount=Decimal("120.50"),
+            currency="BRL",
+            date=app_today(),
+            type="debit",
+            source="sync",
+            card_last4="9999",
+            bill_id=bill.id,
+        ),
+    ])
+    await session.commit()
+
+    resp = await client.get("/api/accounts", headers=auth_headers)
+    card_row = next(a for a in resp.json() if a["name"] == "R684 Hidden")
+    assert card_row["open_bill_total"] == pytest.approx(700.0)
+    assert card_row["current_balance"] == pytest.approx(-1620.50)
+
+    single = (await client.get(f"/api/accounts/{card.id}", headers=auth_headers)).json()
+    assert single["open_bill_total"] == pytest.approx(700.0)

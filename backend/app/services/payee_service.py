@@ -12,6 +12,7 @@ from app.models.transaction import Transaction
 from app.models.category import Category
 from app.fiscal.registry import TaxIdKind, normalise_and_validate
 from app.schemas.payee import PayeeCreate, PayeeUpdate
+from app.services._query_filters import not_on_hidden_cards
 
 
 async def get_payees(
@@ -27,7 +28,7 @@ async def get_payees(
             Transaction.payee_id,
             func.count(Transaction.id).label("tx_count"),
         )
-        .where(Transaction.payee_id.isnot(None))
+        .where(Transaction.payee_id.isnot(None), not_on_hidden_cards())
         .group_by(Transaction.payee_id)
         .subquery()
     )
@@ -477,6 +478,7 @@ async def get_payee_summary(
         .where(
             Transaction.payee_id == payee_id,
             Transaction.workspace_id == workspace_id,
+            not_on_hidden_cards(),
         )
     )
     row = totals.one()
@@ -488,6 +490,7 @@ async def get_payee_summary(
             Transaction.payee_id == payee_id,
             Transaction.workspace_id == workspace_id,
             Transaction.category_id.isnot(None),
+            not_on_hidden_cards(),
         )
         .group_by(Transaction.category_id)
         .order_by(func.count(Transaction.id).desc())

@@ -160,8 +160,8 @@ export default function AccountDetailPage() {
   const isCreditCard = account?.type === 'credit_card'
 
   // Cards on a credit-card account (physical + virtual). A hidden card's
-  // purchases drop out of every statement view of this page; the overview
-  // page deliberately ignores that so it keeps matching the bank's bill.
+  // purchases drop out of every list and total, the bank's statement amount
+  // included: the timeline subtracts them from it on every screen.
   const { data: cards = [] } = useQuery({
     queryKey: ['accounts', id, 'cards'],
     queryFn: () => accounts.cards(id!),

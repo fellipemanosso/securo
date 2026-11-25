@@ -25,6 +25,7 @@ from app.models.user import User
 from app.schemas.recurring_month import RecurringMonthOccurrence, RecurringOccurrenceStatus
 from app.services.dashboard_service import _month_range
 from app.services.fx_rate_service import _resolve_rate
+from app.services._query_filters import not_on_hidden_cards
 from app.services.recurring_transaction_service import get_occurrences_in_range
 
 
@@ -65,7 +66,10 @@ async def get_month_status(
     month_start, month_end = _month_range(month)
     today = app_today()
 
-    linked_stmt = select(Transaction).where(
+    # Every linked row settles its occurrence, but one charged to a hidden
+    # card (Cartão Oculto) is not listed: hiding the card takes the payment,
+    # and the occurrence it settled, off the screen.
+    linked_stmt = select(Transaction, not_on_hidden_cards().label("visible")).where(
         Transaction.workspace_id == workspace_id,
         Transaction.recurring_transaction_id.is_not(None),
         Transaction.date >= month_start,
@@ -73,7 +77,9 @@ async def get_month_status(
     )
     if account_ids:
         linked_stmt = linked_stmt.where(Transaction.account_id.in_(account_ids))
-    linked = list((await session.execute(linked_stmt)).scalars().all())
+    linked_rows = (await session.execute(linked_stmt)).all()
+    linked = [tx for tx, _ in linked_rows]
+    visible_linked = [tx for tx, visible in linked_rows if visible]
     linked_ids = {tx.recurring_transaction_id for tx in linked}
 
     # Active schedules project what is still expected; a schedule ended
@@ -113,7 +119,7 @@ async def get_month_status(
         return float((Decimal(str(amount)) * rate).quantize(Decimal("0.01")))
 
     linked_by_recurring: dict[uuid.UUID, list[Transaction]] = {}
-    for tx in linked:
+    for tx in visible_linked:
         linked_by_recurring.setdefault(tx.recurring_transaction_id, []).append(tx)
     materialized = {(tx.recurring_transaction_id, tx.date) for tx in linked}
 

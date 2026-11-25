@@ -7,8 +7,10 @@ transactions look like a row the user just recategorized.
 "Looks like" is the same everywhere: the same payee when the row has one,
 otherwise the same description (ignoring case and surrounding spaces), and
 always the same direction, since a refund from a shop is not filed like the
-purchase. Transfers, split rows, ignored rows and generated balance rows are
-left out: none of them is categorized one row at a time.
+purchase. Transfers, split rows, ignored rows, generated balance rows and
+purchases on a hidden card (Cartão Oculto) are left out: none of them is
+categorized one row at a time, and a hidden card's purchases are off every
+screen.
 """
 
 import uuid
@@ -20,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.mortgage_payment_allocation import MORTGAGE_PRINCIPAL_SOURCE
 from app.models.transaction import Transaction
 from app.schemas.transaction import CategorySuggestion, SimilarTransaction
+from app.services._query_filters import not_on_hidden_cards
 from app.services.category_service import get_assignable_category_ids
 
 
@@ -38,6 +41,7 @@ def _categorizable(workspace_id: uuid.UUID) -> tuple[ColumnElement[bool], ...]:
         Transaction.has_category_lines.is_(False),
         Transaction.is_ignored.is_(False),
         Transaction.source.not_in(("opening_balance", MORTGAGE_PRINCIPAL_SOURCE)),
+        not_on_hidden_cards(),
     )
 
 

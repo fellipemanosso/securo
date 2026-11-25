@@ -24,6 +24,7 @@ from app.services.dashboard_service import (
     _daily_balance_deltas_by_date,
     _get_forecast_transactions,
 )
+from app.services._query_filters import not_on_hidden_cards
 from app.services.fx_rate_service import convert as fx_convert
 from app.services.recurring_transaction_service import (
     adjust_weekend_date,
@@ -148,12 +149,29 @@ async def get_transaction_calendar(
         day.actual_count += 1
         day.items.append(_actual_item(tx, amount_primary, is_transfer, ignored))
 
+    # A forecast row on a hidden card (Cartão Oculto) is no day item and no
+    # projected income/expense, but still moves the projected balance: the
+    # card's debt is real.
     forecast_rows = await _get_forecast_transactions(
         session, workspace_id, grid_start, grid_end, requested_account_ids
     )
+    visible_forecast_ids = {
+        tx.id
+        for tx in await _get_forecast_transactions(
+            session, workspace_id, grid_start, grid_end, requested_account_ids,
+            exclude_hidden_cards=True,
+        )
+    }
     forecast_deltas: dict[date, float] = {}
     for tx in forecast_rows:
         if tx.date not in days:
+            continue
+        ignored = bool(tx.is_ignored or (tx.category and tx.category.is_ignored))
+        if not ignored:
+            forecast_deltas[tx.date] = forecast_deltas.get(tx.date, 0.0) + await _signed_balance_delta_primary(
+                session, tx, primary_currency
+            )
+        if tx.id not in visible_forecast_ids:
             continue
         day = days[tx.date]
         amount_primary = await _positive_primary_amount(
@@ -161,7 +179,6 @@ async def get_transaction_calendar(
         )
         parts = _category_parts(tx)
         is_transfer = _is_transfer_item(tx, parts)
-        ignored = bool(tx.is_ignored or (tx.category and tx.category.is_ignored))
         if not ignored and not tx.exclude_from_pnl:
             for category, ratio in parts:
                 if _is_transfer_part(tx, category):
@@ -181,14 +198,6 @@ async def get_transaction_calendar(
                     day.has_expense = True
         day.projected_count += 1
         day.items.append(_forecast_item(tx, amount_primary, is_transfer, ignored))
-
-        # Forecast rows are excluded from actual deltas but included in the
-        # projected walk. The seed already contains forecast rows before the
-        # grid; rows inside the grid are applied here.
-        if not ignored:
-            forecast_deltas[tx.date] = forecast_deltas.get(tx.date, 0.0) + await _signed_balance_delta_primary(
-                session, tx, primary_currency
-            )
 
     projected_items, projected_deltas, carried_projected_delta = await _project_recurring_items(
         session,
@@ -307,6 +316,9 @@ async def _load_actual_transactions(
             Transaction.date < end,
             Transaction.date <= app_today(),
             Transaction.status == "posted",
+            # Items and income/expense only: the ending balance comes from
+            # _daily_balance_deltas_by_date, which keeps a hidden card's debt.
+            not_on_hidden_cards(),
         )
         .options(
             selectinload(Transaction.account),

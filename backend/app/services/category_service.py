@@ -18,6 +18,7 @@ from app.models.transaction import Transaction
 from app.models.recurring_transaction_category_line import RecurringTransactionCategoryLine
 from app.models.transaction_category_line import TransactionCategoryLine
 from app.schemas.category import CategoryCreate, CategoryUpdate
+from app.services._query_filters import not_on_hidden_cards
 from app.services.category_defaults import (
     CATEGORY_TO_GROUP,
     DEFAULT_CATEGORIES,
@@ -295,12 +296,17 @@ async def get_category_transaction_counts(
     session: AsyncSession,
     workspace_id: uuid.UUID,
     category_id: Optional[uuid.UUID] = None,
+    *,
+    include_hidden_cards: bool = False,
 ) -> dict[uuid.UUID, int]:
     """Transactions that use each category, in one grouped query.
 
     A transaction uses a category directly or through a line of a split; one
     that does both for the same category counts once. Categories nothing uses
     are absent. `category_id` narrows the question to a single category.
+    Purchases on a hidden card (Cartão Oculto) are left out of what the user
+    is shown; `include_hidden_cards` counts them too, for questions about what
+    a change to the category would touch.
     """
     direct = select(
         Transaction.category_id.label("category_id"),
@@ -313,6 +319,11 @@ async def get_category_transaction_counts(
         TransactionCategoryLine.category_id.label("category_id"),
         TransactionCategoryLine.transaction_id.label("transaction_id"),
     ).where(TransactionCategoryLine.workspace_id == workspace_id)
+    if not include_hidden_cards:
+        direct = direct.where(not_on_hidden_cards())
+        via_lines = via_lines.join(
+            Transaction, Transaction.id == TransactionCategoryLine.transaction_id
+        ).where(not_on_hidden_cards())
     if category_id is not None:
         direct = direct.where(Transaction.category_id == category_id)
         via_lines = via_lines.where(TransactionCategoryLine.category_id == category_id)
@@ -344,8 +355,10 @@ async def get_category_usage(
         )
         counts[key] = int(result.scalar_one())
 
+    # Deleting moves every row, hidden card or not, so all of them count here:
+    # a category only a hidden card uses is still in use.
     transaction_counts = await get_category_transaction_counts(
-        session, workspace_id, category_id
+        session, workspace_id, category_id, include_hidden_cards=True
     )
     counts["transactions"] = transaction_counts.get(category_id, 0)
     # A recurring bill split across categories references them through its

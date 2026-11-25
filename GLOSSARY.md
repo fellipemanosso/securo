@@ -23,3 +23,7 @@ _Avoid_: Projeção de Fatura
 **Parcela Prevista**:
 Parcela de uma compra parcelada que a instituição financeira ainda não enviou, esperada numa Fatura futura.
 _Avoid_: Projeção de Fatura, Previsão de Cobrança
+
+**Cartão Oculto**:
+Número de cartão de uma conta cujas compras o usuário retirou de todas as listas, totais e Faturas exibidas.
+_Avoid_: Cartão excluído, Conta encerrada

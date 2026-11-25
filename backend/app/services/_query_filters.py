@@ -311,6 +311,10 @@ def user_pnl_parts(tx: Transaction) -> list[tuple[Optional[uuid.UUID], Optional[
     the transaction: one entry with ratio 1 for a plain row, one per counted
     line for a split row, nothing when the row does not count. The row must
     have `category` loaded (lines load their category themselves).
+
+    Unlike its SQL twin this cannot see hidden cards (`not_on_hidden_cards`):
+    the rows passed in must come from a query that already applied it, e.g.
+    `_get_forecast_transactions(..., exclude_hidden_cards=True)`.
     """
     if (
         tx.transfer_pair_id

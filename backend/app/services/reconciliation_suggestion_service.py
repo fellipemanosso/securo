@@ -38,8 +38,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.reconciliation import ReconciliationSuggestion
+from app.models.transaction import Transaction
 from app.services import reconciliation_history_service
 from app.services.reconciliation_engine import Decision, Movement, Settlement
+from app.services._query_filters import not_on_hidden_cards
 
 #: How long an unanswered suggestion stays in the queue. Long enough that
 #: somebody who reconciles monthly still sees it; short enough that the
@@ -203,9 +205,11 @@ async def open_for(
     """
     result = await session.execute(
         select(ReconciliationSuggestion)
+        .join(Transaction, Transaction.id == ReconciliationSuggestion.transaction_id)
         .where(
             ReconciliationSuggestion.workspace_id == workspace_id,
             ReconciliationSuggestion.status == "pending",
+            not_on_hidden_cards(),
         )
         .order_by(ReconciliationSuggestion.created_at.asc())
         .limit(limit)
@@ -230,10 +234,14 @@ async def count_open(
         ReconciliationSuggestion.group_id, ReconciliationSuggestion.id
     )
     result = await session.execute(
-        select(func.count(func.distinct(question))).where(
+        select(func.count(func.distinct(question)))
+        .select_from(ReconciliationSuggestion)
+        .join(Transaction, Transaction.id == ReconciliationSuggestion.transaction_id)
+        .where(
             ReconciliationSuggestion.workspace_id == workspace_id,
             ReconciliationSuggestion.status == "pending",
             ReconciliationSuggestion.created_at >= cutoff,
+            not_on_hidden_cards(),
         )
     )
     return int(result.scalar_one() or 0)

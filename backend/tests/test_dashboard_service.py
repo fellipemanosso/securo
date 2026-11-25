@@ -620,6 +620,32 @@ async def test_get_summary_excludes_pending_from_period_totals(
 
 
 @pytest.mark.asyncio
+async def test_get_summary_forecast_leaves_out_hidden_card_but_balance_keeps_it(
+    session: AsyncSession, test_user, test_workspace
+):
+    """A pending purchase on a Cartão Oculto leaves projected spending and
+    spending by category, while the projected balance still carries the debt."""
+    from app.models.account_card import AccountCard
+
+    account = await _make_account(session, test_user.id, "Hidden Card", acc_type="credit_card")
+    session.add(AccountCard(
+        workspace_id=test_workspace.id, account_id=account.id, last4="1111", is_hidden=True,
+    ))
+    today = date.today()
+    hidden = await _add_txn(session, test_user.id, account.id, 300, "debit", today, status="pending")
+    await _add_txn(session, test_user.id, account.id, 40, "debit", today, status="pending")
+    hidden.card_last4 = "1111"
+    await session.commit()
+
+    summary = await get_summary(session, test_workspace.id, test_user.id)
+    spending = await get_spending_by_category(session, test_workspace.id, test_user.id)
+
+    assert summary.projected_expenses == pytest.approx(40.0)
+    assert sum(s.projected_total for s in spending) == pytest.approx(40.0)
+    assert summary.projected_balance["BRL"] == pytest.approx(-340.0)
+
+
+@pytest.mark.asyncio
 async def test_get_summary_pending_categorization(session: AsyncSession, test_user, test_workspace):
     """Summary counts uncategorized transactions."""
     account = await _make_account(session, test_user.id, "Pending Cat")

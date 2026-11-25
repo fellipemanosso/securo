@@ -18,6 +18,7 @@ from app.models.user import User
 from app.services._query_filters import (
     counts_as_pnl,
     counts_as_user_pnl,
+    not_on_hidden_cards,
     forecast_owner_share_fractions,
     line_amount,
     line_amount_primary,
@@ -355,6 +356,7 @@ async def get_report_data_range(
             Transaction.workspace_id == workspace_id,
             Transaction.source != "opening_balance",
             Transaction.is_ignored.is_(False),
+            not_on_hidden_cards(),
             or_(Transaction.category_id.is_(None), Category.is_ignored.is_(False)),
         )
     )
@@ -723,7 +725,7 @@ async def get_income_expenses_report(
                 forecast_map[label] = (existing_income, existing_expenses + proj_amount)
         forecast_transactions = await _get_forecast_transactions(
             session, workspace_id, max(m_start, start), m_end, account_ids,
-            range_date_col=report_date,
+            range_date_col=report_date, exclude_hidden_cards=True,
         )
         forecast_fractions = (
             {} if filtered
@@ -953,6 +955,7 @@ async def get_income_expenses_report(
             Transaction.transfer_pair_id.is_(None),
             Transaction.is_ignored.is_(False),
             Transaction.exclude_from_pnl.is_(False),
+            not_on_hidden_cards(),
             Category.treat_as_transfer.is_(True),
             Category.is_ignored.is_(False),
             *acct_filter,
@@ -1118,7 +1121,7 @@ async def get_income_expenses_report(
 
         forecast_transactions = await _get_forecast_transactions(
             session, workspace_id, m_start, m_end, account_ids,
-            range_date_col=report_date,
+            range_date_col=report_date, exclude_hidden_cards=True,
         )
         forecast_fractions = (
             {} if filtered
@@ -1545,9 +1548,11 @@ async def get_cash_flow_report(
     # payable position today, so carry them into the forward projected walk
     # instead of silently dropping them.
     pending_current_delta = 0.0
+    # Hidden cards are left out like in the booked flows above (counts_as_pnl),
+    # so the accrual move-back below never returns a flow that was not added.
     pending_forecast = await _get_forecast_transactions(
         session, workspace_id, date.min, end + timedelta(days=1), account_ids,
-        range_date_col=flow_date_col,
+        range_date_col=flow_date_col, exclude_hidden_cards=True,
     )
     for tx in pending_forecast:
         pnl_ratio = user_pnl_ratio(tx)

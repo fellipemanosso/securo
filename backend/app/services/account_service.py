@@ -49,6 +49,7 @@ from app.services.credit_card_service import (
     compute_available_credit,
     get_cycle_dates,
 )
+from app.services.credit_card_timeline import displayed_bill_amounts
 from app.services.fx_rate_service import _resolve_rate, stamp_primary_amount
 from app.services.installment_forecast import forecast_installments, on_bill
 from app.models.category import Category
@@ -183,11 +184,12 @@ def _balance_subqueries(today: _Date):
     # Subquery: the open bill of each card on a shared credit line (earliest
     # due_date on or after today; one row per account via rn = 1). Every card
     # on one consolidated line repeats the contract-wide balance, so the
-    # sidebar shows the card's own bill instead (issue #684).
+    # sidebar shows the card's own bill instead (issue #684), as the Fatura
+    # every screen shows (`_open_bill_totals`).
     open_bill_sq = (
         select(
             CreditCardBill.account_id,
-            CreditCardBill.total_amount,
+            CreditCardBill.id,
             func.row_number()
             .over(
                 partition_by=CreditCardBill.account_id,
@@ -217,7 +219,7 @@ def _accounts_with_balances_query(
             func.coalesce(balance_sq.c.current_balance, 0).label("current_balance"),
             func.coalesce(prev_balance_sq.c.previous_balance, 0).label("previous_balance"),
             func.coalesce(future_charges_sq.c.future_charges, 0).label("future_charges"),
-            open_bill_sq.c.total_amount.label("open_bill_total"),
+            open_bill_sq.c.id.label("open_bill_id"),
             # The opening balance's date, so the edit form can show it and
             # leave it alone (issue #1204).
             select(func.min(Transaction.date))
@@ -246,12 +248,26 @@ def _accounts_with_balances_query(
     )
 
 
+async def _open_bill_totals(
+    session: AsyncSession, bill_ids: list[Optional[uuid.UUID]]
+) -> dict[uuid.UUID, Decimal]:
+    """The displayed Fatura of each open bill (see `displayed_bill_amounts`)."""
+    ids = [bill_id for bill_id in bill_ids if bill_id is not None]
+    if not ids:
+        return {}
+    bills = (
+        await session.execute(select(CreditCardBill).where(CreditCardBill.id.in_(ids)))
+    ).scalars().all()
+    return await displayed_bill_amounts(session, bills)
+
+
 async def get_accounts(session: AsyncSession, workspace_id: uuid.UUID, include_closed: bool = False) -> list[dict]:
     query = _accounts_with_balances_query(workspace_id, *_balance_subqueries(app_today()))
     if not include_closed:
         query = query.where(Account.is_closed == False)
     query = query.order_by(Account.name)
-    result = await session.execute(query)
+    rows = (await session.execute(query)).all()
+    open_bills = await _open_bill_totals(session, [row.open_bill_id for row in rows])
     return [
             serialize_account(
                 acc,
@@ -259,7 +275,7 @@ async def get_accounts(session: AsyncSession, workspace_id: uuid.UUID, include_c
                 previous_balance,
                 connection,
                 future_charges=future_charges,
-                open_bill_total=open_bill_total,
+                open_bill_total=open_bills.get(open_bill_id),
                 balance_date=balance_date,
             )
             for (
@@ -268,9 +284,9 @@ async def get_accounts(session: AsyncSession, workspace_id: uuid.UUID, include_c
                 current_balance,
                 previous_balance,
                 future_charges,
-                open_bill_total,
+                open_bill_id,
                 balance_date,
-            ) in result.all()
+            ) in rows
         ]
 
 
@@ -284,14 +300,15 @@ async def get_account_with_balances(
     row = (await session.execute(query)).first()
     if row is None:
         return None
-    acc, connection, current_balance, previous_balance, future_charges, open_bill_total, balance_date = row
+    acc, connection, current_balance, previous_balance, future_charges, open_bill_id, balance_date = row
+    open_bills = await _open_bill_totals(session, [open_bill_id])
     return serialize_account(
         acc,
         current_balance,
         previous_balance,
         connection,
         future_charges=future_charges,
-        open_bill_total=open_bill_total,
+        open_bill_total=open_bills.get(open_bill_id),
         balance_date=balance_date,
     )
 

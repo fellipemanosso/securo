@@ -13,7 +13,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 from typing import Literal, Optional, Sequence
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.account import Account
@@ -124,6 +124,55 @@ def _canonical_bill(bills: Sequence[CreditCardBill]) -> CreditCardBill:
     return max(bills, key=lambda bill: (bill.source == "bank", bill.due_date, bill.updated_at))
 
 
+async def displayed_bill_amounts(
+    session: AsyncSession, bills: Sequence[CreditCardBill]
+) -> dict[uuid.UUID, Decimal]:
+    """The Fatura amount every screen shows for each bill, by bill id.
+
+    A bank bill shows the bank's total less the net of the Cartão Oculto
+    charges the bank linked to it (`Transaction.bill_id`): the lists leave
+    those charges out, so the Fatura does too. Only the display changes:
+    payment matching, the paid status, the balance and the limit keep the
+    bank's real `total_amount`. A manual bill is the user's own figure,
+    entered against the amounts on screen, so it stands as typed.
+
+    One query for all the bills, summed like the card's bill side
+    (`get_account_summary`): debits add, credits subtract, in the account's
+    currency.
+    """
+    amounts = {bill.id: bill.total_amount for bill in bills}
+    bank_ids = [bill.id for bill in bills if bill.source == "bank"]
+    if not bank_ids:
+        return amounts
+    effective_amount = case(
+        (Transaction.currency == Account.currency, Transaction.amount),
+        else_=func.coalesce(Transaction.amount_primary, Transaction.amount),
+    )
+    hidden = await session.execute(
+        select(
+            Transaction.bill_id,
+            func.sum(
+                case(
+                    (Transaction.type == "credit", -func.abs(effective_amount)),
+                    else_=func.abs(effective_amount),
+                )
+            ),
+        )
+        .join(Account, Account.id == Transaction.account_id)
+        .where(
+            Transaction.bill_id.in_(bank_ids),
+            Transaction.source != "opening_balance",
+            counts_on_bill(),
+            ~not_on_hidden_cards(),
+        )
+        .group_by(Transaction.bill_id)
+    )
+    for bill_id, net in hidden.all():
+        if net is not None:
+            amounts[bill_id] -= Decimal(str(net))
+    return amounts
+
+
 class CreditCardTimeline:
     """Deep module for statement selection and cycle identity."""
 
@@ -181,6 +230,13 @@ class CreditCardTimeline:
         for bill in bills:
             key = (bill.account_id, bill.due_date.strftime("%Y-%m"))
             by_account_month.setdefault(key, []).append(bill)
+        first_month, last_month = due_from.strftime("%Y-%m"), due_to.strftime("%Y-%m")
+        statements = {
+            key: _canonical_bill(matching)
+            for key, matching in by_account_month.items()
+            if first_month <= key[1] <= last_month
+        }
+        displayed = await displayed_bill_amounts(session, list(statements.values()))
 
         result: dict[uuid.UUID, CardTimeline] = {}
         current_month = _month_start(as_of)
@@ -188,9 +244,8 @@ class CreditCardTimeline:
             items: list[TimelineItem] = []
             for month in _months(due_from, due_to):
                 month_key = month.strftime("%Y-%m")
-                matching = by_account_month.get((account.id, month_key), ())
-                if matching:
-                    bill = _canonical_bill(matching)
+                bill = statements.get((account.id, month_key))
+                if bill is not None:
                     previous_year, previous_month = _previous_month(month.year, month.month)
                     previous_bills = by_account_month.get(
                         (account.id, f"{previous_year:04d}-{previous_month:02d}"), ()
@@ -211,7 +266,7 @@ class CreditCardTimeline:
                             end=cycle[1] if cycle else None,
                             closing_date=cycle[2] if cycle else bill.closing_date,
                             due_date=bill.due_date,
-                            amount=bill.total_amount,
+                            amount=displayed[bill.id],
                             primary_amount=None,
                             source=bill.source,
                             record_id=bill.id,

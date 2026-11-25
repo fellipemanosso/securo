@@ -23,6 +23,7 @@ from app.models.category import Category
 from app.models.goal import Goal
 from app.models.payee import Payee
 from app.models.transaction import Transaction
+from app.services._query_filters import not_on_hidden_cards
 
 
 EntityType = Literal[
@@ -119,6 +120,7 @@ async def search_all(
                 Transaction.payee.ilike(pattern, escape="\\"),
                 Transaction.notes.ilike(pattern, escape="\\"),
             ),
+            not_on_hidden_cards(),
         )
         .order_by(Transaction.date.desc(), Transaction.created_at.desc())
         .limit(per_type_limit)

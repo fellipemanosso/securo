@@ -17,6 +17,7 @@ from app.models.recurring_transaction import RecurringTransaction
 from app.schemas.dashboard import DashboardSummary, SpendingByCategory, MonthlyTrend, ProjectedCategoryLine, ProjectedTransaction, DailyBalance, DailyBaseline, BalanceHistory
 from app.services._query_filters import (
     counts_as_user_pnl,
+    not_on_hidden_cards,
     line_amount,
     line_amount_primary,
     line_category_id,
@@ -184,6 +185,7 @@ async def _get_forecast_transactions(
     range_end: date,
     account_ids: Optional[list[uuid.UUID]] = None,
     range_date_col=None,
+    exclude_hidden_cards: bool = False,
 ) -> list[Transaction]:
     """Return real rows that belong to the forecast, not the current balance.
 
@@ -191,6 +193,11 @@ async def _get_forecast_transactions(
     today is also forecast: this is how future installments and generate-ahead
     recurring rows follow the same rule as bank pending rows without needing a
     source-specific branch at every consumer.
+
+    P/L callers (projected income/expenses, category spending, trends) pass
+    ``exclude_hidden_cards=True``: `user_pnl_parts` cannot see hidden cards,
+    so the rows it judges must already leave them out. Balance callers keep
+    the default, since a hidden card's purchases are still real debt.
     """
     if account_ids is not None and len(account_ids) == 0:
         return []
@@ -220,6 +227,8 @@ async def _get_forecast_transactions(
     )
     if account_ids:
         stmt = stmt.where(Transaction.account_id.in_(account_ids))
+    if exclude_hidden_cards:
+        stmt = stmt.where(not_on_hidden_cards())
     result = await session.execute(stmt)
     return list(result.scalars().all())
 
@@ -444,7 +453,7 @@ async def get_summary(
     )
     forecast_transactions = await _get_forecast_transactions(
         session, workspace_id, month_start, month_end, account_ids,
-        range_date_col=report_date,
+        range_date_col=report_date, exclude_hidden_cards=True,
     )
     # Same share-only rule as the posted totals above, and gated the same way.
     forecast_fractions = (
@@ -935,7 +944,7 @@ async def get_spending_by_category(
     # deliberately layered after posted actuals, alongside recurring rules.
     forecast_transactions = await _get_forecast_transactions(
         session, workspace_id, month_start, month_end, account_ids,
-        range_date_col=report_date,
+        range_date_col=report_date, exclude_hidden_cards=True,
     )
     forecast_fractions = (
         {} if filtered
@@ -1054,7 +1063,7 @@ async def get_monthly_trend(
     forecast_end = _month_range(today.replace(day=1))[1]
     forecast_transactions = await _get_forecast_transactions(
         session, workspace_id, forecast_start, forecast_end, account_ids,
-        range_date_col=report_date,
+        range_date_col=report_date, exclude_hidden_cards=True,
     )
     forecast_fractions = (
         {} if filtered
