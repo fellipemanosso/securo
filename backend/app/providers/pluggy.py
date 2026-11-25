@@ -3,6 +3,7 @@ import calendar
 import hashlib
 import json
 import logging
+import re
 import time
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
@@ -286,6 +287,27 @@ def _local_transaction_date(value: str) -> date:
     if moment.tzinfo is None or moment.time() == datetime.min.time():
         return moment.date()
     return moment.astimezone(_BRAZIL).date()
+
+
+# C6 sends the kind of card purchase ("Compra a Vista sem Juros MasterCard")
+# as `description` and the merchant descriptor only in `descriptionRaw`.
+_GENERIC_CARD_LABEL = re.compile(r"^compra\b.*\b(mastercard|visa|elo)$", re.IGNORECASE)
+_TRAILING_COUNTRY = re.compile(r"\s+BRA$")
+
+
+def _transaction_description(txn: dict) -> str:
+    """Pluggy's description, or the merchant descriptor when it is a generic label.
+
+    The descriptor is padded to fixed-width columns and ends with the country
+    ("CONDOR CHAMPAGNAT LJ22 CURITIBA      BRA"); runs of spaces collapse and
+    the country is dropped.
+    """
+    description = (txn.get("description") or "").strip()
+    raw = " ".join((txn.get("descriptionRaw") or "").split())
+    raw = _TRAILING_COUNTRY.sub("", raw)
+    if raw and _GENERIC_CARD_LABEL.match(description):
+        return raw
+    return txn.get("description", "")
 
 
 def _parse_bill_forecast_month(value) -> Optional[date]:
@@ -823,7 +845,7 @@ class PluggyProvider(BankProvider):
                     all_transactions.append(
                         TransactionData(
                             external_id=txn["id"],
-                            description=txn.get("description", ""),
+                            description=_transaction_description(txn),
                             amount=amount,
                             date=txn_date,
                             type=txn_type,
