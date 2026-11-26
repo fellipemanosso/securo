@@ -64,7 +64,6 @@ async def get_credit_card_timeline(
         due_from=due_from,
         due_to=due_to,
         as_of=as_of or app_today(),
-        user_id=ctx.user_id,
     )
     return [
         CreditCardTimelineRead(

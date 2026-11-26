@@ -13,7 +13,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 from typing import Literal, Optional, Sequence
 
-from sqlalchemy import and_, case, func, or_, select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.account import Account
@@ -21,12 +21,6 @@ from app.models.bank_connection import BankConnection
 from app.models.credit_card_bill import CreditCardBill
 from app.models.transaction import Transaction
 from app.services._query_filters import counts_on_bill, not_on_hidden_cards
-from app.services.credit_card_service import cc_cycle_bill_due_dates
-from app.services.installment_forecast import (
-    InstallmentForecast,
-    forecast_installments,
-    on_bill,
-)
 
 
 @dataclass(frozen=True)
@@ -185,7 +179,6 @@ class CreditCardTimeline:
         due_from: date,
         due_to: date,
         as_of: date,
-        user_id: Optional[uuid.UUID] = None,
     ) -> dict[uuid.UUID, CardTimeline]:
         if due_from > due_to:
             raise ValueError("due_from must not be after due_to")
@@ -338,117 +331,33 @@ class CreditCardTimeline:
                     None,
                 )
             result[account.id] = CardTimeline(tuple(items), default_key)
-        projection_items = [
-            item
-            for timeline in result.values()
-            for item in timeline.items
-            if item.kind == "projection" and item.start is not None and item.end is not None
-        ]
-        if projection_items:
-            range_start = min(item.start for item in projection_items if item.start is not None)
-            range_end = max(item.end for item in projection_items if item.end is not None)
-            transactions = list(
-                (
-                    await session.execute(
-                        select(Transaction).where(
-                            Transaction.account_id.in_(ids),
-                            or_(
-                                and_(
-                                    Transaction.date >= range_start,
-                                    Transaction.date <= range_end,
-                                ),
-                                # Placed on a later bill than its purchase
-                                # date, e.g. a Pix no crédito.
-                                Transaction.effective_bill_date >= range_start,
-                            ),
-                            Transaction.bill_id.is_(None),
-                            Transaction.source != "opening_balance",
-                            # The same charges the cycle's bill total counts:
-                            # an unpaired card payment is a repayment of older
-                            # debt, not a refund on this bill.
-                            counts_on_bill(),
-                            not_on_hidden_cards(),
-                        )
-                    )
-                )
-                .scalars()
-                .all()
-            )
-            by_account: dict[uuid.UUID, list[Transaction]] = {}
-            for transaction in transactions:
-                if transaction.account_id is not None:
-                    by_account.setdefault(transaction.account_id, []).append(transaction)
-            projected_by_account: dict[uuid.UUID, list] = {}
-            if user_id is not None:
-                from app.services.dashboard_service import get_projected_transactions
+        # A Projeção de Fatura is what the cycle's summary projects: the same
+        # number the card page and the month view read through the cycle key,
+        # so no screen can total the cycle its own way. The import is local
+        # because account_service imports this module.
+        from app.services.account_service import get_account_summary
 
-                recurring = await get_projected_transactions(
-                    session,
-                    workspace_id,
-                    user_id,
-                    from_date=range_start,
-                    to_date=range_end,
-                )
-                for projection in recurring:
-                    if projection.account_id and not projection.category_treat_as_transfer:
-                        projected_by_account.setdefault(
-                            uuid.UUID(projection.account_id), []
-                        ).append(projection)
-            accounts_by_id = {account.id: account for account in accounts}
-            installments_by_account: dict[uuid.UUID, list[InstallmentForecast]] = {}
-            for forecast in await forecast_installments(session, list(result)):
-                installments_by_account.setdefault(forecast.account_id, []).append(forecast)
-            for account_id, timeline in tuple(result.items()):
-                account = accounts_by_id[account_id]
-                account_transactions = by_account.get(account_id, ())
-                projected_items = []
-                for item in timeline.items:
-                    if item.kind != "projection" or item.start is None or item.end is None:
-                        projected_items.append(item)
-                        continue
-                    # Same membership as the cycle's transaction list: a bill
-                    # placement counts on the bill whose (previous due, due]
-                    # range holds it, an unplaced charge by purchase date.
-                    cycle = cc_cycle_bill_due_dates(
-                        item.start,
-                        item.end,
-                        account.statement_close_day,
-                        account.payment_due_day,
+        for account_id, timeline in tuple(result.items()):
+            projected_items = []
+            for item in timeline.items:
+                if item.kind == "projection" and item.start is not None and item.end is not None:
+                    summary = await get_account_summary(
+                        session,
+                        account_id,
+                        workspace_id,
+                        date_from=item.start,
+                        date_to=item.end,
+                        unbilled_only=True,
                     )
-                    by_due = cycle is not None and not cycle["degenerate"]
-                    total = Decimal("0")
-                    for transaction in account_transactions:
-                        placement = transaction.effective_bill_date
-                        if by_due and placement is not None:
-                            member = cycle["prev"] < placement <= cycle["this"]
-                        else:
-                            member = item.start <= (placement or transaction.date) <= item.end
-                        if member:
-                            total += (
-                                transaction.amount
-                                if transaction.type == "debit"
-                                else -transaction.amount
-                            )
-                    for projection in projected_by_account.get(account_id, ()):
-                        bucket = date.fromisoformat(projection.date)
-                        if item.start <= bucket <= item.end:
-                            amount = Decimal(str(projection.amount))
-                            total += amount if projection.type == "debit" else -amount
-                    if by_due:
-                        for forecast in on_bill(
-                            installments_by_account.get(account_id, ()),
-                            cycle["prev"],
-                            cycle["this"],
-                        ):
-                            total += (
-                                forecast.amount
-                                if forecast.type == "debit"
-                                else -forecast.amount
-                            )
-                    projected_items.append(replace(item, amount=total))
-                result[account_id] = CardTimeline(
-                    tuple(projected_items), timeline.default_key
-                )
+                    if summary is not None:
+                        item = replace(
+                            item,
+                            amount=Decimal(str(summary["projected_expenses"])).quantize(
+                                Decimal("0.01")
+                            ),
+                        )
+                projected_items.append(item)
+            result[account_id] = CardTimeline(tuple(projected_items), timeline.default_key)
         return result
 
     @staticmethod

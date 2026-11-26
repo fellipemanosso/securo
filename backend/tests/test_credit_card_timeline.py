@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 import pytest
@@ -7,6 +7,7 @@ from app.models.account import Account
 from app.models.account_card import AccountCard
 from app.models.credit_card_bill import CreditCardBill
 from app.models.transaction import Transaction
+from app.core.app_clock import app_today
 from app.services.credit_card_timeline import CreditCardTimeline
 
 
@@ -142,6 +143,79 @@ async def test_bank_statement_leaves_out_hidden_card_charges(
     hidden_card.is_hidden = False
     await session.commit()
     assert await statement_amount() == Decimal("1000.00")
+
+
+@pytest.mark.asyncio
+async def test_projection_is_the_cycle_summary_total(
+    client, auth_headers, session, test_user, test_workspace
+):
+    """The cards overview reads the projection; the card page and the month
+    view read the cycle summary. A purchase in another currency counts at its
+    converted amount in both."""
+    card = Account(
+        user_id=test_user.id,
+        workspace_id=test_workspace.id,
+        name="Black",
+        type="credit_card",
+        currency="BRL",
+        balance=Decimal("0"),
+        statement_close_day=10,
+        payment_due_day=17,
+    )
+    session.add(card)
+    await session.commit()
+    today = app_today()
+    due_from = (today.replace(day=1) + timedelta(days=32)).replace(day=1)
+
+    async def projection():
+        timelines = await CreditCardTimeline.index(
+            session,
+            test_workspace.id,
+            [card.id],
+            due_from=due_from,
+            due_to=due_from,
+            as_of=today,
+        )
+        return timelines[card.id].items[0]
+
+    item = await projection()
+    assert item.kind == "projection"
+    session.add_all([
+        Transaction(
+            user_id=test_user.id,
+            account_id=card.id,
+            description="LOJA",
+            amount=Decimal("100.00"),
+            currency="BRL",
+            date=item.start,
+            type="debit",
+            source="sync",
+            status="pending",
+        ),
+        Transaction(
+            user_id=test_user.id,
+            account_id=card.id,
+            description="AMAZON US",
+            amount=Decimal("40.00"),
+            amount_primary=Decimal("217.49"),
+            currency="USD",
+            date=item.start,
+            type="debit",
+            source="sync",
+            status="pending",
+        ),
+    ])
+    await session.commit()
+
+    item = await projection()
+    summary = await client.get(
+        f"/api/accounts/{card.id}/summary",
+        params={"cycle_key": item.cycle_key},
+        headers=auth_headers,
+    )
+    assert summary.status_code == 200
+    assert item.amount == Decimal("317.49")
+    assert Decimal(str(summary.json()["projected_expenses"])) == item.amount
 
 
 @pytest.mark.asyncio
